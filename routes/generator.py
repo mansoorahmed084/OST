@@ -114,21 +114,141 @@ def generate_moral(topic):
         "Small acts of love make a big difference."
     ])
 
+from routes import llm
+
+# ... (Previous constants like ADJECTIVES, templates etc remain, just imports added above)
+
 def generate_story_content(topic, length='short'):
-    """Generate story content and moral based on topic and length"""
+    """Generate story content, title, and moral based on topic and length"""
+    
+    # Try LLM first
+    try:
+        from routes.llm import get_llm_provider
+        provider = get_llm_provider()
+        print(f"DEBUG: Generating story for topic '{topic}' using provider: {provider}")
+        
+        llm_result = llm.generate_story_text(topic, length)
+        if llm_result:
+            print("DEBUG: LLM generation successful")
+            return llm_result # (title, content, moral)
+        else:
+            print("DEBUG: LLM generation returned None (falling back)")
+    except Exception as e:
+        print(f"DEBUG: LLM Generation failed with error: {e}")
+        import traceback
+        traceback.print_exc()
+        # Fallback to templates
+    
+    # Fallback Logic
     topic_lower = topic.lower().strip()
     is_concept = is_abstract_concept(topic)
     
     content = ""
     if is_concept:
-        # Generate educational story about the concept
         content = generate_concept_story(topic_lower, length)
     else:
-        # Generate character-based story
         content = generate_character_story(topic_lower, length)
         
     moral = generate_moral(topic)
-    return content, moral
+    title = generate_story_title(topic)
+    
+    return title, content, moral
+
+# ... (keep helper functions like is_abstract_concept, generate_moral, etc.)
+
+@bp.route('/random', methods=['POST'])
+def generate_random_story():
+    """Generate a random story"""
+    try:
+        data = request.json or {}
+        length = data.get('length', 'short')
+        
+        # Pick a random topic
+        topic = random.choice(RANDOM_TOPICS)
+        
+        # Generate story (Refactored to get title from tuple)
+        title, content, moral = generate_story_content(topic, length)
+        theme = determine_theme(topic)
+        
+        # Save to database
+        with get_db_context() as conn:
+            cursor = conn.cursor()
+            cursor.execute('''
+                INSERT INTO stories (title, content, moral, theme, difficulty_level, image_category)
+                VALUES (?, ?, ?, ?, ?, ?)
+            ''', (title, content, moral, theme, 'easy', theme))
+            
+            story_id = cursor.lastrowid
+            
+            # Split into sentences
+            sentences = [s.strip() + '.' for s in content.split('.') if s.strip()]
+            for idx, sentence in enumerate(sentences):
+                cursor.execute('''
+                    INSERT INTO story_sentences (story_id, sentence_order, sentence_text)
+                    VALUES (?, ?, ?)
+                ''', (story_id, idx, sentence))
+        
+        return jsonify({
+            'success': True,
+            'story_id': story_id,
+            'title': title,
+            'message': 'Random story generated successfully!'
+        }), 201
+        
+    except Exception as e:
+        return jsonify({
+            'success': False,
+            'error': str(e)
+        }), 500
+
+@bp.route('/topic', methods=['POST'])
+def generate_topic_story():
+    """Generate a story on a specific topic"""
+    try:
+        data = request.json
+        topic = data.get('topic', '').strip()
+        length = data.get('length', 'short')
+        
+        if not topic:
+            return jsonify({
+                'success': False,
+                'error': 'Topic is required'
+            }), 400
+        
+        # Generate story
+        title, content, moral = generate_story_content(topic, length)
+        theme = determine_theme(topic)
+        
+        # Save to database
+        with get_db_context() as conn:
+            cursor = conn.cursor()
+            cursor.execute('''
+                INSERT INTO stories (title, content, moral, theme, difficulty_level, image_category)
+                VALUES (?, ?, ?, ?, ?, ?)
+            ''', (title, content, moral, theme, 'easy', theme))
+            
+            story_id = cursor.lastrowid
+            
+            # Split into sentences
+            sentences = [s.strip() + '.' for s in content.split('.') if s.strip()]
+            for idx, sentence in enumerate(sentences):
+                cursor.execute('''
+                    INSERT INTO story_sentences (story_id, sentence_order, sentence_text)
+                    VALUES (?, ?, ?)
+                ''', (story_id, idx, sentence))
+        
+        return jsonify({
+            'success': True,
+            'story_id': story_id,
+            'title': title,
+            'message': f'Story about "{topic}" generated successfully!'
+        }), 201
+        
+    except Exception as e:
+        return jsonify({
+            'success': False,
+            'error': str(e)
+        }), 500
 
 def generate_concept_story(concept, length='short'):
     """Generate educational story about a concept like good manners, kindness, etc."""
@@ -249,98 +369,4 @@ def determine_theme(topic):
     else:
         return 'general'
 
-@bp.route('/random', methods=['POST'])
-def generate_random_story():
-    """Generate a random story"""
-    try:
-        data = request.json or {}
-        length = data.get('length', 'short')
-        
-        # Pick a random topic
-        topic = random.choice(RANDOM_TOPICS)
-        
-        # Generate story
-        content, moral = generate_story_content(topic, length)
-        theme = determine_theme(topic)
-        title = generate_story_title(topic)
-        
-        # Save to database
-        with get_db_context() as conn:
-            cursor = conn.cursor()
-            cursor.execute('''
-                INSERT INTO stories (title, content, moral, theme, difficulty_level, image_category)
-                VALUES (?, ?, ?, ?, ?, ?)
-            ''', (title, content, moral, theme, 'easy', theme))
-            
-            story_id = cursor.lastrowid
-            
-            # Split into sentences
-            sentences = [s.strip() + '.' for s in content.split('.') if s.strip()]
-            for idx, sentence in enumerate(sentences):
-                cursor.execute('''
-                    INSERT INTO story_sentences (story_id, sentence_order, sentence_text)
-                    VALUES (?, ?, ?)
-                ''', (story_id, idx, sentence))
-        
-        return jsonify({
-            'success': True,
-            'story_id': story_id,
-            'title': title,
-            'message': 'Random story generated successfully!'
-        }), 201
-        
-    except Exception as e:
-        return jsonify({
-            'success': False,
-            'error': str(e)
-        }), 500
 
-@bp.route('/topic', methods=['POST'])
-def generate_topic_story():
-    """Generate a story on a specific topic"""
-    try:
-        data = request.json
-        topic = data.get('topic', '').strip()
-        length = data.get('length', 'short')
-        
-        if not topic:
-            return jsonify({
-                'success': False,
-                'error': 'Topic is required'
-            }), 400
-        
-        # Generate story
-        content, moral = generate_story_content(topic, length)
-        theme = determine_theme(topic)
-        title = generate_story_title(topic)
-        
-        # Save to database
-        with get_db_context() as conn:
-            cursor = conn.cursor()
-            cursor.execute('''
-                INSERT INTO stories (title, content, moral, theme, difficulty_level, image_category)
-                VALUES (?, ?, ?, ?, ?, ?)
-            ''', (title, content, moral, theme, 'easy', theme))
-            
-            story_id = cursor.lastrowid
-            
-            # Split into sentences
-            sentences = [s.strip() + '.' for s in content.split('.') if s.strip()]
-            for idx, sentence in enumerate(sentences):
-                cursor.execute('''
-                    INSERT INTO story_sentences (story_id, sentence_order, sentence_text)
-                    VALUES (?, ?, ?)
-                ''', (story_id, idx, sentence))
-        
-        return jsonify({
-            'success': True,
-            'story_id': story_id,
-            'title': title,
-            'message': f'Story about "{topic}" generated successfully!'
-        }), 201
-        
-    except Exception as e:
-        return jsonify({
-            'success': False,
-            'error': str(e)
-        }), 500

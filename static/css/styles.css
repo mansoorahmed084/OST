@@ -1158,6 +1158,31 @@ body::before {
     margin: 0 auto;
 }
 
+/* Story Reader */
+.story-reader {
+    background: var(--bg-card);
+    border-radius: var(--radius-lg);
+    padding: var(--spacing-xl);
+    animation: fadeIn 0.3s ease;
+}
+
+.reading-active {
+    border-left: 4px solid var(--primary-color);
+    padding-left: 1rem;
+    transition: all 0.3s ease;
+}
+
+.active-sentence {
+    background-color: rgba(255, 235, 59, 0.1);
+    border-radius: var(--radius-sm);
+    box-shadow: 0 0 0 2px rgba(255, 235, 59, 0.2);
+    transition: all 0.3s ease;
+}
+
+.story-image-container {
+    width: 100%;
+}
+
 .exercise-card {
     background: var(--bg-card);
     border: 1px solid rgba(255, 255, 255, 0.1);
@@ -1375,6 +1400,99 @@ body::before {
     75% {
         transform: translateX(5px);
     }
+}
+
+/* === Settings Modal === */
+.modal-overlay {
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: rgba(0, 0, 0, 0.7);
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    z-index: 1000;
+    backdrop-filter: blur(5px);
+    animation: fadeIn 0.3s ease;
+}
+
+.modal-content {
+    background: var(--bg-card);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    border-radius: var(--radius-lg);
+    padding: var(--spacing-xl);
+    width: 90%;
+    max-width: 500px;
+    animation: slideUp 0.3s ease;
+    max-height: 90vh;
+    overflow-y: auto;
+}
+
+.modal-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: var(--spacing-lg);
+    border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+    padding-bottom: var(--spacing-md);
+}
+
+.settings-group {
+    margin-bottom: var(--spacing-lg);
+}
+
+.settings-group h3 {
+    margin-bottom: var(--spacing-md);
+    color: var(--text-secondary);
+    font-size: 0.9rem;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+}
+
+.settings-options-grid {
+    display: flex;
+    flex-direction: column;
+    gap: var(--spacing-sm);
+}
+
+.settings-option {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 1rem;
+    background: var(--bg-secondary);
+    border-radius: var(--radius-md);
+    cursor: pointer;
+    border: 2px solid transparent;
+    transition: all 0.2s;
+}
+
+.settings-option:hover:not(.disabled) {
+    background: rgba(99, 102, 241, 0.1);
+}
+
+.settings-option.selected {
+    border-color: var(--primary-color);
+    background: rgba(99, 102, 241, 0.2);
+}
+
+.settings-option.disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+    background: rgba(0, 0, 0, 0.2);
+}
+
+.option-label {
+    font-weight: 500;
+}
+
+.option-tag {
+    font-size: 0.8rem;
+    padding: 0.2rem 0.5rem;
+    background: rgba(255, 255, 255, 0.1);
+    border-radius: var(--radius-sm);
 }
 
 /* === Utility Classes === */

@@ -79,6 +79,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
     initializeChatPage();
     initializeRecallPage();
+    initializeSettings();
 
     // Initialize Speech Recognition if available
     if ('webkitSpeechRecognition' in window || 'SpeechRecognition' in window) {
@@ -143,11 +144,17 @@ function initializeHomePage() {
 // ===================================
 function initializeStoriesPage() {
     loadStories();
+    // Ensure visibility
+    document.querySelector('.story-generator').classList.remove('hidden');
+    document.querySelector('.story-management').classList.remove('hidden');
 
     // Back button
     document.getElementById('back-to-stories')?.addEventListener('click', () => {
         document.getElementById('stories-list').classList.remove('hidden');
         document.getElementById('story-reader').classList.add('hidden');
+        // Unhide controls
+        document.querySelector('.story-generator').classList.remove('hidden');
+        document.querySelector('.story-management').classList.remove('hidden');
         stopStory();
     });
 
@@ -426,8 +433,8 @@ function pauseStory() {
     document.getElementById('play-story').style.display = 'flex';
     document.getElementById('pause-story').style.display = 'none';
 
-    if (state.synthesis) {
-        state.synthesis.cancel();
+    if (state.currentAudio) {
+        state.currentAudio.pause();
     }
 
     // Remove all word highlights
@@ -441,65 +448,56 @@ function stopStory() {
     state.currentSentenceIndex = 0;
 }
 
-function speakStory() {
+async function speakStory() {
     if (!state.currentStory || !state.isPlaying) return;
 
-    const sentences = state.currentStory.sentences;
+    // Highlights
+    const textContainer = document.getElementById('story-text');
 
-    if (state.currentSentenceIndex >= sentences.length) {
-        stopStory();
+    // We are playing the whole story now, so we highlight the whole block or just show playing state.
+    textContainer.classList.add('reading-active');
+
+    // Check if audio is already loaded/paused
+    if (state.currentAudio && state.currentAudio.src.includes('story')) {
+        state.currentAudio.play();
         return;
     }
 
-    const sentence = sentences[state.currentSentenceIndex];
-    const sentenceElement = document.querySelector(`.story-sentence[data-index="${state.currentSentenceIndex}"]`);
+    // Fetch Full Story Audio
+    try {
+        const response = await fetch(`${API_BASE}/speech/story/${state.currentStory.id}`, {
+            method: 'POST'
+        });
+        const data = await response.json();
 
-    // Remove all previous highlights
-    document.querySelectorAll('.story-word').forEach(w => w.classList.remove('highlight'));
-
-    if (sentenceElement) {
-        sentenceElement.scrollIntoView({ behavior: 'smooth', block: 'center' });
-    }
-
-    // Speak using Web Speech API
-    const utterance = new SpeechSynthesisUtterance(sentence.sentence_text);
-    utterance.rate = state.currentSpeed;
-    utterance.pitch = 1.0;
-    utterance.volume = 1.0;
-    utterance.lang = 'en-IN';
-
-    // Get all words in current sentence
-    const words = sentence.sentence_text.trim().split(/\s+/);
-    let currentWordIndex = 0;
-
-    // Highlight words as they're spoken using boundary events
-    utterance.onboundary = (event) => {
-        if (event.name === 'word' && currentWordIndex < words.length) {
-            // Remove previous word highlight
-            document.querySelectorAll('.story-word').forEach(w => w.classList.remove('highlight'));
-
-            // Highlight current word
-            const wordElement = document.querySelector(
-                `.story-word[data-sentence="${state.currentSentenceIndex}"][data-word="${currentWordIndex}"]`
-            );
-            if (wordElement) {
-                wordElement.classList.add('highlight');
+        if (data.success) {
+            if (state.currentAudio) {
+                state.currentAudio.pause();
+                state.currentAudio = null;
             }
-            currentWordIndex++;
+
+            const audio = new Audio(data.audio_url);
+            state.currentAudio = audio;
+
+            audio.onended = () => {
+                state.isPlaying = false;
+                document.getElementById('play-story').style.display = 'flex';
+                document.getElementById('pause-story').style.display = 'none';
+                textContainer.classList.remove('reading-active');
+                state.currentAudio = null; // Clear it so we don't replay finished audio
+            };
+
+            audio.play();
+        } else {
+            console.error("Audio Error:", data.error);
+            showError("Could not load story audio.");
+            pauseStory();
         }
-    };
-
-    utterance.onend = () => {
-        // Remove highlights when sentence ends
-        document.querySelectorAll('.story-word').forEach(w => w.classList.remove('highlight'));
-
-        state.currentSentenceIndex++;
-        if (state.isPlaying) {
-            setTimeout(speakStory, 500); // Pause between sentences
-        }
-    };
-
-    state.synthesis.speak(utterance);
+    } catch (e) {
+        console.error("Network Error:", e);
+        showError("Network error loading audio.");
+        pauseStory();
+    }
 }
 
 // ===================================
@@ -825,6 +823,127 @@ async function finishQuiz() {
         });
     } catch (e) {
         console.error("Failed to save quiz score", e);
+    }
+}
+
+// ===================================
+// Settings
+// ===================================
+function initializeSettings() {
+    // Open Modal
+    document.getElementById('settings-btn')?.addEventListener('click', () => {
+        document.getElementById('settings-modal').classList.remove('hidden');
+        loadSettings();
+    });
+
+    // Close Modal
+    document.getElementById('close-settings')?.addEventListener('click', () => {
+        document.getElementById('settings-modal').classList.add('hidden');
+    });
+
+    // Option Selection Logic
+    document.querySelectorAll('.settings-options-grid').forEach(grid => {
+        grid.addEventListener('click', (e) => {
+            const option = e.target.closest('.settings-option');
+            if (option && !option.classList.contains('disabled')) {
+                // Deselect others in same grid
+                grid.querySelectorAll('.settings-option').forEach(opt => opt.classList.remove('selected'));
+                option.classList.add('selected');
+            }
+        });
+    });
+
+    // Save
+    document.getElementById('save-settings-btn')?.addEventListener('click', saveSettings);
+}
+
+async function loadSettings() {
+    try {
+        const response = await fetch(`${API_BASE}/settings`);
+        const data = await response.json();
+
+        if (data.success) {
+            renderProviderOptions('llm', data.available_providers.llm, data.settings.llm_provider);
+            renderProviderOptions('tts', data.available_providers.tts, data.settings.tts_provider);
+
+            // Select Preset and Tone
+            selectOption('voice-preset', data.settings.voice_preset || 'default');
+            selectOption('tone', data.settings.story_tone || 'default');
+        }
+    } catch (error) {
+        console.error('Error loading settings:', error);
+        showError('Failed to load settings');
+    }
+}
+
+function renderProviderOptions(type, available, current) {
+    const container = document.getElementById(`${type}-options`);
+    container.innerHTML = '';
+
+    // Define all known providers
+    const allProviders = type === 'llm' ? [
+        { id: 'default', name: 'Templates (Offline)', desc: 'Fast, Simple' },
+        { id: 'gemini', name: 'Google Gemini', desc: 'Creative, Smart' },
+        { id: 'openai', name: 'OpenAI GPT', desc: 'Premium Quality' }
+    ] : [
+        { id: 'default', name: 'Basic (Offline)', desc: 'Robotic Voice' },
+        { id: 'edge_tts', name: 'Microsoft Edge', desc: 'Natural, Free' },
+        { id: 'openai', name: 'OpenAI HD', desc: 'Ultra Realistic' },
+        { id: 'elevenlabs', name: 'ElevenLabs', desc: 'Clone/Premium' }
+    ];
+
+    allProviders.forEach(p => {
+        const isAvailable = available.includes(p.id);
+        const div = document.createElement('div');
+        div.className = `settings-option ${isAvailable ? '' : 'disabled'} ${current === p.id ? 'selected' : ''}`;
+        div.dataset.value = p.id;
+        div.innerHTML = `
+            <div>
+                <div class="option-label">${p.name}</div>
+                <div style="font-size: 0.8rem; color: var(--text-secondary);">${p.desc}</div>
+            </div>
+            ${!isAvailable ? '<span class="option-tag">Key Missing</span>' : ''}
+        `;
+        container.appendChild(div);
+    });
+}
+
+function selectOption(gridId, value) {
+    const grid = document.getElementById(`${gridId}-options`);
+    grid.querySelectorAll('.settings-option').forEach(opt => {
+        if (opt.dataset.value === value) opt.classList.add('selected');
+        else opt.classList.remove('selected');
+    });
+}
+
+function getSelectedValue(gridId) {
+    const selected = document.querySelector(`#${gridId}-options .settings-option.selected`);
+    return selected ? selected.dataset.value : 'default';
+}
+
+async function saveSettings() {
+    const settings = {
+        llm_provider: getSelectedValue('llm'),
+        tts_provider: getSelectedValue('tts'),
+        voice_preset: getSelectedValue('voice-preset'),
+        story_tone: getSelectedValue('tone')
+    };
+
+    try {
+        const response = await fetch(`${API_BASE}/settings`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(settings)
+        });
+
+        const data = await response.json();
+        if (data.success) {
+            document.getElementById('settings-modal').classList.add('hidden');
+            showError('Settings Saved!'); // Using Error toast as generic notification for now
+        }
+    } catch (error) {
+        console.error('Error saving settings:', error);
+        showError('Failed to save settings');
     }
 }
 

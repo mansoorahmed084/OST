@@ -47,6 +47,9 @@
                     <span class="nav-icon">🧠</span>
                     <span>Daily</span>
                 </button>
+                <button class="nav-btn" id="settings-btn">
+                    <span class="nav-icon">⚙️</span>
+                </button>
             </div>
         </div>
     </nav>
@@ -125,23 +128,24 @@
                                 <!-- Keywords -->
                             </div>
                         </div>
+                    </div>
 
-                        <textarea id="writing-input" class="writing-input" placeholder="Type your answer here..."
-                            rows="5"></textarea>
+                    <textarea id="writing-input" class="writing-input" placeholder="Type your answer here..."
+                        rows="5"></textarea>
 
-                        <div class="writing-controls">
-                            <button id="check-writing" class="control-btn primary">
-                                <span class="btn-icon">✨</span>
-                                <span>Check My Writing</span>
-                            </button>
-                        </div>
+                    <div class="writing-controls">
+                        <button id="check-writing" class="control-btn primary">
+                            <span class="btn-icon">✨</span>
+                            <span>Check My Writing</span>
+                        </button>
+                    </div>
 
-                        <div id="writing-feedback" class="writing-feedback hidden">
-                            <h3 id="feedback-title"></h3>
-                            <ul id="feedback-list"></ul>
-                        </div>
+                    <div id="writing-feedback" class="writing-feedback hidden">
+                        <h3 id="feedback-title"></h3>
+                        <ul id="feedback-list"></ul>
                     </div>
                 </div>
+            </div>
             </div>
         </section>
 
@@ -382,6 +386,77 @@
     <div id="loading-overlay" class="loading-overlay hidden">
         <div class="loading-spinner"></div>
         <p>Loading...</p>
+    </div>
+
+    <!-- Settings Modal -->
+    <div id="settings-modal" class="modal-overlay hidden">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2>Settings</h2>
+                <button class="control-btn" id="close-settings">❌</button>
+            </div>
+
+            <div class="settings-body">
+                <!-- LLM Settings -->
+                <div class="settings-group">
+                    <h3>Story Engine (AI)</h3>
+                    <div class="settings-options-grid" id="llm-options">
+                        <!-- Items injected by JS -->
+                    </div>
+                </div>
+
+                <!-- TTS Settings -->
+                <div class="settings-group">
+                    <h3>Voice (TTS)</h3>
+                    <div class="settings-options-grid" id="tts-options">
+                        <!-- Items injected by JS -->
+                    </div>
+                </div>
+
+                <!-- Voice Preset -->
+                <div class="settings-group">
+                    <h3>Voice Tone</h3>
+                    <div class="settings-options-grid" id="voice-preset-options">
+                        <div class="settings-option selected" data-value="default">
+                            <span class="option-label">Child Friendly (Soft)</span>
+                        </div>
+                        <div class="settings-option" data-value="ana">
+                            <span class="option-label">Ana (Sweet)</span>
+                        </div>
+                        <div class="settings-option" data-value="aria">
+                            <span class="option-label">Aria (Clear)</span>
+                        </div>
+                        <div class="settings-option" data-value="guy">
+                            <span class="option-label">Guy (Male)</span>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Story Tone -->
+                <div class="settings-group">
+                    <h3>Story Style</h3>
+                    <div class="settings-options-grid" id="tone-options">
+                        <div class="settings-option selected" data-value="default">
+                            <span class="option-label">Normal</span>
+                        </div>
+                        <div class="settings-option" data-value="happy">
+                            <span class="option-label">Super Happy</span>
+                        </div>
+                        <div class="settings-option" data-value="calm">
+                            <span class="option-label">Calm & Gentle</span>
+                        </div>
+                        <div class="settings-option" data-value="funny">
+                            <span class="option-label">Silly & Funny</span>
+                        </div>
+                    </div>
+                </div>
+
+            </div>
+
+            <div class="text-center mt-3">
+                <button id="save-settings-btn" class="control-btn primary">Save Changes</button>
+            </div>
+        </div>
     </div>
 
     <script src="/js/app.js"></script>
