@@ -457,75 +457,110 @@ async function speakStory() {
     const textContainer = document.getElementById('story-text');
     const sentences = state.currentStory.sentences;
 
-    // We start from currentSentenceIndex
-    for (let i = state.currentSentenceIndex; i < sentences.length; i++) {
-        if (!state.isPlaying) break;
+    try {
+        // 1. Get Full Story Audio (Better Intonation)
+        const speed = getSelectedSpeed();
+        const response = await fetch(`${API_BASE}/speech/story/${state.currentStory.id}`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ speed: speed })
+        });
+        const data = await response.json();
 
-        state.currentSentenceIndex = i;
-        const sentenceData = sentences[i];
-
-        // Highlight Sentence
-        const sentenceSpan = document.querySelector(`.story-sentence[data-index="${i}"]`);
-        if (sentenceSpan) {
-            sentenceSpan.scrollIntoView({ behavior: 'smooth', block: 'center' });
-            sentenceSpan.classList.add('active-sentence');
+        if (!data.success) {
+            showError("Could not load audio.");
+            stopStory();
+            return;
         }
 
-        try {
-            await playSentenceAudio(sentenceData.sentence_text);
-        } catch (e) {
-            console.error("Audio failed for sentence", i, e);
-        }
+        const audio = new Audio(data.audio_url);
+        state.currentAudio = audio;
 
-        // Remove Highlight
-        if (sentenceSpan) sentenceSpan.classList.remove('active-sentence');
+        // 2. Map Sentences to Times (Heuristic: Word Count Proportionality)
+        // We need audio duration to do this, so we wait for metadata
+        audio.onloadedmetadata = () => {
+            const totalDuration = audio.duration;
+            // Calculate total words
+            let totalWords = 0;
+            const sentenceWords = sentences.map(s => {
+                const count = s.sentence_text.split(/\s+/).length;
+                totalWords += count;
+                return count;
+            });
 
-        // Pause removed as requested
-        // if (state.isPlaying) await delay(1000);
-    }
+            // Map end times
+            let accumulatedWords = 0;
+            const sentenceEndTimes = sentenceWords.map(count => {
+                accumulatedWords += count;
+                // Add a small buffer/correction factor (TTS often speeds up slightly at ends)
+                return (accumulatedWords / totalWords) * totalDuration;
+            });
 
-    // Reset if finished
-    if (state.currentSentenceIndex >= sentences.length - 1) {
+            // 3. Play & Sync Highlight
+            audio.play();
+
+            // Visual Sync Loop
+            const updateVisuals = () => {
+                if (!state.isPlaying || !state.currentAudio) return;
+
+                const time = audio.currentTime;
+
+                // Find which sentence we are in
+                let activeIndex = -1;
+                for (let i = 0; i < sentenceEndTimes.length; i++) {
+                    if (time < sentenceEndTimes[i]) {
+                        activeIndex = i;
+                        break;
+                    }
+                }
+                // If at end or lag, assume last
+                if (activeIndex === -1 && time < totalDuration) activeIndex = sentenceEndTimes.length - 1;
+
+                if (activeIndex !== -1 && activeIndex !== state.currentSentenceIndex) {
+                    // Remove old
+                    const old = document.querySelector('.story-sentence.active-sentence');
+                    if (old) old.classList.remove('active-sentence');
+
+                    // Add new
+                    state.currentSentenceIndex = activeIndex;
+                    const target = document.querySelector(`.story-sentence[data-index="${activeIndex}"]`);
+                    if (target) {
+                        target.classList.add('active-sentence');
+                        target.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                    }
+                }
+
+                if (!audio.paused && !audio.ended) {
+                    requestAnimationFrame(updateVisuals);
+                }
+            };
+
+            requestAnimationFrame(updateVisuals);
+        };
+
+        audio.onended = () => {
+            stopStory();
+            // Clear highlight
+            const old = document.querySelector('.story-sentence.active-sentence');
+            if (old) old.classList.remove('active-sentence');
+            state.currentSentenceIndex = 0;
+        };
+
+        audio.onerror = (e) => {
+            console.error("Audio Playback Error", e);
+            stopStory();
+        };
+
+    } catch (e) {
+        console.error("Setup Error", e);
         stopStory();
     }
 }
 
+// Deprecated single sentence player
 async function playSentenceAudio(text) {
-    return new Promise(async (resolve, reject) => {
-        try {
-            const speed = getSelectedSpeed();
-            const response = await fetch(`${API_BASE}/speech/tts`, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ text: text, speed: speed })
-            });
-            const data = await response.json();
-
-            if (data.success) {
-                const audio = new Audio(data.audio_url);
-                state.currentAudio = audio;
-
-                audio.onended = () => {
-                    state.currentAudio = null;
-                    resolve();
-                };
-
-                audio.onerror = (e) => {
-                    console.error("Audio load error", e);
-                    reject(e);
-                };
-
-                audio.play().catch(e => {
-                    console.error("Play error", e);
-                    reject(e);
-                });
-            } else {
-                reject(data.error);
-            }
-        } catch (e) {
-            reject(e);
-        }
-    });
+    // ... kept for fallback if needed, but unused now
+    return;
 }
 
 // ===================================

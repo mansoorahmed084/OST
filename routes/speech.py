@@ -248,12 +248,8 @@ def full_story_audio(story_id):
         speed = float(data.get('speed', 1.0))
         print(f"DEBUG: Speed parsed: {speed}")
         
-        # Ensure imports
-        try:
-            from database import get_db_context
-        except ImportError:
-            print("DEBUG: Could not import get_db_context")
-            raise
+        # Imports are already at top level
+
 
         # 1. Fetch Story Content
         print("DEBUG: Fetching story content...")
