@@ -286,12 +286,21 @@ function displayStory(story) {
     document.getElementById('story-title').textContent = story.title;
 
     // Set image (placeholder for now)
+    // Set image
     const imageContainer = document.querySelector('.story-image-container');
-    imageContainer.innerHTML = `
-        <div style="width: 100%; height: 400px; display: flex; align-items: center; justify-content: center; font-size: 5rem;">
-            ${getThemeEmoji(story.theme)}
-        </div>
-    `;
+
+    let imgSrc = 'https://cdn-icons-png.flaticon.com/512/3408/3408506.png';
+
+    // Check if we have a generated image URL
+    if (story.image_category && story.image_category.startsWith('/')) {
+        imgSrc = story.image_category;
+    } else {
+        // Trigger auto-generation if backend supports it
+        // We call a helper function (defined below)
+        if (typeof generateImage === 'function') generateImage(story);
+    }
+
+    imageContainer.innerHTML = `<img id="story-image" src="${imgSrc}" class="story-image" style="object-fit: contain; width: 100%; height: 100%;">`;
 
     // Display sentences with word-level wrapping
     const textContainer = document.getElementById('story-text');
@@ -1450,6 +1459,7 @@ async function startWritingExercise(storyId) {
             // Reset feedback
             document.getElementById('writing-feedback').classList.add('hidden');
 
+
             // Show exercise
             document.getElementById('due-stories-list').classList.add('hidden');
             document.getElementById('writing-exercise').classList.remove('hidden');
@@ -1524,3 +1534,42 @@ function showError(message) {
 
 // Make processChatRequest available globally for inline onclick
 window.processChatRequest = processChatRequest;
+
+// ===================================
+// Image Generation Helper
+// ===================================
+async function generateImage(story) {
+    if (!story) return;
+
+    // Avoid re-generating if we already have one (handled in displayStory, but safety check)
+    if (story.image_category && story.image_category.startsWith('/')) return;
+
+    console.log("Generating image for story:", story.id);
+    const imgEl = document.getElementById('story-image');
+
+    try {
+        const response = await fetch(`${API_BASE}/images/generate`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                prompt: `A scene from the story: ${story.title}. \n\n${story.content.substring(0, 200)}`,
+                story_id: story.id
+            })
+        });
+
+        const data = await response.json();
+
+        if (data.success && data.image_url) {
+            // Update UI
+            if (imgEl) {
+                imgEl.src = data.image_url;
+                // Also update local state so we don't regen
+                story.image_category = data.image_url;
+            }
+        } else {
+            console.warn("Image gen failed:", data.error);
+        }
+    } catch (e) {
+        console.error("Image Gen Error", e);
+    }
+}

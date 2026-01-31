@@ -324,21 +324,32 @@ def generate_random_story():
                     VALUES (?, ?, ?)
                 ''', (story_id, idx, sentence))
         
-        # Trigger Audio Generation Immediately
+        # Trigger Audio and Image Generation Immediately (Concurrent)
         try:
             from routes.speech import generate_audio_file, pregenerate_sentence_audio
+            from routes.images import generate_and_save_image
+            import threading
+            
             # Reconstruct full text for audio
             full_text = " ".join([s.strip() + '.' for s in content.split('.') if s.strip()])
             print(f"DEBUG: Generating initial audio for Story {story_id} at speed {speed}")
             
-            # 1. Generate Full Audio (Legacy fallback)
+            # Start Background Image Gen
+            def generate_image_task_rnd(sid, title, txt):
+                log_prompt = f"Children's story illustration: {title}. Scene: {txt[:200]}"
+                generate_and_save_image(sid, log_prompt)
+            
+            img_thread = threading.Thread(target=generate_image_task_rnd, args=(story_id, title, content))
+            img_thread.start()
+            
+            # 1. Generate Full Audio
             generate_audio_file(story_id, full_text, speed)
             
-            # 2. Pre-generate Sentence Audio (For new player)
+            # 2. Pre-generate Sentence Audio
             pregenerate_sentence_audio(story_id, speed)
             
         except Exception as e:
-            print(f"Initial Audio Gen Failed: {e}")
+            print(f"Initial Audio/Image Gen Failed: {e}")
         
         return jsonify({
             'success': True,
@@ -394,13 +405,35 @@ def generate_topic_story():
                     VALUES (?, ?, ?)
                 ''', (story_id, idx, sentence))
         
-        # Trigger Audio Generation Immediately
+        # Trigger Audio and Image Generation Immediately (Concurrent)
         try:
             from routes.speech import generate_audio_file, pregenerate_sentence_audio
+            from routes.images import generate_and_save_image
+            import threading
+            
             # Reconstruct full text for audio
             full_text = " ".join([s.strip() + '.' for s in content.split('.') if s.strip()])
             print(f"DEBUG: Generating topic audio for Story {story_id} at speed {speed}")
             
+            # Audio Thread (or just run synch if fast enough, but thread is safer for response time)
+            # Actually, generating audio is blocking the return currently. 
+            # Let's keep Audio synch-ish for now or user might see empty player.
+            # But Image can definitely be background.
+            
+            # 1. Generate Full Audio (Blocking main thread to ensure audio plays immediately? 
+            # No, user said "image generated fine but late, it should be generated in parallel... available by time story is ready")
+            # If we make audio async too, the frontend needs to poll or wait.
+            # Current frontend logic waits for 'audio_url' or re-fetches.
+            # Let's keep Audio as is (blocking-ish) but put Image in parallel thread.
+            
+            def generate_image_task(sid, title, txt):
+                log_prompt = f"Children's story illustration: {title}. Scene: {txt[:200]}"
+                print(f"DEBUG: Starting Background Image Gen for Story {sid}")
+                generate_and_save_image(sid, log_prompt)
+            
+            img_thread = threading.Thread(target=generate_image_task, args=(story_id, title, content))
+            img_thread.start()
+
             # 1. Generate Full Audio
             generate_audio_file(story_id, full_text, speed)
             
@@ -408,7 +441,7 @@ def generate_topic_story():
             pregenerate_sentence_audio(story_id, speed)
             
         except Exception as e:
-            print(f"Topic Audio Gen Failed: {e}")
+            print(f"Topic Audio/Image Gen Failed: {e}")
 
         return jsonify({
             'success': True,

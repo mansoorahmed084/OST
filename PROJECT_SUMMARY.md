@@ -57,36 +57,31 @@ I've successfully created **OST (Omar's Speech Teacher)** - a comprehensive web 
 
 #### Features Implemented
 
-**Story Reading** 📖
-- Text-to-speech using Web Speech API
-- Synchronized sentence highlighting
-- Speed controls (0.5x, 1x, 1.25x)
-- Theme-based categorization
-- Visual placeholders (emojis)
+**Story Reading & Generation** 📖 ✨
+- **AI Story Generator**: Create unlimited custom stories on any topic!
+- **Dynamic Illustrations**: AI generates beautiful images for every story.
+- **Smart Audio**: High-quality TTS with restart/resume and latency compensation.
+- **Vocabulary Builder**: Automatically exacts simple definitions for hard words.
+- **Moral Extraction**: explicitly highlights the lesson of each story.
+- **Visual Layout**: 2-column reader with separate vocab sidebar.
 
 **Speaking Practice** 🎤
-- Speech recognition (Web Speech API)
-- Gentle evaluation algorithm
-- Encouraging feedback system
-- Word-by-word comparison
-- Practice suggestions
+- **Pro Voice**: Uses the same high-quality neural voice as the stories.
+- **Speech Recognition**: Gentle evaluation of pronunciation.
+- **Immediate Feedback**: Color-coded word matching.
 
 **Comprehension Quizzes** 🎯
-- MCQ support
-- Positive reinforcement scoring
-- Progress tracking
-- Story-based questions
+- **Auto-Generated Questions**: AI creates quizzes based on the story content.
+- **Progress Tracking**: Scores are saved to monitor improvement.
 
-**ChatMode** 💬
-- Whitelisted categories:
-  - Animals (dog, cat, elephant, etc.)
-  - Vehicles (car, bus, train, etc.)
-  - Fruits (apple, banana, mango, etc.)
-  - Objects (ball, book, chair, etc.)
-  - Nature (tree, flower, sun, etc.)
-- Simple explanation templates
-- Safe prompt validation
-- Visual learning with emojis
+**Daily Challenge** 🧠
+- **Recall Exercise**: "What did you read yesterday?" listing.
+- **Writing Practice**: Keyword-based sentence writing with AI feedback.
+
+**Settings & Customization** ⚙️
+- **Voice Speed Control**: Slow (0.6x) to Fast (1.0x).
+- **Theme Selection**: Customize specific topics.
+- **Provider Switching**: Toggle between Gemini and OpenAI.
 
 ---
 
@@ -109,11 +104,10 @@ I've successfully created **OST (Omar's Speech Teacher)** - a comprehensive web 
   - Background ambient animation
 
 ### User Experience
-- **Large Touch Targets**: Easy for children to click
-- **Clear Visual Hierarchy**: Important elements stand out
-- **Encouraging Colors**: Warm, friendly palette
-- **Emoji Integration**: Visual cues throughout
-- **Loading States**: Clear feedback during operations
+- **Play from Start**: Instant rewind button ⏹️.
+- **Two-Column Reader**: Text on left, Words on right.
+- **Loading States**: "Magical Balloon" loader for AI operations.
+- **Large Targets**: Child-friendly buttons.
 
 ---
 
@@ -124,10 +118,11 @@ I've successfully created **OST (Omar's Speech Teacher)** - a comprehensive web 
 | Backend Framework | Flask 3.1.2 |
 | Database | SQLite |
 | Frontend | HTML5, CSS3, Vanilla JavaScript |
-| Text-to-Speech | gTTS + Web Speech API |
+| LLM & GenAI | Google Gemini 2.0 / OpenAI GPT-4o |
+| Image Generation | Google Imagen 3 / DALL-E 3 |
+| Text-to-Speech | Edge-TTS (Primary) + gTTS (Fallback) |
+| Audio Processing | Pydub (Silence padding) |
 | Speech Recognition | Web Speech API (Browser) |
-| HTTP Client | Requests |
-| CORS Support | Flask-CORS |
 | Environment Config | python-dotenv |
 
 ---
@@ -147,18 +142,21 @@ OST/
 ├── routes/                     # API route modules
 │   ├── __init__.py
 │   ├── stories.py             # Story CRUD
-│   ├── speech.py              # TTS & evaluation
-│   ├── quiz.py                # Quiz logic
-│   └── chatmode.py            # ChatMode logic
+│   ├── generator.py           # AI Story Generation
+│   ├── speech.py              # TTS & Audio
+│   ├── images.py              # AI Image Generation
+│   ├── recall.py              # Daily Challenge Logic
+│   ├── llm.py                 # AI Provider Integration
+│   └── settings.py            # Global Config
 │
 ├── static/                     # Frontend files
-│   ├── index.html             # Main HTML
+│   ├── index.html             # Main HTML (NSA)
 │   ├── css/
 │   │   └── styles.css         # Beautiful styling
 │   ├── js/
 │   │   └── app.js             # Frontend logic
-│   ├── audio/                 # TTS audio files
-│   └── images/                # Story images
+│   ├── audio/                 # Generated Audio Cache
+│   └── images/                # Generated Image Cache
 │
 └── .agent/
     └── workflows/
@@ -169,19 +167,18 @@ OST/
 
 ## 🚀 Current Status
 
-### ✅ Fully Functional
-- Flask server running on `http://localhost:5000`
-- Database initialized with sample data
-- All API endpoints operational
-- Frontend fully responsive and interactive
-- Speech features working (browser-dependent)
+### ✅ Fully Functional & AI-Powered
+- **Generative AI Integration**: Stories, Images, Quizzes, and Feedback are all AI-driven.
+- **Persistent Storage**: All generated content is saved to SQLite.
+- **Robust Audio**: Edge-TTS provides near-human quality narration.
+- **Multi-Modal**: Text, Audio, and Images work seamlessly together.
 
 ### 🎯 Ready to Use
 1. Open browser to `http://localhost:5000`
-2. Start reading stories immediately
-3. Practice speaking with instant feedback
-4. Take quizzes for comprehension
-5. Explore ChatMode safely
+2. **Generate a Story**: Type "Space Adventure" and watch it be created.
+3. **Listen**: Click "Play" to hear it narrated with highlighting.
+4. **Learn**: Check the "New Words" sidebar.
+5. **Practice**: Go to Practice mode or take a Quiz.
 
 ---
 
