@@ -285,12 +285,56 @@
             </div>
 
             <div class="quiz-container">
-                <div id="quiz-content">
-                    <p class="quiz-instruction">Select a story first to take a quiz!</p>
-                    <button id="select-story-for-quiz" class="control-btn primary">
-                        <span class="btn-icon">📖</span>
-                        <span>Choose Story</span>
-                    </button>
+                <!-- Step 1: Select Story -->
+                <div id="quiz-story-selection">
+                    <h3>Select a story to take a quiz:</h3>
+                    <div id="quiz-stories-list" class="stories-grid">
+                        <!-- Loaded via JS -->
+                    </div>
+                </div>
+
+                <!-- Step 2: Question Interface -->
+                <div id="quiz-interface" class="hidden">
+                    <button class="back-btn" id="quit-quiz">❌ Quit Quiz</button>
+
+                    <div class="quiz-card">
+                        <div class="quiz-progress">
+                            Question <span id="quiz-current-num">1</span> of <span id="quiz-total-num">3</span>
+                        </div>
+
+                        <h2 id="quiz-question" class="quiz-question">...</h2>
+
+                        <div id="quiz-options" class="quiz-options">
+                            <!-- Options buttons -->
+                        </div>
+
+                        <div id="quiz-feedback" class="quiz-feedback hidden">
+                            <div class="feedback-content">
+                                <span id="feedback-icon"></span>
+                                <h3 id="feedback-title"></h3>
+                                <p id="feedback-message"></p>
+                            </div>
+                            <button id="quiz-next-btn" class="control-btn primary">
+                                <span>Next Question</span>
+                                <span class="btn-icon">➡️</span>
+                            </button>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Step 3: Results -->
+                <div id="quiz-results" class="hidden">
+                    <div class="results-card text-center">
+                        <div class="results-icon">🏆</div>
+                        <h2>Quiz Complete!</h2>
+                        <div class="score-display">
+                            You got <span id="quiz-score">0</span> correct!
+                        </div>
+                        <p id="quiz-encouragement"></p>
+                        <button id="quiz-home-btn" class="control-btn primary">
+                            <span>Back to Stories</span>
+                        </button>
+                    </div>
                 </div>
             </div>
         </section>

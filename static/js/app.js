@@ -622,11 +622,214 @@ function displayPracticeFeedback(data) {
 // ===================================
 // Quiz Page
 // ===================================
+// ===================================
+// Quiz Page
+// ===================================
 function initializeQuizPage() {
-    document.getElementById('select-story-for-quiz')?.addEventListener('click', () => {
+    // When quiz page is accessed via nav, load stories
+    document.querySelector('.nav-btn[data-page="quiz"]')?.addEventListener('click', loadQuizStories);
+    document.querySelector('.hero-card[data-navigate="quiz"]')?.addEventListener('click', loadQuizStories);
+
+    // Quit button
+    document.getElementById('quit-quiz')?.addEventListener('click', () => {
+        if (confirm("Are you sure you want to quit the quiz?")) {
+            resetQuizUI();
+        }
+    });
+
+    // Back to home from results
+    document.getElementById('quiz-home-btn')?.addEventListener('click', () => {
+        resetQuizUI();
         navigateToPage('stories');
     });
+
+    // Next button
+    document.getElementById('quiz-next-btn')?.addEventListener('click', () => {
+        state.currentQuestionIndex++;
+        if (state.currentQuestionIndex < state.currentQuestions.length) {
+            showQuizQuestion(state.currentQuestionIndex);
+        } else {
+            finishQuiz();
+        }
+    });
 }
+
+function resetQuizUI() {
+    document.getElementById('quiz-interface').classList.add('hidden');
+    document.getElementById('quiz-results').classList.add('hidden');
+    document.getElementById('quiz-story-selection').classList.remove('hidden');
+    loadQuizStories();
+}
+
+async function loadQuizStories() {
+    try {
+        const container = document.getElementById('quiz-stories-list');
+        container.innerHTML = '<p class="text-center">Loading stories...</p>';
+
+        const response = await fetch(`${API_BASE}/stories`);
+        const data = await response.json();
+
+        if (data.success) {
+            if (data.stories.length === 0) {
+                container.innerHTML = '<p class="text-center">No stories available. Create one first!</p>';
+                return;
+            }
+
+            container.innerHTML = data.stories.map(story => `
+                <div class="story-card" data-quiz-story-id="${story.id}">
+                    <div class="story-card-icon">🎯</div>
+                    <h3>${story.title}</h3>
+                    <span class="story-card-theme">${story.theme || 'General'}</span>
+                </div>
+            `).join('');
+
+            // Add click handlers
+            container.querySelectorAll('.story-card').forEach(card => {
+                card.addEventListener('click', () => startQuiz(card.dataset.quizStoryId));
+            });
+        }
+    } catch (error) {
+        console.error('Error loading quiz stories:', error);
+    }
+}
+
+async function startQuiz(storyId) {
+    try {
+        showLoading();
+        state.currentQuizStoryId = storyId;
+
+        const response = await fetch(`${API_BASE}/quiz/generate/${storyId}`, { method: 'POST' });
+        const data = await response.json();
+
+        if (data.success && data.questions.length > 0) {
+            state.currentQuestions = data.questions;
+            state.currentQuestionIndex = 0;
+            state.quizScore = 0;
+
+            // Show Interface
+            document.getElementById('quiz-story-selection').classList.add('hidden');
+            document.getElementById('quiz-interface').classList.remove('hidden');
+
+            showQuizQuestion(0);
+        } else {
+            showError('Could not generate quiz for this story.');
+        }
+    } catch (error) {
+        console.error('Error starting quiz:', error);
+        showError('Failed to start quiz');
+    } finally {
+        hideLoading();
+    }
+}
+
+function showQuizQuestion(index) {
+    const question = state.currentQuestions[index];
+
+    // Update Progress
+    document.getElementById('quiz-current-num').textContent = index + 1;
+    document.getElementById('quiz-total-num').textContent = state.currentQuestions.length;
+
+    // Set text
+    document.getElementById('quiz-question').textContent = question.question;
+
+    // Render Options
+    const optionsContainer = document.getElementById('quiz-options');
+    optionsContainer.innerHTML = question.options.map((opt, idx) => `
+        <button class="quiz-option-btn" onclick="checkQuizAnswer(this, '${opt.replace(/'/g, "\\'")}')">
+            <span style="background: rgba(255,255,255,0.1); padding: 0.5rem 1rem; border-radius: 50%; margin-right: 1rem;">${String.fromCharCode(65 + idx)}</span>
+            ${opt}
+        </button>
+    `).join('');
+
+    // Setup Feedback (Hidden)
+    document.getElementById('quiz-feedback').classList.add('hidden');
+    document.getElementById('quiz-feedback').className = 'quiz-feedback hidden';
+
+    // Disable next button initially (shown only after correct answer)
+}
+
+function checkQuizAnswer(btn, selectedAnswer) {
+    // Prevent multiple clicks if already solved
+    if (btn.parentElement.querySelector('.correct')) return;
+
+    const question = state.currentQuestions[state.currentQuestionIndex];
+    const isCorrect = selectedAnswer === question.correct_answer;
+
+    const feedbackBox = document.getElementById('quiz-feedback');
+    const title = document.getElementById('feedback-title');
+    const msg = document.getElementById('feedback-message');
+    const icon = document.getElementById('feedback-icon');
+
+    if (isCorrect) {
+        // Style Logic
+        btn.classList.add('correct');
+        // Disable other buttons
+        btn.parentElement.querySelectorAll('.quiz-option-btn').forEach(b => {
+            if (b !== btn) b.style.opacity = '0.5';
+            b.disabled = true;
+        });
+
+        // Feedback
+        feedbackBox.className = 'quiz-feedback success';
+        title.textContent = "Correct!";
+        msg.textContent = question.explanation || "Great job!";
+        icon.textContent = "🌟";
+
+        state.quizScore++;
+
+        // Show Next Button
+        feedbackBox.classList.remove('hidden');
+        document.getElementById('quiz-next-btn').classList.remove('hidden');
+
+    } else {
+        // Wrong Answer
+        btn.classList.add('wrong');
+        btn.disabled = true; // Disable just this one
+
+        // Feedback
+        feedbackBox.className = 'quiz-feedback hint';
+        title.textContent = "Not quite...";
+        msg.textContent = question.hint || "Try again!";
+        icon.textContent = "🤔";
+
+        feedbackBox.classList.remove('hidden');
+        document.getElementById('quiz-next-btn').classList.add('hidden'); // Hide next until correct
+    }
+}
+
+async function finishQuiz() {
+    document.getElementById('quiz-interface').classList.add('hidden');
+    document.getElementById('quiz-results').classList.remove('hidden');
+
+    const score = state.quizScore;
+    const total = state.currentQuestions.length;
+
+    document.getElementById('quiz-score').textContent = `${score}/${total}`;
+
+    let encouragement = "";
+    if (score === total) encouragement = "Perfect score! You're a super reader! 🌟";
+    else if (score > total / 2) encouragement = "Great job! Keep reading! 📚";
+    else encouragement = "Good effort! Practice makes perfect! 💪";
+
+    document.getElementById('quiz-encouragement').textContent = encouragement;
+
+    // Save Result
+    try {
+        await fetch(`${API_BASE}/quiz/submit`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                story_id: state.currentQuizStoryId,
+                score: (score / total) * 100
+            })
+        });
+    } catch (e) {
+        console.error("Failed to save quiz score", e);
+    }
+}
+
+// Global for onclick
+window.checkQuizAnswer = checkQuizAnswer;
 
 // ===================================
 // Chat Page
