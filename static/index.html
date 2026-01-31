@@ -1,0 +1,267 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>OST - Omar's Speech Teacher</title>
+    <meta name="description" content="Interactive learning platform for speech and language development">
+    <link rel="stylesheet" href="/css/styles.css">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link
+        href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;600;700&family=Poppins:wght@400;500;600;700&display=swap"
+        rel="stylesheet">
+</head>
+
+<body>
+    <!-- Navigation -->
+    <nav class="navbar">
+        <div class="nav-container">
+            <div class="logo">
+                <span class="logo-icon">📚</span>
+                <span class="logo-text">OST</span>
+            </div>
+            <div class="nav-links">
+                <button class="nav-btn active" data-page="home">
+                    <span class="nav-icon">🏠</span>
+                    <span>Home</span>
+                </button>
+                <button class="nav-btn" data-page="stories">
+                    <span class="nav-icon">📖</span>
+                    <span>Stories</span>
+                </button>
+                <button class="nav-btn" data-page="practice">
+                    <span class="nav-icon">🎤</span>
+                    <span>Practice</span>
+                </button>
+                <button class="nav-btn" data-page="quiz">
+                    <span class="nav-icon">🎯</span>
+                    <span>Quiz</span>
+                </button>
+                <button class="nav-btn" data-page="chat">
+                    <span class="nav-icon">💬</span>
+                    <span>Chat</span>
+                </button>
+            </div>
+        </div>
+    </nav>
+
+    <!-- Main Content -->
+    <main class="main-content">
+        <!-- Home Page -->
+        <section id="home-page" class="page active">
+            <div class="hero-section">
+                <div class="hero-content">
+                    <h1 class="hero-title">
+                        Welcome, <span class="highlight">Omar</span>! 🌟
+                    </h1>
+                    <p class="hero-subtitle">
+                        Let's learn, read, and speak together!
+                    </p>
+                    <div class="hero-cards">
+                        <div class="hero-card" data-navigate="stories">
+                            <div class="card-icon">📚</div>
+                            <h3>Read Stories</h3>
+                            <p>Listen and read fun stories</p>
+                        </div>
+                        <div class="hero-card" data-navigate="practice">
+                            <div class="card-icon">🎤</div>
+                            <h3>Practice Speaking</h3>
+                            <p>Speak and learn new words</p>
+                        </div>
+                        <div class="hero-card" data-navigate="quiz">
+                            <div class="card-icon">🎯</div>
+                            <h3>Take Quiz</h3>
+                            <p>Test what you learned</p>
+                        </div>
+                        <div class="hero-card" data-navigate="chat">
+                            <div class="card-icon">💬</div>
+                            <h3>Chat & Explore</h3>
+                            <p>Ask and see new things</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- Stories Page -->
+        <section id="stories-page" class="page">
+            <div class="page-header">
+                <h1>📖 Story Time</h1>
+                <p>Choose a story to read and listen</p>
+            </div>
+
+            <!-- Story Generator -->
+            <div class="story-generator">
+                <h3>✨ Create New Story</h3>
+                <div class="generator-controls">
+                    <div class="generator-row">
+                        <input type="text" id="story-topic" class="topic-input"
+                            placeholder="Enter a topic (e.g., animals, space, friendship)...">
+                        <button id="generate-random-story" class="generate-btn">
+                            <span>🎲</span>
+                            <span>Random Story</span>
+                        </button>
+                    </div>
+
+                    <div class="generator-row">
+                        <div class="length-buttons">
+                            <span style="color: var(--text-secondary); margin-right: 0.5rem;">Length:</span>
+                            <button class="length-btn active" data-length="short">📝 Short (50 words)</button>
+                            <button class="length-btn" data-length="medium">📄 Medium (100 words)</button>
+                            <button class="length-btn" data-length="long">📚 Long (150-180 words)</button>
+                        </div>
+                    </div>
+
+                    <div class="generator-row" style="justify-content: center;">
+                        <button id="generate-topic-story" class="generate-btn">
+                            <span>✨</span>
+                            <span>Generate Story</span>
+                        </button>
+                    </div>
+                </div>
+            </div>
+
+            <div id="stories-list" class="stories-grid">
+                <!-- Stories will be loaded here -->
+            </div>
+
+            <!-- Story Reader -->
+            <div id="story-reader" class="story-reader hidden">
+                <button class="back-btn" id="back-to-stories">← Back to Stories</button>
+
+                <div class="story-image-container">
+                    <img id="story-image" src="" alt="Story Image" class="story-image">
+                </div>
+
+                <div class="story-content">
+                    <h2 id="story-title" class="story-title"></h2>
+
+                    <div class="story-controls">
+                        <button id="play-story" class="control-btn primary">
+                            <span class="btn-icon">▶️</span>
+                            <span>Play Story</span>
+                        </button>
+                        <button id="pause-story" class="control-btn" style="display: none;">
+                            <span class="btn-icon">⏸️</span>
+                            <span>Pause</span>
+                        </button>
+
+                        <div class="speed-control">
+                            <label>Speed:</label>
+                            <button class="speed-btn" data-speed="0.5">🐢 Slow</button>
+                            <button class="speed-btn active" data-speed="1.0">🚶 Normal</button>
+                            <button class="speed-btn" data-speed="1.25">🏃 Fast</button>
+                        </div>
+                    </div>
+
+                    <div id="story-text" class="story-text">
+                        <!-- Story sentences will be displayed here -->
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- Practice Page -->
+        <section id="practice-page" class="page">
+            <div class="page-header">
+                <h1>🎤 Speaking Practice</h1>
+                <p>Read the sentence and speak it out loud</p>
+            </div>
+
+            <div class="practice-container">
+                <div class="practice-card">
+                    <div class="practice-sentence" id="practice-sentence">
+                        Click "Start Practice" to begin
+                    </div>
+
+                    <div class="practice-controls">
+                        <button id="start-practice" class="control-btn primary">
+                            <span class="btn-icon">🎯</span>
+                            <span>Start Practice</span>
+                        </button>
+                        <button id="listen-sentence" class="control-btn">
+                            <span class="btn-icon">🔊</span>
+                            <span>Listen</span>
+                        </button>
+                        <button id="record-speech" class="control-btn record-btn">
+                            <span class="btn-icon">🎤</span>
+                            <span>Record Your Voice</span>
+                        </button>
+                    </div>
+
+                    <div id="practice-feedback" class="practice-feedback hidden">
+                        <!-- Feedback will appear here -->
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- Quiz Page -->
+        <section id="quiz-page" class="page">
+            <div class="page-header">
+                <h1>🎯 Quiz Time</h1>
+                <p>Answer questions about the stories</p>
+            </div>
+
+            <div class="quiz-container">
+                <div id="quiz-content">
+                    <p class="quiz-instruction">Select a story first to take a quiz!</p>
+                    <button id="select-story-for-quiz" class="control-btn primary">
+                        <span class="btn-icon">📖</span>
+                        <span>Choose Story</span>
+                    </button>
+                </div>
+            </div>
+        </section>
+
+        <!-- Chat Page -->
+        <section id="chat-page" class="page">
+            <div class="page-header">
+                <h1>💬 Chat & Explore</h1>
+                <p>Ask to see animals, vehicles, and more!</p>
+            </div>
+
+            <div class="chat-container">
+                <div class="chat-image-area" id="chat-image-area">
+                    <div class="chat-placeholder">
+                        <span class="placeholder-icon">🖼️</span>
+                        <p>Ask me to show you something!</p>
+                        <p class="placeholder-hint">Try: "Show me a dog" or "Show me a car"</p>
+                    </div>
+                </div>
+
+                <div class="chat-explanation" id="chat-explanation">
+                    <!-- Explanation will appear here -->
+                </div>
+
+                <div class="chat-input-area">
+                    <input type="text" id="chat-input" class="chat-input" placeholder="Type what you want to see...">
+                    <button id="chat-send" class="chat-send-btn">
+                        <span>Show Me</span>
+                        <span class="btn-icon">✨</span>
+                    </button>
+                </div>
+
+                <div class="chat-suggestions">
+                    <p>Try these:</p>
+                    <button class="suggestion-chip" data-prompt="show me a dog">🐕 Dog</button>
+                    <button class="suggestion-chip" data-prompt="show me a car">🚗 Car</button>
+                    <button class="suggestion-chip" data-prompt="show me an apple">🍎 Apple</button>
+                    <button class="suggestion-chip" data-prompt="show me a tree">🌳 Tree</button>
+                </div>
+            </div>
+        </section>
+    </main>
+
+    <!-- Loading Overlay -->
+    <div id="loading-overlay" class="loading-overlay hidden">
+        <div class="loading-spinner"></div>
+        <p>Loading...</p>
+    </div>
+
+    <script src="/js/app.js"></script>
+</body>
+
+</html>

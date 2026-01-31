@@ -1,0 +1,11 @@
+*.pyc
+__pycache__/
+*.db
+.env
+venv/
+env/
+.vscode/
+.idea/
+*.log
+static/audio/*.mp3
+node_modules/
