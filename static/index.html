@@ -43,6 +43,10 @@
                     <span class="nav-icon">💬</span>
                     <span>Chat</span>
                 </button>
+                <button class="nav-btn" data-page="recall">
+                    <span class="nav-icon">🧠</span>
+                    <span>Daily</span>
+                </button>
             </div>
         </div>
     </nav>
@@ -79,6 +83,62 @@
                             <div class="card-icon">💬</div>
                             <h3>Chat & Explore</h3>
                             <p>Ask and see new things</p>
+                        </div>
+                        <div class="hero-card" data-navigate="recall">
+                            <div class="card-icon">🧠</div>
+                            <h3>Daily Challenge</h3>
+                            <p>Remember and write</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            </div>
+        </section>
+
+        <!-- Recall / Daily Page -->
+        <section id="recall-page" class="page">
+            <div class="page-header">
+                <h1>🧠 Daily Challenge</h1>
+                <p>Let's remember what we read!</p>
+            </div>
+
+            <div class="recall-container">
+                <div id="due-stories-list" class="stories-grid">
+                    <!-- Due stories will load here -->
+                    <p class="text-center">Loading challenges...</p>
+                </div>
+
+                <div id="writing-exercise" class="writing-exercise hidden">
+                    <button class="back-btn" id="back-to-recall">← Back to List</button>
+
+                    <div class="exercise-card">
+                        <h3>✍️ Writing Time by <span id="writing-story-title" class="highlight-text">...</span></h3>
+
+                        <div class="prompt-box">
+                            <span class="prompt-icon">💡</span>
+                            <p id="writing-prompt">Loading prompt...</p>
+                        </div>
+
+                        <div class="keywords-box">
+                            <p>Try to use these words:</p>
+                            <div id="writing-keywords" class="keywords-list">
+                                <!-- Keywords -->
+                            </div>
+                        </div>
+
+                        <textarea id="writing-input" class="writing-input" placeholder="Type your answer here..."
+                            rows="5"></textarea>
+
+                        <div class="writing-controls">
+                            <button id="check-writing" class="control-btn primary">
+                                <span class="btn-icon">✨</span>
+                                <span>Check My Writing</span>
+                            </button>
+                        </div>
+
+                        <div id="writing-feedback" class="writing-feedback hidden">
+                            <h3 id="feedback-title"></h3>
+                            <ul id="feedback-list"></ul>
                         </div>
                     </div>
                 </div>

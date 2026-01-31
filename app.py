@@ -8,7 +8,7 @@ from flask_cors import CORS
 import os
 from dotenv import load_dotenv
 from database import init_db, get_db
-from routes import stories, speech, quiz, chatmode, generator
+from routes import stories, speech, quiz, chatmode, generator, recall
 
 # Load environment variables
 load_dotenv()
@@ -27,6 +27,7 @@ app.register_blueprint(speech.bp, url_prefix='/api/speech')
 app.register_blueprint(quiz.bp, url_prefix='/api/quiz')
 app.register_blueprint(chatmode.bp, url_prefix='/api/chatmode')
 app.register_blueprint(generator.bp, url_prefix='/api/generator')
+app.register_blueprint(recall.bp, url_prefix='/api/recall')
 
 # Serve frontend
 @app.route('/')

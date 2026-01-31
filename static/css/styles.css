@@ -1151,6 +1151,102 @@ body::before {
     }
 }
 
+
+/* === Recall Page === */
+.recall-container {
+    max-width: 800px;
+    margin: 0 auto;
+}
+
+.exercise-card {
+    background: var(--bg-card);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    border-radius: var(--radius-lg);
+    padding: var(--spacing-xl);
+    animation: slideUp 0.5s ease;
+}
+
+.prompt-box {
+    background: rgba(99, 102, 241, 0.1);
+    border-radius: var(--radius-md);
+    padding: var(--spacing-lg);
+    margin-bottom: var(--spacing-lg);
+    display: flex;
+    align-items: center;
+    gap: var(--spacing-md);
+    font-size: 1.25rem;
+    font-weight: 500;
+}
+
+.prompt-icon {
+    font-size: 2rem;
+}
+
+.keywords-box {
+    margin-bottom: var(--spacing-lg);
+}
+
+.keywords-list {
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--spacing-sm);
+    margin-top: var(--spacing-sm);
+}
+
+.keyword-tag {
+    background: var(--bg-secondary);
+    padding: 0.5rem 1rem;
+    border-radius: var(--radius-full);
+    font-size: 0.9rem;
+    color: var(--text-secondary);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.writing-input {
+    width: 100%;
+    background: var(--bg-secondary);
+    border: 2px solid rgba(255, 255, 255, 0.1);
+    border-radius: var(--radius-md);
+    padding: var(--spacing-md);
+    color: var(--text-primary);
+    font-size: 1.1rem;
+    font-family: inherit;
+    resize: vertical;
+    margin-bottom: var(--spacing-lg);
+    transition: all var(--transition-fast);
+}
+
+.writing-input:focus {
+    outline: none;
+    border-color: var(--primary-color);
+}
+
+.writing-feedback {
+    margin-top: var(--spacing-lg);
+    padding: var(--spacing-lg);
+    background: rgba(16, 185, 129, 0.1);
+    border: 1px solid var(--success-color);
+    border-radius: var(--radius-md);
+    animation: fadeIn 0.5s ease;
+}
+
+.writing-feedback ul {
+    list-style-type: none;
+    margin-top: var(--spacing-sm);
+}
+
+.writing-feedback li {
+    margin-bottom: 0.5rem;
+    padding-left: 1.5rem;
+    position: relative;
+}
+
+.writing-feedback li::before {
+    content: "✅";
+    position: absolute;
+    left: 0;
+}
+
 /* === Utility Classes === */
 .hidden {
     display: none !important;

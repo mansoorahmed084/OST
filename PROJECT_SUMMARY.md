@@ -213,10 +213,11 @@ OST/
 - MCQ support
 - ⏳ Auto-generation needs enhancement
 
-### 📋 Phase 5: Next-Day Recall (PLANNED)
-- Story history tracking
-- Spaced repetition
-- Writing exercises
+### ✅ Phase 5: Next-Day Recall & Writing (BETA)
+- ✅ Story history tracking
+- ✅ Spaced repetition (24h logic)
+- ✅ Writing exercises with keywords
+- ✅ Automated writing feedback
 
 ### ✅ Phase 6: ChatMode MVP (COMPLETE)
 - Safe prompt validation

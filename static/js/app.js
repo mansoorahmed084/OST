@@ -76,7 +76,9 @@ document.addEventListener('DOMContentLoaded', () => {
     initializeStoriesPage();
     initializePracticePage();
     initializeQuizPage();
+
     initializeChatPage();
+    initializeRecallPage();
 
     // Initialize Speech Recognition if available
     if ('webkitSpeechRecognition' in window || 'SpeechRecognition' in window) {
@@ -831,6 +833,169 @@ async function generateTopicStory() {
     } catch (error) {
         console.error('Error generating topic story:', error);
         showError('Failed to generate story');
+    } finally {
+        hideLoading();
+    }
+}
+
+// ===================================
+// Recall & Writing Page
+// ===================================
+function initializeRecallPage() {
+    // Back button
+    document.getElementById('back-to-recall')?.addEventListener('click', () => {
+        document.getElementById('due-stories-list').classList.remove('hidden');
+        document.getElementById('writing-exercise').classList.add('hidden');
+    });
+
+    // Check Writing button
+    document.getElementById('check-writing')?.addEventListener('click', checkWriting);
+
+    // Load due stories when tab is clicked
+    document.querySelector('.nav-btn[data-page="recall"]')?.addEventListener('click', loadDueStories);
+    // Also from home page card
+    // Note: The click handler for .hero-card in initializeHomePage handles navigation to 'recall' page
+    // We just need to ensure loadDueStories is called when we enter the page.
+    // We can modify navigateToPage to trigger load if it's recall page, OR just call it here.
+    // For now, let's rely on the tab click or explicit call.
+}
+
+// Modify navigateToPage to load data
+// (This needs a separate hook or simple check in navigateToPage, but let's just make sure we call it)
+
+async function loadDueStories() {
+    try {
+        showLoading();
+        const response = await fetch(`${API_BASE}/recall/due`);
+        const data = await response.json();
+
+        if (data.success) {
+            displayDueStories(data.stories);
+        } else {
+            showError('Failed to load daily challenges');
+        }
+    } catch (error) {
+        console.error('Error loading due stories:', error);
+        showError('Failed to load challenges');
+    } finally {
+        hideLoading();
+    }
+}
+
+function displayDueStories(stories) {
+    const container = document.getElementById('due-stories-list');
+
+    if (stories.length === 0) {
+        container.innerHTML = `
+            <div class="text-center" style="grid-column: 1/-1;">
+                <h3>🎉 All caught up!</h3>
+                <p>You've reviewed everything. Check back tomorrow!</p>
+            </div>
+        `;
+        return;
+    }
+
+    container.innerHTML = stories.map(story => `
+        <div class="story-card" data-story-id="${story.id}">
+            <div class="story-card-icon">
+                ${story.status === 'due' ? '⚡' : '📝'}
+            </div>
+            <h3>${story.title}</h3>
+            <span class="story-card-theme" style="background: ${story.status === 'due' ? 'var(--warning-color)' : 'var(--bg-secondary)'}">
+                ${story.message}
+            </span>
+        </div>
+    `).join('');
+
+    // Add listeners
+    container.querySelectorAll('.story-card').forEach(card => {
+        card.addEventListener('click', () => startWritingExercise(card.dataset.storyId));
+    });
+
+    // Ensure visibility
+    container.classList.remove('hidden');
+    document.getElementById('writing-exercise').classList.add('hidden');
+}
+
+async function startWritingExercise(storyId) {
+    try {
+        showLoading();
+
+        // Load prompt
+        const response = await fetch(`${API_BASE}/recall/prompt/${storyId}`);
+        const data = await response.json();
+
+        if (data.success) {
+            // Update UI
+            document.getElementById('writing-story-title').textContent = data.story_title;
+            document.getElementById('writing-prompt').textContent = data.prompt;
+
+            // Set keywords
+            const keywordsContainer = document.getElementById('writing-keywords');
+            keywordsContainer.innerHTML = data.keywords.map(k =>
+                `<span class="keyword-tag">${k}</span>`
+            ).join('');
+
+            // Reset input
+            const input = document.getElementById('writing-input');
+            input.value = '';
+            input.dataset.keywords = JSON.stringify(data.keywords); // Store for checking
+
+            // Reset feedback
+            document.getElementById('writing-feedback').classList.add('hidden');
+
+            // Show exercise
+            document.getElementById('due-stories-list').classList.add('hidden');
+            document.getElementById('writing-exercise').classList.remove('hidden');
+
+        } else {
+            showError('Failed to load writing exercise');
+        }
+    } catch (error) {
+        console.error('Error starting writing exercise:', error);
+        showError('Failed to load exercise');
+    } finally {
+        hideLoading();
+    }
+}
+
+async function checkWriting() {
+    const input = document.getElementById('writing-input');
+    const text = input.value.trim();
+    const keywords = JSON.parse(input.dataset.keywords || '[]');
+
+    if (!text) {
+        showError('Please write something first!');
+        return;
+    }
+
+    try {
+        showLoading();
+
+        const response = await fetch(`${API_BASE}/recall/check`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ text, keywords })
+        });
+
+        const data = await response.json();
+
+        if (data.success) {
+            // Show feedback
+            const feedbackSection = document.getElementById('writing-feedback');
+            const feedbackTitle = document.getElementById('feedback-title');
+            const feedbackList = document.getElementById('feedback-list');
+
+            feedbackTitle.textContent = `${data.emoji} ${data.message} (Score: ${data.score}/100)`;
+            feedbackList.innerHTML = data.feedback.map(f => `<li>${f}</li>`).join('');
+
+            feedbackSection.classList.remove('hidden');
+        } else {
+            showError('Failed to check writing');
+        }
+    } catch (error) {
+        console.error('Error checking writing:', error);
+        showError('Failed to check writing');
     } finally {
         hideLoading();
     }
