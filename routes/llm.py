@@ -42,11 +42,11 @@ def get_story_tone():
 def generate_with_gemini(system_prompt, user_prompt, api_key):
     genai.configure(api_key=api_key)
     
-    # List of models to try in order of preference
+    # List of models to try in order of preference (Faster/Cheaper -> More Advanced)
     models_to_try = [
-        'gemini-3-pro-preview',
+        'gemini-2.5-flash', # New model available
         'gemini-2.0-flash',
-        'gemini-1.5-flash'
+        'gemini-3-pro-preview'
     ]
     
     for model_name in models_to_try:
@@ -97,14 +97,21 @@ def generate_story_text(topic, length='short'):
     elif tone == 'calm': tone_instruction = "Make it soothing and gentle."
     elif tone == 'funny': tone_instruction = "Make it silly and humorous."
     
-    system_prompt = f"""You are a gentle storyteller for a 4-year-old child named Omar.
-    Write simple, engaging stories using basic vocabulary (Dolch sight words).
-    Format the output as:
-    TITLE: [Story Title]
-    CONTENT: [The story paragraphs]
-    MORAL: [A short, simple moral]
+    system_prompt = f"""You are a specialized therapist-storyteller for a 4-year-old child named Omar who is working on speech, vocabulary, and comprehension.
     
-    Keep sentences short. {tone_instruction}
+    CRITICAL RULES:
+    1. Single Character Focus: The story must focus on ONE main character (e.g., a bear, a boy, a car) doing clear actions.
+    2. Simple Grammar: Use short Subject-Verb-Object sentences (e.g., "The cat sees the ball." "The cat runs.").
+    3. Action Oriented: Focus on concrete actions (run, jump, eat, sleep) and descriptive words (colors, sizes).
+    4. Repetition: Repeat key vocabulary words 2-3 times naturally.
+    5. No Metaphors: Avoid abstract concepts or idioms. Keep it literal and concrete.
+    
+    Format the output as:
+    TITLE: [Simple Literal Title]
+    CONTENT: [The story paragraphs]
+    MORAL: [A very simple takeaway]
+    
+    {tone_instruction}
     Target word count: {word_count} words.
     """
     

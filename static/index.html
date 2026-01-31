@@ -178,6 +178,18 @@
                         </div>
                     </div>
 
+                    <div class="generator-row">
+                        <div class="settings-option">
+                            <span style="color: var(--text-secondary); margin-right: 0.5rem;">Voice Speed:</span>
+                            <select id="gen-speed" class="form-select"
+                                style="background: var(--bg-card); color: var(--text-primary); border: 1px solid var(--border-color); padding: 5px; border-radius: 8px;">
+                                <option value="0.6">Slow (0.6x)</option>
+                                <option value="0.8" selected>Normal (0.8x)</option>
+                                <option value="1.0">Fast (1.0x)</option>
+                            </select>
+                        </div>
+                    </div>
+
                     <div class="generator-row" style="justify-content: center;">
                         <button id="generate-topic-story" class="generate-btn">
                             <span>✨</span>
@@ -224,12 +236,7 @@
                             <span>Pause</span>
                         </button>
 
-                        <div class="speed-control">
-                            <label>Speed:</label>
-                            <button class="speed-btn" data-speed="0.5">🐢 Slow</button>
-                            <button class="speed-btn active" data-speed="1.0">🚶 Normal</button>
-                            <button class="speed-btn" data-speed="1.25">🏃 Fast</button>
-                        </div>
+
                     </div>
 
                     <div id="story-text" class="story-text">

@@ -162,6 +162,7 @@ def generate_random_story():
     try:
         data = request.json or {}
         length = data.get('length', 'short')
+        speed = float(data.get('speed', 1.0)) # Speed selection
         
         # Pick a random topic
         topic = random.choice(RANDOM_TOPICS)
@@ -188,11 +189,21 @@ def generate_random_story():
                     VALUES (?, ?, ?)
                 ''', (story_id, idx, sentence))
         
+        # Trigger Audio Generation Immediately
+        try:
+            from routes.speech import generate_audio_file
+            # Reconstruct full text for audio
+            full_text = " ".join([s.strip() + '.' for s in content.split('.') if s.strip()])
+            print(f"DEBUG: Generating initial audio for Story {story_id} at speed {speed}")
+            generate_audio_file(story_id, full_text, speed)
+        except Exception as e:
+            print(f"Initial Audio Gen Failed: {e}")
+        
         return jsonify({
             'success': True,
             'story_id': story_id,
             'title': title,
-            'message': 'Random story generated successfully!'
+            'message': 'Random story and audio generated successfully!'
         }), 201
         
     except Exception as e:
@@ -208,6 +219,7 @@ def generate_topic_story():
         data = request.json
         topic = data.get('topic', '').strip()
         length = data.get('length', 'short')
+        speed = float(data.get('speed', 1.0)) # Speed selection
         
         if not topic:
             return jsonify({
@@ -237,6 +249,16 @@ def generate_topic_story():
                     VALUES (?, ?, ?)
                 ''', (story_id, idx, sentence))
         
+        # Trigger Audio Generation Immediately
+        try:
+            from routes.speech import generate_audio_file
+            # Reconstruct full text for audio
+            full_text = " ".join([s.strip() + '.' for s in content.split('.') if s.strip()])
+            print(f"DEBUG: Generating initial audio for Story {story_id} at speed {speed}")
+            generate_audio_file(story_id, full_text, speed)
+        except Exception as e:
+            print(f"Initial Audio Gen Failed: {e}")
+
         return jsonify({
             'success': True,
             'story_id': story_id,
@@ -362,11 +384,12 @@ def determine_theme(topic):
         return 'vehicles'
     elif any(word in topic_lower for word in ['family', 'mother', 'father', 'friend', 'teacher', 'people']):
         return 'family'
-    elif any(word in topic_lower for word in ['tree', 'flower', 'sun', 'moon', 'star', 'nature', 'rain', 'cloud']):
+    elif any(word in topic_lower for word in ['tree', 'flower', 'sun', 'moon', 'star', 'nature', 'rain', 'cloud', 'sky', 'space']):
         return 'nature'
-    elif any(word in topic_lower for word in ['apple', 'banana', 'mango', 'food', 'fruit', 'vegetable']):
+    elif any(word in topic_lower for word in ['apple', 'banana', 'mango', 'food', 'fruit', 'vegetable', 'cookie', 'cake']):
         return 'food'
     else:
+        # Fallback based on content analysis if possible, otherwise general
         return 'general'
 
 

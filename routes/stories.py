@@ -120,7 +120,7 @@ def delete_stories_batch():
 
 @bp.route('/<int:story_id>', methods=['DELETE'])
 def delete_story(story_id):
-    """Delete a story"""
+    """Delete a story and its audio"""
     try:
         with get_db_context() as conn:
             cursor = conn.cursor()
@@ -137,9 +137,23 @@ def delete_story(story_id):
                     'error': 'Story not found'
                 }), 404
             
+            # Delete Audio Files
+            try:
+                import os
+                import glob
+                audio_dir = 'static/audio'
+                # Pattern: story_{id}_*.mp3
+                pattern = os.path.join(audio_dir, f"story_{story_id}_*.mp3")
+                files = glob.glob(pattern)
+                for f in files:
+                    os.remove(f)
+                    print(f"Deleted audio file: {f}")
+            except Exception as e:
+                print(f"Error deleting audio files: {e}")
+            
             return jsonify({
                 'success': True,
-                'message': 'Story deleted successfully'
+                'message': 'Story and audio deleted successfully'
             })
     except Exception as e:
         return jsonify({

@@ -169,10 +169,10 @@ function initializeStoriesPage() {
             btn.classList.add('active');
             state.currentSpeed = parseFloat(btn.dataset.speed);
 
-            // If playing, restart with new speed
+            // If playing, we need to reload with new speed
             if (state.isPlaying) {
-                pauseStory();
-                setTimeout(playStory, 100);
+                pauseStory(); // Stop current
+                speakStory(); // Restart with new speed
             }
         });
     });
@@ -465,8 +465,12 @@ async function speakStory() {
 
     // Fetch Full Story Audio
     try {
+        const speed = getSelectedSpeed(); // Defaults to 0.8
+
         const response = await fetch(`${API_BASE}/speech/story/${state.currentStory.id}`, {
-            method: 'POST'
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ speed: speed })
         });
         const data = await response.json();
 
@@ -1076,16 +1080,34 @@ function getSelectedLength() {
     return activeBtn ? activeBtn.dataset.length : 'short';
 }
 
+function getSelectedSpeed() {
+    // Check if we are in the generator page (dropdown)
+    const dropdown = document.getElementById('gen-speed');
+    if (dropdown && dropdown.offsetParent !== null) {
+        return parseFloat(dropdown.value);
+    }
+
+    // Otherwise check the player buttons
+    const activeBtn = document.querySelector('.speed-btn.active');
+    if (activeBtn) {
+        if (activeBtn.id === 'speed-slow') return 0.6;
+        if (activeBtn.id === 'speed-normal') return 0.8;
+        if (activeBtn.id === 'speed-fast') return 1.0;
+    }
+    return 0.8; // Default to 0.8
+}
+
 async function generateRandomStory() {
     try {
         showLoading();
 
         const length = getSelectedLength();
+        const speed = getSelectedSpeed();
 
         const response = await fetch(`${API_BASE}/generator/random`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ length })
+            body: JSON.stringify({ length, speed })
         });
 
         const data = await response.json();
@@ -1126,11 +1148,12 @@ async function generateTopicStory() {
         showLoading();
 
         const length = getSelectedLength();
+        const speed = parseFloat(document.getElementById('gen-speed').value || 1.0);
 
         const response = await fetch(`${API_BASE}/generator/topic`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ topic, length })
+            body: JSON.stringify({ topic, length, speed })
         });
 
         const data = await response.json();

@@ -42,8 +42,12 @@ async def _gen_edge(text, voice, outfile, rate):
     # Edge TTS voices: en-US-AnaNeural (Child), en-US-AriaNeural (Female), en-US-GuyNeural (Male)
     # Rate string: "+0%" or "-10%"
     rate_str = f"{int((rate - 1.0) * 100):+d}%"
-    communicate = edge_tts.Communicate(text, voice, rate=rate_str)
-    await communicate.save(outfile)
+    try:
+        communicate = edge_tts.Communicate(text, voice, rate=rate_str)
+        await communicate.save(outfile)
+    except Exception as e:
+        print(f"EdgeTTS Async Error: {e}")
+        raise
 
 def generate_edge_tts(text, voice_preset, outfile, speed):
     # Map presets to Edge voices
@@ -54,7 +58,31 @@ def generate_edge_tts(text, voice_preset, outfile, speed):
         'guy': 'en-US-GuyNeural'
     }
     voice = voices.get(voice_preset, 'en-US-AnaNeural')
-    asyncio.run(_gen_edge(text, voice, outfile, speed))
+    
+    try:
+        try:
+            loop = asyncio.get_event_loop()
+        except RuntimeError:
+            loop = asyncio.new_event_loop()
+            asyncio.set_event_loop(loop)
+            
+        if loop.is_running():
+            # If loop is already running, run in a separate thread
+            import threading
+            def run_in_thread():
+                new_loop = asyncio.new_event_loop()
+                asyncio.set_event_loop(new_loop)
+                new_loop.run_until_complete(_gen_edge(text, voice, outfile, speed))
+                new_loop.close()
+            
+            t = threading.Thread(target=run_in_thread)
+            t.start()
+            t.join()
+        else:
+             loop.run_until_complete(_gen_edge(text, voice, outfile, speed))
+    except Exception as e:
+        print(f"EdgeTTS Execution Failed: {e}")
+        raise
 
 def generate_openai_tts(text, voice_preset, outfile, speed):
     if not OpenAI: return False
@@ -136,23 +164,97 @@ def text_to_speech():
             'error': str(e)
         }), 500
 
+def generate_audio_file(story_id, text_content, speed=1.0):
+    """
+    Core function to generate audio file for a story.
+    Returns: (success, result_path_or_error)
+    """
+    print(f"DEBUG: generate_audio_file called for Story {story_id}, Speed {speed}")
+    try:
+        config = get_tts_config()
+        provider = config['provider']
+        voice = config['voice_preset']
+        print(f"DEBUG: Config - Provider: {provider}, Voice: {voice}")
+        
+        # Filename: story_{id}_{provider}_{voice}_{speed}.mp3
+        # Normalize speed in filename to avoid float issues
+        speed_str = str(speed).replace('.', '_')
+        filename = f"story_{story_id}_{provider}_{voice}_{speed_str}.mp3"
+        filepath = os.path.join(AUDIO_DIR, filename)
+        print(f"DEBUG: Target filepath: {filepath}")
+        
+        if os.path.exists(filepath):
+            print("DEBUG: File exists in cache")
+            return True, f'/audio/{filename}'
+            
+        generated = False
+        if provider == 'edge_tts':
+            print("DEBUG: Attempting EdgeTTS...")
+            try:
+                generate_edge_tts(text_content, voice, filepath, speed)
+                generated = True
+                print("DEBUG: EdgeTTS Success")
+            except Exception as e:
+                print(f"DEBUG: EdgeTTS Failed: {e}")
+                import traceback
+                traceback.print_exc()
+
+        elif provider == 'openai':
+            print("DEBUG: Attempting OpenAI TTS...")
+            try:
+                if generate_openai_tts(text_content, voice, filepath, speed):
+                    generated = True
+                    print("DEBUG: OpenAI TTS Success")
+            except Exception as e:
+                 print(f"DEBUG: OpenAI Failed: {e}")
+                 
+        if not generated:
+            print("DEBUG: Attempting Fallback to gTTS...")
+            try:
+                # Fallback to gTTS
+                tts = gTTS(text=text_content, lang='en', slow=(speed < 0.8))
+                tts.save(filepath)
+                print("DEBUG: gTTS Success")
+            except Exception as e:
+                print(f"DEBUG: gTTS Failed: {e}")
+                raise e
+            
+        return True, f'/audio/{filename}'
+    except Exception as e:
+        print(f"CRITICAL: generate_audio_file failed: {e}")
+        import traceback
+        traceback.print_exc()
+        return False, str(e)
+
 @bp.route('/story/<int:story_id>', methods=['POST'])
 def full_story_audio(story_id):
     """Generate or retrieve audio for the full story"""
+    print(f"DEBUG: full_story_audio Request for {story_id}")
     try:
-        from routes.stories import get_db_context
+        # Use get_json(silent=True) to avoid 415 Unsupported Media Type if headers are missing
+        data = request.get_json(silent=True) or {}
+        speed = float(data.get('speed', 1.0))
+        print(f"DEBUG: Speed parsed: {speed}")
         
+        # Ensure imports
+        try:
+            from database import get_db_context
+        except ImportError:
+            print("DEBUG: Could not import get_db_context")
+            raise
+
         # 1. Fetch Story Content
+        print("DEBUG: Fetching story content...")
         text_content = ""
         with get_db_context() as conn:
             cursor = conn.cursor()
-            # We want to read sentences in order
             cursor.execute('''
                 SELECT sentence_text FROM story_sentences 
                 WHERE story_id = ? 
                 ORDER BY sentence_order
             ''', (story_id,))
             rows = cursor.fetchall()
+            print(f"DEBUG: Found {len(rows)} sentences")
             if not rows:
                 return jsonify({'success': False, 'error': 'Story not found or empty'}), 404
             
@@ -161,56 +263,32 @@ def full_story_audio(story_id):
         if not text_content:
              return jsonify({'success': False, 'error': 'No text content'}), 400
 
-        # 2. Determine Configuration
-        config = get_tts_config()
-        provider = config['provider']
-        voice = config['voice_preset']
+        print(f"DEBUG: Story content length: {len(text_content)}")
+
+        # Call the core function
+        print("DEBUG: Calling generate_audio_file...")
+        success, result = generate_audio_file(story_id, text_content, speed)
+        print(f"DEBUG: generate_audio_file returned: {success}, {result}")
         
-        # 3. Check Cache
-        # Filename: story_{id}_{provider}_{voice}.mp3
-        filename = f"story_{story_id}_{provider}_{voice}.mp3"
-        filepath = os.path.join(AUDIO_DIR, filename)
-        
-        if os.path.exists(filepath):
+        if success:
             return jsonify({
                 'success': True,
-                'audio_url': f'/audio/{filename}',
-                'message': 'Loaded from cache'
+                'audio_url': result,
+                'message': 'Audio ready'
             })
-            
-        # 4. Generate Audio
-        generated = False
-        if provider == 'edge_tts':
-            try:
-                generate_edge_tts(text_content, voice, filepath, 1.0)
-                generated = True
-            except Exception as e:
-                print(f"EdgeTTS Full Story Failed: {e}")
-        elif provider == 'openai':
-            try:
-                if generate_openai_tts(text_content, voice, filepath, 1.0):
-                    generated = True
-            except Exception as e:
-                 print(f"OpenAI Full Story Failed: {e}")
-                 
-        if not generated:
-            # Fallback to gTTS
-            tts = gTTS(text=text_content, lang='en', slow=False)
-            tts.save(filepath)
-            
-        return jsonify({
-            'success': True,
-            'audio_url': f'/audio/{filename}',
-            'message': 'Generated new audio'
-        })
+        else:
+            return jsonify({'success': False, 'error': result}), 500
 
     except Exception as e:
+        print(f"CRITICAL: full_story_audio crashed: {e}")
         import traceback
         traceback.print_exc()
         return jsonify({
             'success': False,
             'error': str(e)
         }), 500
+
+
 
 @bp.route('/evaluate', methods=['POST'])
 def evaluate_speech():
