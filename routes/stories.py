@@ -41,7 +41,7 @@ def get_story(story_id):
             
             # Get story details
             cursor.execute('''
-                SELECT id, title, content, theme, difficulty_level, 
+                SELECT id, title, content, moral, theme, difficulty_level, 
                        image_category, created_at, last_read
                 FROM stories
                 WHERE id = ?
@@ -83,47 +83,35 @@ def get_story(story_id):
             'error': str(e)
         }), 500
 
-@bp.route('', methods=['POST'])
-def create_story():
-    """Create a new story"""
+@bp.route('/batch-delete', methods=['POST'])
+def delete_stories_batch():
+    """Delete multiple stories"""
     try:
-        data = request.json
-        title = data.get('title')
-        content = data.get('content')
-        theme = data.get('theme', '')
-        difficulty_level = data.get('difficulty_level', 'easy')
-        image_category = data.get('image_category', '')
+        data = request.json or {}
+        story_ids = data.get('story_ids', [])
         
-        if not title or not content:
+        if not story_ids:
             return jsonify({
                 'success': False,
-                'error': 'Title and content are required'
+                'error': 'No story IDs provided'
             }), 400
-        
+            
         with get_db_context() as conn:
             cursor = conn.cursor()
             
-            # Insert story
-            cursor.execute('''
-                INSERT INTO stories (title, content, theme, difficulty_level, image_category)
-                VALUES (?, ?, ?, ?, ?)
-            ''', (title, content, theme, difficulty_level, image_category))
+            # Create placeholders for IN clause
+            placeholders = ', '.join('?' * len(story_ids))
             
-            story_id = cursor.lastrowid
+            # Delete sentences
+            cursor.execute(f'DELETE FROM story_sentences WHERE story_id IN ({placeholders})', story_ids)
             
-            # Split content into sentences
-            sentences = [s.strip() + '.' for s in content.split('.') if s.strip()]
-            for idx, sentence in enumerate(sentences):
-                cursor.execute('''
-                    INSERT INTO story_sentences (story_id, sentence_order, sentence_text)
-                    VALUES (?, ?, ?)
-                ''', (story_id, idx, sentence))
+            # Delete stories
+            cursor.execute(f'DELETE FROM stories WHERE id IN ({placeholders})', story_ids)
             
             return jsonify({
                 'success': True,
-                'story_id': story_id,
-                'message': 'Story created successfully'
-            }), 201
+                'message': f'{cursor.rowcount} stories deleted successfully'
+            })
     except Exception as e:
         return jsonify({
             'success': False,

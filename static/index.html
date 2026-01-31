@@ -123,6 +123,18 @@
                 </div>
             </div>
 
+            <!-- Story Management Controls -->
+            <div class="story-management">
+                <button id="toggle-select-mode" class="control-btn">
+                    <span class="btn-icon">☑️</span>
+                    <span>Manage Stories</span>
+                </button>
+                <button id="delete-selected" class="control-btn danger hidden">
+                    <span class="btn-icon">🗑️</span>
+                    <span>Delete Selected</span>
+                </button>
+            </div>
+
             <div id="stories-list" class="stories-grid">
                 <!-- Stories will be loaded here -->
             </div>
@@ -159,7 +171,14 @@
                     <div id="story-text" class="story-text">
                         <!-- Story sentences will be displayed here -->
                     </div>
+
+                    <!-- Moral Section -->
+                    <div id="story-moral" class="story-moral hidden">
+                        <h3>🌟 Moral of the Story</h3>
+                        <p id="moral-text"></p>
+                    </div>
                 </div>
+            </div>
             </div>
         </section>
 

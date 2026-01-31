@@ -46,26 +46,145 @@ def capitalize_first(text):
     """Capitalize first letter of text"""
     return text[0].upper() + text[1:] if text else text
 
+def is_abstract_concept(topic):
+    """Check if topic is an abstract concept rather than a concrete character"""
+    abstract_keywords = [
+        'manners', 'kindness', 'honesty', 'friendship', 'respect', 'sharing',
+        'helping', 'learning', 'courage', 'patience', 'gratitude', 'love',
+        'care', 'responsibility', 'teamwork', 'listening', 'politeness'
+    ]
+    topic_lower = topic.lower()
+    return any(keyword in topic_lower for keyword in abstract_keywords)
+
+def create_character_name(topic):
+    """Create an appropriate character name based on topic"""
+    # For abstract concepts, use a child character
+    if is_abstract_concept(topic):
+        names = ['Ravi', 'Priya', 'Amit', 'Sneha', 'Arjun', 'Diya']
+        return random.choice(names)
+    
+    # For concrete things, use the topic itself
+    topic_clean = topic.lower().strip()
+    # Remove articles
+    for article in ['a ', 'an ', 'the ']:
+        if topic_clean.startswith(article):
+            topic_clean = topic_clean[len(article):]
+    
+    return topic_clean
+
+    return story
+
+def generate_moral(topic):
+    """Generate an appropriate moral based on topic"""
+    topic_lower = topic.lower()
+    
+    # Specific morals for abstract concepts
+    morals = {
+        'manners': "Good manners make everyone happy.",
+        'kindness': "Being kind makes the world a better place.",
+        'honesty': "Always tell the truth, it is the brave thing to do.",
+        'friendship': "A good friend helps you when you need it.",
+        'respect': "Treat others the way you want to be treated.",
+        'sharing': "Sharing brings joy to everyone.",
+        'helping': "Helping others is the best way to be happy.",
+        'courage': "Being brave means doing what is right.",
+        'patience': "Good things come to those who wait.",
+        'gratitude': "Always remember to say thank you.",
+        'politeness': "Polite words are like magic keys."
+    }
+    
+    for key, moral in morals.items():
+        if key in topic_lower:
+            return moral
+            
+    # Generic morals based on category
+    if any(w in topic_lower for w in ['family', 'mother', 'father']):
+        return "Family love is the most special gift."
+    elif any(w in topic_lower for w in ['friend', 'play']):
+        return "Playing together is more fun than playing alone."
+    elif any(w in topic_lower for w in ['learn', 'school', 'teacher']):
+        return "Learning new things is an exciting adventure."
+    
+    # Fallback morals
+    return random.choice([
+        "Happiness comes from kind actions.",
+        "Every day is a chance to learn something new.",
+        "A smile is the prettiest thing you can wear.",
+        "Being yourself is your super power.",
+        "Small acts of love make a big difference."
+    ])
+
 def generate_story_content(topic, length='short'):
-    """Generate story content based on topic and length"""
-    # Clean and prepare the topic
-    subject = topic.lower().strip()
-    if not subject.startswith('a ') and not subject.startswith('an ') and not subject.startswith('the '):
-        # Add article if missing
-        if subject[0] in 'aeiou':
-            subject = 'an ' + subject
-        else:
-            subject = 'a ' + subject
+    """Generate story content and moral based on topic and length"""
+    topic_lower = topic.lower().strip()
+    is_concept = is_abstract_concept(topic)
     
-    subject_cap = capitalize_first(subject)
+    content = ""
+    if is_concept:
+        # Generate educational story about the concept
+        content = generate_concept_story(topic_lower, length)
+    else:
+        # Generate character-based story
+        content = generate_character_story(topic_lower, length)
+        
+    moral = generate_moral(topic)
+    return content, moral
+
+def generate_concept_story(concept, length='short'):
+    """Generate educational story about a concept like good manners, kindness, etc."""
+    character = create_character_name(concept)
     
-    # Select template
+    # Concept-specific story templates
+    if 'manner' in concept or 'polite' in concept:
+        if length == 'short':
+            return f"{character} was a kind child. {character} always said 'please' and 'thank you'. {character} helped others with a smile. Everyone loved {character}'s good manners. {character} felt happy being polite."
+        elif length == 'medium':
+            return f"{character} learned about good manners. Every morning, {character} greeted everyone with 'Good morning'. {character} said 'please' when asking for things. {character} always said 'thank you' when receiving help. {character} listened when others spoke. {character} never interrupted anyone. At school, {character} was very respectful. The teachers praised {character}. Friends enjoyed {character}'s company. {character}'s parents felt proud. Good manners made {character} happy. Everyone wanted to be like {character}."
+        else:  # long
+            return f"{character} was learning about good manners. One day, {character}'s teacher explained why manners matter. Good manners show respect for others. They make people feel valued and happy. {character} decided to practice every day. In the morning, {character} greeted parents warmly. {character} said 'please' when asking for breakfast. {character} thanked mother for the delicious food. At school, {character} held the door for friends. {character} said 'excuse me' when passing by. {character} listened carefully when the teacher spoke. {character} never interrupted during class. During lunch, {character} shared food with friends. {character} said 'sorry' when making a mistake. Friends noticed {character}'s kind behavior. They started copying {character}'s good habits. The teacher was very impressed. She told the class about {character}'s wonderful manners. {character}'s parents received praise from everyone. {character} felt proud and happy. Good manners had made life better. {character} promised to always be polite. Being kind and respectful became {character}'s way of life."
+    
+    elif 'kind' in concept or 'help' in concept:
+        if length == 'short':
+            return f"{character} loved helping others. {character} saw a friend who was sad. {character} asked, 'Can I help you?' Together they solved the problem. {character} felt happy helping."
+        elif length == 'medium':
+            return f"{character} was a very kind child. Every day, {character} looked for ways to help. {character} helped mother with chores. {character} helped friends with homework. {character} helped neighbors carry bags. One day, {character} saw an old man struggling. {character} quickly went to help him. The man smiled and thanked {character}. {character}'s heart filled with joy. Helping others made {character} very happy."
+        else:  # long
+            return f"{character} believed in the power of kindness. Every morning, {character} thought about how to help others. At home, {character} helped with household work. {character} made the bed without being asked. {character} helped wash the dishes after meals. At school, {character} noticed a new student looking lost. {character} walked up with a friendly smile. 'Hello! I'm {character}. Can I help you?' The new student felt relieved. {character} showed them around the school. {character} introduced them to other friends. During class, {character} shared pencils and erasers. {character} helped classmates understand difficult lessons. After school, {character} saw an elderly neighbor. She was carrying heavy grocery bags. {character} ran to help her. 'Let me carry those for you,' {character} offered. The neighbor was very grateful. She blessed {character} with a warm smile. {character}'s parents noticed the kind behavior. They felt very proud of their child. {character} learned that small acts of kindness matter. Helping others brought joy to everyone. {character} decided to be kind every single day."
+    
+    elif 'honest' in concept or 'truth' in concept:
+        if length == 'short':
+            return f"{character} always told the truth. One day, {character} broke a glass. {character} felt scared but told the truth. Mother appreciated {character}'s honesty. {character} learned honesty is important."
+        elif length == 'medium':
+            return f"{character} valued honesty very much. One day, {character} found money on the ground. {character} could have kept it secretly. But {character} knew that was wrong. {character} gave the money to the teacher. The teacher found the owner. The owner thanked {character} warmly. {character}'s parents heard about it. They praised {character} for being honest. {character} felt proud and happy. Honesty made {character} trustworthy."
+        else:  # long
+            return f"{character} learned about honesty from parents. They taught that truth is always important. One day, {character} accidentally broke a vase. It was mother's favorite vase. {character} felt very scared and worried. {character} thought about hiding the truth. But {character} remembered what parents taught. Taking a deep breath, {character} went to mother. 'I'm sorry, I broke your vase,' {character} said. Mother saw {character} was honest and brave. Instead of being angry, she hugged {character}. 'Thank you for telling the truth,' she said. 'Honesty is more valuable than any vase.' {character} felt relieved and happy. At school, {character} found a wallet. It had money and cards inside. {character} immediately gave it to the teacher. The teacher announced it in class. The owner came forward gratefully. Everyone praised {character}'s honesty. The principal called {character} to the office. {character} received an honesty award. {character}'s parents attended the ceremony. They felt extremely proud of their child. {character} learned that honesty builds trust. People respect those who tell the truth. From that day, {character} always chose honesty. Being truthful became {character}'s strongest quality."
+    
+    else:
+        # Generic positive concept story
+        if length == 'short':
+            return f"{character} learned about {concept}. {character} practiced it every day. {character} became better at {concept}. Friends admired {character}. {character} felt very happy."
+        elif length == 'medium':
+            return f"{character} wanted to learn about {concept}. The teacher explained its importance. {character} listened carefully and understood. Every day, {character} practiced {concept}. {character} showed {concept} at home. {character} showed {concept} at school. Friends noticed the positive change. They started learning from {character}. Everyone appreciated {character}'s efforts. {character} felt proud and joyful."
+        else:  # long
+            return f"{character} was curious about {concept}. One day, the teacher taught about it. The teacher explained why {concept} is important. {concept} helps us become better people. {character} decided to practice every day. At home, {character} showed {concept} to family. Parents were very happy to see this. At school, {character} demonstrated {concept} to friends. Classmates were impressed by {character}'s behavior. They asked {character} to teach them too. {character} happily shared the knowledge. Together, they all practiced {concept}. The whole class became better at it. The teacher noticed the positive change. She praised {character} for being a good example. {character}'s parents heard about this achievement. They felt very proud of their child. {character} realized that {concept} makes life better. It brings happiness to everyone around. {character} promised to always practice {concept}. Being a good person became {character}'s goal."
+
+def generate_character_story(subject, length='short'):
+    """Generate story about a character/thing"""
+    # Clean the subject
+    subject_clean = subject
+    for article in ['a ', 'an ', 'the ']:
+        if subject_clean.startswith(article):
+            subject_clean = subject_clean[len(article):]
+    
+    subject_cap = capitalize_first(subject_clean)
+    
+    # Select template based on length
     templates = STORY_TEMPLATES.get(length, STORY_TEMPLATES['short'])
     template = random.choice(templates)
     
     # Fill in the template
     story = template.format(
-        subject=subject,
+        subject=subject_clean,
         subject_cap=subject_cap,
         adjective=random.choice(ADJECTIVES),
         adjective2=random.choice(ADJECTIVES),
@@ -76,9 +195,46 @@ def generate_story_content(topic, length='short'):
     
     return story
 
+def generate_story_title(topic):
+    """Generate an appropriate title based on topic"""
+    if is_abstract_concept(topic):
+        # For concepts, create educational titles
+        concept_titles = {
+            'manners': 'Learning Good Manners',
+            'kindness': 'The Kind Helper',
+            'honesty': 'The Honest Child',
+            'friendship': 'The Value of Friendship',
+            'respect': 'Showing Respect',
+            'sharing': 'Learning to Share',
+            'helping': 'The Joy of Helping',
+            'courage': 'Being Brave',
+            'patience': 'Learning Patience',
+            'gratitude': 'Saying Thank You',
+            'politeness': 'Being Polite'
+        }
+        
+        # Check for matching concept
+        for key, title in concept_titles.items():
+            if key in topic.lower():
+                return title
+        
+        # Generic concept title
+        return f"Learning About {capitalize_first(topic)}"
+    else:
+        # For characters/things, use traditional format
+        topic_clean = topic
+        for article in ['a ', 'an ', 'the ']:
+            if topic_clean.lower().startswith(article):
+                topic_clean = topic_clean[len(article):]
+        return f"The Story of {capitalize_first(topic_clean)}"
+
 def determine_theme(topic):
     """Determine theme category based on topic"""
     topic_lower = topic.lower()
+    
+    # Check for abstract concepts first
+    if is_abstract_concept(topic):
+        return 'values'
     
     if any(word in topic_lower for word in ['dog', 'cat', 'elephant', 'lion', 'bird', 'animal', 'monkey', 'tiger']):
         return 'animals'
@@ -104,17 +260,17 @@ def generate_random_story():
         topic = random.choice(RANDOM_TOPICS)
         
         # Generate story
-        content = generate_story_content(topic, length)
+        content, moral = generate_story_content(topic, length)
         theme = determine_theme(topic)
-        title = f"The Story of {capitalize_first(topic)}"
+        title = generate_story_title(topic)
         
         # Save to database
         with get_db_context() as conn:
             cursor = conn.cursor()
             cursor.execute('''
-                INSERT INTO stories (title, content, theme, difficulty_level, image_category)
-                VALUES (?, ?, ?, ?, ?)
-            ''', (title, content, theme, 'easy', theme))
+                INSERT INTO stories (title, content, moral, theme, difficulty_level, image_category)
+                VALUES (?, ?, ?, ?, ?, ?)
+            ''', (title, content, moral, theme, 'easy', theme))
             
             story_id = cursor.lastrowid
             
@@ -154,17 +310,17 @@ def generate_topic_story():
             }), 400
         
         # Generate story
-        content = generate_story_content(topic, length)
+        content, moral = generate_story_content(topic, length)
         theme = determine_theme(topic)
-        title = f"The Story of {capitalize_first(topic)}"
+        title = generate_story_title(topic)
         
         # Save to database
         with get_db_context() as conn:
             cursor = conn.cursor()
             cursor.execute('''
-                INSERT INTO stories (title, content, theme, difficulty_level, image_category)
-                VALUES (?, ?, ?, ?, ?)
-            ''', (title, content, theme, 'easy', theme))
+                INSERT INTO stories (title, content, moral, theme, difficulty_level, image_category)
+                VALUES (?, ?, ?, ?, ?, ?)
+            ''', (title, content, moral, theme, 'easy', theme))
             
             story_id = cursor.lastrowid
             

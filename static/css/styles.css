@@ -718,6 +718,78 @@ body::before {
     box-shadow: 0 0 20px rgba(99, 102, 241, 0.15);
 }
 
+.story-moral {
+    margin-top: var(--spacing-xl);
+    padding: var(--spacing-lg);
+    background: rgba(16, 185, 129, 0.1);
+    border: 2px solid var(--success-color);
+    border-radius: var(--radius-lg);
+    text-align: center;
+    animation: slideUp 0.5s ease;
+}
+
+.story-moral h3 {
+    color: var(--success-color);
+    font-size: 1.5rem;
+    margin-bottom: var(--spacing-sm);
+}
+
+.story-moral p {
+    font-size: 1.3rem;
+    color: var(--text-primary);
+    font-style: italic;
+}
+
+/* === Story Management === */
+.story-management {
+    display: flex;
+    justify-content: flex-end;
+    gap: var(--spacing-md);
+    margin-bottom: var(--spacing-lg);
+}
+
+.control-btn.danger {
+    background: rgba(239, 68, 68, 0.2);
+    border: 1px solid var(--error-color);
+    color: var(--error-color);
+}
+
+.control-btn.danger:hover {
+    background: var(--error-color);
+    color: white;
+}
+
+.control-btn.hidden {
+    display: none;
+}
+
+/* Deletion Checkboxes */
+.story-card.select-mode {
+    cursor: default;
+}
+
+.story-checkbox {
+    position: absolute;
+    top: 10px;
+    right: 10px;
+    width: 24px;
+    height: 24px;
+    z-index: 10;
+    cursor: pointer;
+    accent-color: var(--primary-color);
+    transform: scale(1.5);
+    display: none;
+}
+
+.story-card.select-mode .story-checkbox {
+    display: block;
+}
+
+.story-card.selected {
+    border-color: var(--primary-color);
+    background: rgba(99, 102, 241, 0.1);
+}
+
 /* === Practice Page === */
 .practice-container {
     max-width: 800px;

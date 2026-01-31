@@ -15,8 +15,57 @@ const state = {
     currentSentenceIndex: 0,
     recognition: null,
     synthesis: window.speechSynthesis,
-    currentUtterance: null
+    currentUtterance: null,
+    isSelectMode: false,
+    selectedStories: new Set()
 };
+
+// ... (lines 20-186)
+
+function displayStory(story) {
+    // Hide stories list, show reader
+    document.getElementById('stories-list').classList.add('hidden');
+    // Hide generator and controls when reading
+    document.querySelector('.story-generator').classList.add('hidden');
+    document.querySelector('.story-management').classList.add('hidden');
+
+    document.getElementById('story-reader').classList.remove('hidden');
+
+    // Set title
+    document.getElementById('story-title').textContent = story.title;
+
+    // Set image (placeholder for now)
+    const imageContainer = document.querySelector('.story-image-container');
+    imageContainer.innerHTML = `
+        <div style="width: 100%; height: 400px; display: flex; align-items: center; justify-content: center; font-size: 5rem;">
+            ${getThemeEmoji(story.theme)}
+        </div>
+    `;
+
+    // Display sentences with word-level wrapping
+    const textContainer = document.getElementById('story-text');
+    textContainer.innerHTML = story.sentences.map((s, sentenceIdx) => {
+        // Split sentence into words
+        const words = s.sentence_text.trim().split(/\s+/);
+        const wordsHtml = words.map((word, wordIdx) =>
+            `<span class="story-word" data-sentence="${sentenceIdx}" data-word="${wordIdx}">${word}</span>`
+        ).join(' ');
+        return `<span class="story-sentence" data-index="${sentenceIdx}">${wordsHtml} </span>`;
+    }).join('');
+
+    // Display Moral
+    const moralContainer = document.getElementById('story-moral');
+    const moralText = document.getElementById('moral-text');
+
+    if (story.moral) {
+        moralText.textContent = story.moral;
+        moralContainer.classList.remove('hidden');
+    } else {
+        moralContainer.classList.add('hidden');
+    }
+
+    state.currentSentenceIndex = 0;
+}
 
 // ===================================
 // Initialization
@@ -132,6 +181,10 @@ function initializeStoriesPage() {
 
     // Topic-based story generation
     document.getElementById('generate-topic-story')?.addEventListener('click', generateTopicStory);
+
+    // Story Management
+    document.getElementById('toggle-select-mode')?.addEventListener('click', toggleSelectMode);
+    document.getElementById('delete-selected')?.addEventListener('click', deleteSelectedStories);
 }
 
 async function loadStories() {
@@ -162,45 +215,51 @@ function displayStories(stories) {
     }
 
     container.innerHTML = stories.map(story => `
-        <div class="story-card" data-story-id="${story.id}">
+        <div class="story-card ${state.isSelectMode ? 'select-mode' : ''} ${state.selectedStories.has(story.id.toString()) ? 'selected' : ''}" 
+             data-story-id="${story.id}">
+            <input type="checkbox" class="story-checkbox" ${state.selectedStories.has(story.id.toString()) ? 'checked' : ''}>
             <div class="story-card-icon">📖</div>
             <h3>${story.title}</h3>
             <span class="story-card-theme">${story.theme || 'General'}</span>
+            ${story.moral ? '<span style="font-size: 0.8rem; color: var(--success-color);">🌟</span>' : ''}
         </div>
     `).join('');
 
     // Add click handlers
     container.querySelectorAll('.story-card').forEach(card => {
-        card.addEventListener('click', () => {
+        card.addEventListener('click', (e) => {
             const storyId = card.dataset.storyId;
-            loadStory(storyId);
+
+            if (state.isSelectMode) {
+                // Toggle selection
+                const checkbox = card.querySelector('.story-checkbox');
+                if (checkbox) {
+                    const isSelected = !state.selectedStories.has(storyId);
+                    checkbox.checked = isSelected;
+                    if (isSelected) {
+                        state.selectedStories.add(storyId);
+                        card.classList.add('selected');
+                    } else {
+                        state.selectedStories.delete(storyId);
+                        card.classList.remove('selected');
+                    }
+                    updateDeleteButton();
+                }
+            } else {
+                // Open story
+                loadStory(storyId);
+            }
         });
     });
-}
-
-async function loadStory(storyId) {
-    try {
-        showLoading();
-        const response = await fetch(`${API_BASE}/stories/${storyId}`);
-        const data = await response.json();
-
-        if (data.success) {
-            state.currentStory = data.story;
-            displayStory(data.story);
-        } else {
-            showError('Failed to load story');
-        }
-    } catch (error) {
-        console.error('Error loading story:', error);
-        showError('Failed to load story');
-    } finally {
-        hideLoading();
-    }
 }
 
 function displayStory(story) {
     // Hide stories list, show reader
     document.getElementById('stories-list').classList.add('hidden');
+    // Hide generator and controls when reading
+    document.querySelector('.story-generator').classList.add('hidden');
+    document.querySelector('.story-management').classList.add('hidden');
+
     document.getElementById('story-reader').classList.remove('hidden');
 
     // Set title
@@ -225,7 +284,118 @@ function displayStory(story) {
         return `<span class="story-sentence" data-index="${sentenceIdx}">${wordsHtml} </span>`;
     }).join('');
 
+    // Display Moral
+    const moralContainer = document.getElementById('story-moral');
+    const moralText = document.getElementById('moral-text');
+
+    if (story.moral) {
+        moralText.textContent = story.moral;
+        moralContainer.classList.remove('hidden');
+    } else {
+        moralContainer.classList.add('hidden');
+    }
+
     state.currentSentenceIndex = 0;
+}
+
+async function loadStory(storyId) {
+    try {
+        showLoading();
+        const response = await fetch(`${API_BASE}/stories/${storyId}`);
+        const data = await response.json();
+
+        if (data.success) {
+            state.currentStory = data.story;
+            displayStory(data.story);
+        } else {
+            showError('Failed to load story');
+        }
+    } catch (error) {
+        console.error('Error loading story:', error);
+        showError('Failed to load story');
+    } finally {
+        hideLoading();
+    }
+}
+
+// ===================================
+// Story Management Functions
+// ===================================
+
+function toggleSelectMode() {
+    state.isSelectMode = !state.isSelectMode;
+    state.selectedStories.clear();
+
+    // Update UI
+    const container = document.getElementById('stories-list');
+    const cards = container.querySelectorAll('.story-card');
+    const toggleBtn = document.getElementById('toggle-select-mode');
+
+    if (state.isSelectMode) {
+        toggleBtn.classList.add('active');
+        toggleBtn.innerHTML = '<span class="btn-icon">✖️</span><span>Cancel Selection</span>';
+        cards.forEach(card => card.classList.add('select-mode'));
+        document.getElementById('delete-selected').classList.remove('hidden');
+    } else {
+        toggleBtn.classList.remove('active');
+        toggleBtn.innerHTML = '<span class="btn-icon">☑️</span><span>Manage Stories</span>';
+        cards.forEach(card => {
+            card.classList.remove('select-mode', 'selected');
+            const checkbox = card.querySelector('.story-checkbox');
+            if (checkbox) checkbox.checked = false;
+        });
+        document.getElementById('delete-selected').classList.add('hidden');
+    }
+
+    updateDeleteButton();
+}
+
+function updateDeleteButton() {
+    const deleteBtn = document.getElementById('delete-selected');
+    const count = state.selectedStories.size;
+
+    if (count > 0) {
+        deleteBtn.innerHTML = `<span class="btn-icon">🗑️</span><span>Delete Selected (${count})</span>`;
+        deleteBtn.disabled = false;
+    } else {
+        deleteBtn.innerHTML = `<span class="btn-icon">🗑️</span><span>Delete Selected</span>`;
+        deleteBtn.disabled = true;
+    }
+}
+
+async function deleteSelectedStories() {
+    if (state.selectedStories.size === 0) return;
+
+    if (!confirm(`Are you sure you want to delete ${state.selectedStories.size} stories?`)) {
+        return;
+    }
+
+    try {
+        showLoading();
+
+        const response = await fetch(`${API_BASE}/stories/batch-delete`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ story_ids: Array.from(state.selectedStories) })
+        });
+
+        const data = await response.json();
+
+        if (data.success) {
+            // Exit select mode
+            toggleSelectMode();
+            // Reload stories
+            await loadStories();
+            showError(data.message); // Should be showSuccess ideally, using showError as alert for now
+        } else {
+            showError(data.error || 'Failed to delete stories');
+        }
+    } catch (error) {
+        console.error('Error deleting stories:', error);
+        showError('Failed to delete stories');
+    } finally {
+        hideLoading();
+    }
 }
 
 function getThemeEmoji(theme) {
