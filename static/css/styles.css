@@ -1527,3 +1527,78 @@ body::before {
 .mb-3 {
     margin-bottom: var(--spacing-lg);
 }
+
+/* Sentence Highlighting */
+.story-sentence {
+    /* Base state needs to match highlight dimensions to avoid jumps */
+    padding: 0 4px;
+    border-radius: var(--radius-sm);
+    transition: background-color 0.2s ease, color 0.2s ease;
+}
+
+.story-sentence.active-sentence {
+    background-color: #fcd34d;
+    /* Bright yellow */
+    color: #1a202c !important;
+    /* Dark text */
+    /* Removed box-shadow and font-weight to prevent flashing/reflow */
+}
+
+.story-sentence.active-sentence .story-word {
+    color: #1a202c !important;
+    text-shadow: none;
+    /* font-weight: 600; Removed to stop width jumping */
+}
+
+/* Fun Loader */
+.fun-loader {
+    width: 100px;
+    height: 100px;
+    position: relative;
+    margin: 0 auto;
+}
+
+.fun-loader::before {
+    content: '🎈';
+    font-size: 3rem;
+    position: absolute;
+    top: 0;
+    left: 50%;
+    transform: translateX(-50%);
+    animation: float 2s ease-in-out infinite;
+}
+
+.fun-loader::after {
+    content: 'Making Magic...';
+    position: absolute;
+    bottom: 0;
+    left: 50%;
+    transform: translateX(-50%);
+    color: var(--text-secondary);
+    font-size: 0.9rem;
+    white-space: nowrap;
+}
+
+@keyframes float {
+
+    0%,
+    100% {
+        transform: translateX(-50%) translateY(0);
+    }
+
+    50% {
+        transform: translateX(-50%) translateY(-20px);
+    }
+}
+
+/* Hide default spinner if we use fun loader */
+.loading-spinner.fun-mode {
+    border: none;
+    border-top: none;
+    animation: none;
+    background: none;
+    width: auto;
+    height: auto;
+    display: flex;
+    justify-content: center;
+}

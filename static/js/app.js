@@ -448,60 +448,84 @@ function stopStory() {
     state.currentSentenceIndex = 0;
 }
 
+// Helper to delay
+const delay = ms => new Promise(res => setTimeout(res, ms));
+
 async function speakStory() {
     if (!state.currentStory || !state.isPlaying) return;
 
-    // Highlights
     const textContainer = document.getElementById('story-text');
+    const sentences = state.currentStory.sentences;
 
-    // We are playing the whole story now, so we highlight the whole block or just show playing state.
-    textContainer.classList.add('reading-active');
+    // We start from currentSentenceIndex
+    for (let i = state.currentSentenceIndex; i < sentences.length; i++) {
+        if (!state.isPlaying) break;
 
-    // Check if audio is already loaded/paused
-    if (state.currentAudio && state.currentAudio.src.includes('story')) {
-        state.currentAudio.play();
-        return;
-    }
+        state.currentSentenceIndex = i;
+        const sentenceData = sentences[i];
 
-    // Fetch Full Story Audio
-    try {
-        const speed = getSelectedSpeed(); // Defaults to 0.8
-
-        const response = await fetch(`${API_BASE}/speech/story/${state.currentStory.id}`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ speed: speed })
-        });
-        const data = await response.json();
-
-        if (data.success) {
-            if (state.currentAudio) {
-                state.currentAudio.pause();
-                state.currentAudio = null;
-            }
-
-            const audio = new Audio(data.audio_url);
-            state.currentAudio = audio;
-
-            audio.onended = () => {
-                state.isPlaying = false;
-                document.getElementById('play-story').style.display = 'flex';
-                document.getElementById('pause-story').style.display = 'none';
-                textContainer.classList.remove('reading-active');
-                state.currentAudio = null; // Clear it so we don't replay finished audio
-            };
-
-            audio.play();
-        } else {
-            console.error("Audio Error:", data.error);
-            showError("Could not load story audio.");
-            pauseStory();
+        // Highlight Sentence
+        const sentenceSpan = document.querySelector(`.story-sentence[data-index="${i}"]`);
+        if (sentenceSpan) {
+            sentenceSpan.scrollIntoView({ behavior: 'smooth', block: 'center' });
+            sentenceSpan.classList.add('active-sentence');
         }
-    } catch (e) {
-        console.error("Network Error:", e);
-        showError("Network error loading audio.");
-        pauseStory();
+
+        try {
+            await playSentenceAudio(sentenceData.sentence_text);
+        } catch (e) {
+            console.error("Audio failed for sentence", i, e);
+        }
+
+        // Remove Highlight
+        if (sentenceSpan) sentenceSpan.classList.remove('active-sentence');
+
+        // Pause removed as requested
+        // if (state.isPlaying) await delay(1000);
     }
+
+    // Reset if finished
+    if (state.currentSentenceIndex >= sentences.length - 1) {
+        stopStory();
+    }
+}
+
+async function playSentenceAudio(text) {
+    return new Promise(async (resolve, reject) => {
+        try {
+            const speed = getSelectedSpeed();
+            const response = await fetch(`${API_BASE}/speech/tts`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ text: text, speed: speed })
+            });
+            const data = await response.json();
+
+            if (data.success) {
+                const audio = new Audio(data.audio_url);
+                state.currentAudio = audio;
+
+                audio.onended = () => {
+                    state.currentAudio = null;
+                    resolve();
+                };
+
+                audio.onerror = (e) => {
+                    console.error("Audio load error", e);
+                    reject(e);
+                };
+
+                audio.play().catch(e => {
+                    console.error("Play error", e);
+                    reject(e);
+                });
+            } else {
+                reject(data.error);
+            }
+        } catch (e) {
+            reject(e);
+        }
+    });
 }
 
 // ===================================

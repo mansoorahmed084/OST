@@ -11,36 +11,164 @@ bp = Blueprint('generator', __name__)
 
 # Kid-friendly topics for random generation
 RANDOM_TOPICS = [
-    'a friendly dog', 'a brave cat', 'a happy elephant', 'a wise owl',
-    'a red car', 'a big bus', 'a fast train', 'a flying airplane',
-    'a sunny day', 'a rainy day', 'a beautiful rainbow', 'a bright star',
-    'a kind friend', 'a helpful teacher', 'a loving family', 'a fun game',
-    'a tasty apple', 'a sweet mango', 'a yummy banana', 'fresh vegetables',
-    'a tall tree', 'colorful flowers', 'singing birds', 'playful butterflies'
+    'a friendly dog','a small dog','a brown dog','a playful puppy','a brave cat','a white cat','a sleepy cat','a soft kitten',
+    'a big cow','a calm cow','a milk cow','a brown cow','a gentle goat','a white goat','a small goat','a jumping goat',
+    'a fast horse','a tall horse','a brown horse','a running horse','a happy elephant','a big elephant','a kind elephant','a walking elephant',
+    'a tall giraffe','a spotted giraffe','a gentle giraffe','a long neck giraffe','a strong lion','a quiet lion','a resting lion','a brave lion',
+    'a jumping monkey','a funny monkey','a small monkey','a clever monkey','a wise owl','a brown owl','a night owl','a quiet owl',
+    'a flying bird','a small bird','a singing bird','a blue bird','a yellow duck','a swimming duck','a baby duck','a happy duck',
+    'a slow turtle','a green turtle','a walking turtle','a calm turtle','a hopping rabbit','a white rabbit','a small rabbit','a fast rabbit',
+    'a barking dog','a meowing cat','a mooing cow','a neighing horse','a chirping bird','a flying butterfly','a colorful butterfly','a soft butterfly',
+    'a busy ant','a small ant','a black ant','a walking ant','a buzzing bee','a yellow bee','a flying bee','a honey bee',
+    'a swimming fish','a small fish','a red fish','a shiny fish',
+
+    'a red car','a blue car','a small car','a fast car','a big bus','a yellow bus','a school bus','a city bus',
+    'a long train','a fast train','a green train','a railway train','a flying airplane','a big airplane','a white airplane','a loud airplane',
+    'a black bike','a small bike','a fast bike','a new bike','a green auto','a yellow auto','a city auto','a small auto',
+    'a moving truck','a big truck','a red truck','a heavy truck','a water boat','a small boat','a fishing boat','a blue boat',
+    'a flying helicopter','a rescue helicopter','a loud helicopter','a red helicopter','a slow bullock cart','a village cart','a wooden cart','a farm cart',
+    'a cycle rickshaw','a city rickshaw','a slow rickshaw','a green rickshaw','a police jeep','a white jeep','a strong jeep','a big jeep',
+    'a fire engine','a red fire engine','a fast fire engine','a loud fire engine','an ambulance van','a white ambulance','a fast ambulance','a helping ambulance',
+    'a garbage truck','a green garbage truck','a city garbage truck','a cleaning truck',
+
+    'a red apple','a sweet apple','a juicy apple','a fresh apple','a yellow banana','a ripe banana','a sweet banana','a long banana',
+    'a sweet mango','a ripe mango','a juicy mango','a yellow mango','a round orange','a sweet orange','a peeled orange','a fresh orange',
+    'a slice of bread','soft bread','fresh bread','warm bread','a bowl of rice','white rice','hot rice','plain rice',
+    'a roti bread','soft roti','round roti','warm roti','a glass of milk','warm milk','cold milk','fresh milk',
+    'a cup of water','clean water','cold water','drinking water','a sweet biscuit','round biscuit','tea biscuit','plain biscuit',
+    'a chocolate bar','sweet chocolate','brown chocolate','small chocolate','a bowl of dal','hot dal','yellow dal','soft dal',
+    'a plate of vegetables','fresh vegetables','green vegetables','cut vegetables',
+
+    'a sunny day','a hot day','a bright day','a clear day','a rainy day','a wet day','a cloudy day','a cool day',
+    'a big tree','a green tree','a tall tree','a shady tree','colorful flowers','red flowers','yellow flowers','fresh flowers',
+    'a green leaf','a small leaf','a dry leaf','a fallen leaf','a blue sky','a clear sky','a cloudy sky','a wide sky',
+    'a bright sun','a hot sun','a yellow sun','a shining sun','a white moon','a full moon','a night moon','a bright moon',
+    'a twinkling star','a bright star','many stars','night stars','a flowing river','a clean river','a wide river','a slow river',
+    'a calm lake','a blue lake','a quiet lake','a deep lake','a green hill','a small hill','a tall hill','a far hill',
+    'a cool breeze','a soft wind','a strong wind','a moving wind',
+
+    'a happy family','a small family','a loving family','a kind family','a caring mother','a busy mother','a smiling mother','a gentle mother',
+    'a strong father','a kind father','a helping father','a smiling father','a young boy','a happy boy','a playful boy','a kind boy',
+    'a little girl','a happy girl','a smiling girl','a kind girl','a clean house','a big house','a small house','a white house',
+    'a cozy room','a clean room','a quiet room','a bright room','a soft bed','a warm bed','a small bed','a clean bed',
+    'a wooden table','a round table','a dining table','a small table','a chair to sit','a small chair','a wooden chair','a clean chair',
+    'a kitchen room','a clean kitchen','a cooking kitchen','a home kitchen','a bathroom sink','a clean bathroom','a washing bathroom','a water tap',
+    'a school bag','a heavy bag','a blue bag','a new bag','a pencil box','a small pencil','a sharp pencil','a long pencil',
+
+    'a fun game','a simple game','a happy game','a playing game','a red ball','a round ball','a bouncing ball','a soft ball',
+    'a toy car','a small toy car','a red toy car','a moving toy car','a toy train','a long toy train','a colorful toy train','a toy engine',
+    'a teddy bear','a soft teddy','a brown teddy','a smiling teddy','a doll toy','a small doll','a pretty doll','a dress doll',
+    'a puzzle game','a simple puzzle','a picture puzzle','a fun puzzle','a drawing book','a white book','a big book','a school book',
+    'a color pencil','a red pencil','a blue pencil','a green pencil','a paint brush','a soft brush','a paint color','a drawing brush',
+    'a blackboard','a school board','a writing board','a clean board','a school class','a happy class','a quiet class','a learning class',
+    'a school bell','a ringing bell','a loud bell','a school bell','a lunch box','a small lunch box','a blue lunch box','a full lunch box',
+    'a playground slide','a tall slide','a fun slide','a fast slide','a swing ride','a moving swing','a slow swing','a happy swing'
 ]
 
 # Simple story templates
+# Simple story templates - Simplified for Omar (Subject-Verb-Object)
 STORY_TEMPLATES = {
     'short': [
-        "There was {subject}. {subject_cap} was very {adjective}. {subject_cap} liked to {action}. Every day, {subject} would {action}. {subject_cap} was always happy.",
-        "{subject_cap} lived in a {place}. The {place} was {adjective}. {subject_cap} had many friends. They would {action} together. Everyone loved {subject}.",
-        "One day, {subject} woke up early. {subject_cap} wanted to {action}. The day was {adjective}. {subject_cap} felt very happy. It was a good day."
+        "{subject_cap} is a {subject}. {pronoun} is {adjective}. {pronoun} likes to {action}. {pronoun} sees a {adjective2} friend. They {action} together. {subject_cap} is happy.",
+        "See the {subject}. {pronoun} is {adjective}. {pronoun} goes to the {place}. The {place} is {adjective2}. {pronoun} likes the {place}. {subject_cap} will {action}.",
+        "{subject_cap} wakes up. {pronoun} is {adjective}. {pronoun} wants to {action}. {pronoun} goes to the {place}. {subject_cap} has fun."
     ],
     'medium': [
-        "There was {subject}. {subject_cap} was very {adjective}. Every morning, {subject} would wake up early. {subject_cap} liked to {action}. All the friends loved {subject}. One day, {subject} decided to {action2}. It was a {adjective2} day. {subject_cap} felt very happy. The sun was shining bright. {subject_cap} played all day long. When evening came, {subject} went home. {subject_cap} had a wonderful day. {subject_cap} slept with a big smile.",
-        "{subject_cap} lived in a beautiful {place}. The {place} was very {adjective}. {subject_cap} had many good friends. Every day they would {action} together. {subject_cap} was always kind and helpful. One sunny day, {subject} found something special. It was a {adjective2} surprise. {subject_cap} shared it with everyone. All the friends were very happy. They thanked {subject} for being so nice. {subject_cap} felt proud and joyful. That night, {subject} dreamed happy dreams."
+        "{subject_cap} is a big {subject}. {pronoun} is very {adjective}. One day, {pronoun} goes to the {place}. The {place} is {adjective2}. {pronoun} sees a friend. The friend is happy. They {action} together. They {action2}. {subject_cap} feels good. {pronoun} goes home. {pronoun} sleeps.",
+        "This is {subject_cap}. {pronoun} lives in a {place}. The {place} is nice. {pronoun} is {adjective}. {pronoun} likes to {action}. {pronoun} finds a {adjective2} toy. {pronoun} looks at the toy. {pronoun} plays with the toy. {subject_cap} is happy. {pronoun} loves the {place}."
     ],
     'long': [
-        "Once upon a time, there was {subject}. {subject_cap} lived in a {place} with many friends. {subject_cap} was known for being very {adjective}. Every morning, {subject} would wake up with the sunrise. {subject_cap} loved to {action} in the morning. All the friends would come to visit {subject}. They enjoyed spending time together. One beautiful day, something special happened. {subject_cap} decided to {action2} for the very first time. At first, {subject} felt a little nervous. But the friends encouraged {subject} to try. With their support, {subject} felt brave. {subject_cap} took a deep breath and started. It was {adjective2} and exciting! Everyone cheered for {subject}. {subject_cap} felt so happy and proud. From that day on, {subject} knew that with good friends, anything is possible. {subject_cap} learned that trying new things can be fun. Every day became an adventure. {subject_cap} and the friends lived happily, always helping each other. They learned, played, and grew together. And {subject} was grateful for every moment.",
-        "In a {adjective} {place}, there lived {subject}. {subject_cap} was special because {subject} was very {adjective2}. Every day was an adventure for {subject}. In the morning, {subject} would {action} with great joy. The other animals in the {place} admired {subject}. {subject_cap} had a best friend who was also very kind. Together, they would explore and discover new things. One day, they decided to {action2} together. It was something they had never done before. {subject_cap} felt excited but also a little scared. The friend said, 'Don't worry, we can do this together!' With courage in their hearts, they began their journey. The path was {adjective} and full of surprises. They saw beautiful sights along the way. They helped each other when things got difficult. {subject_cap} realized that friendship makes everything better. When they finally reached their goal, they were so happy! They celebrated their success together. {subject_cap} learned an important lesson that day. With determination and good friends, dreams come true. From then on, {subject} faced every challenge with confidence. The {place} became even more wonderful. And {subject} lived each day with joy and gratitude."
+        "{subject_cap} is a {subject}. {pronoun} is {adjective}. {pronoun} lives in the {place}. The {place} is big. One day, {subject_cap} wakes up. The sun is bright. {pronoun} wants to {action}. {pronoun} goes outside. {pronoun} sees a friend. The friend says hello. They walk together. They see a {adjective2} flower. It is pretty. {subject_cap} likes the flower. They {action2} together. It is fun. {pronoun} is very happy. {pronoun} goes home. {pronoun} sleeps.",
+        "Once there was a {subject}. The name was {subject_cap}. {pronoun} was {adjective}. {pronoun} lived in a {place}. The {place} was green. {subject_cap} had a friend. They played every day. One day they went to {action}. They ran fast. They jumped high. They saw a {adjective2} bird. The bird sang. {subject_cap} smiled. {pronoun} liked the bird. They decided to {action2}. It was a good day. {subject_cap} was happy."
     ]
 }
 
 # Word banks for generation
-ADJECTIVES = ['happy', 'kind', 'brave', 'smart', 'friendly', 'gentle', 'cheerful', 'helpful', 'bright', 'wonderful']
-ACTIONS = ['play', 'sing', 'dance', 'run', 'jump', 'laugh', 'explore', 'learn', 'help others', 'make friends']
-ACTIONS2 = ['try something new', 'help a friend', 'learn a skill', 'go on an adventure', 'solve a problem']
-PLACES = ['village', 'forest', 'garden', 'park', 'town', 'meadow', 'valley', 'neighborhood']
+ADJECTIVES = [
+    'happy', 'sad', 'kind', 'nice', 'good',
+    'brave', 'smart', 'friendly', 'gentle', 'cheerful',
+    'helpful', 'bright', 'funny', 'quiet', 'loud',
+    'soft', 'hard', 'clean', 'dirty', 'big',
+    'small', 'tall', 'short', 'fast', 'slow',
+    'hot', 'cold', 'warm', 'cool', 'new',
+    'old', 'pretty', 'cute', 'strong', 'weak',
+    'busy', 'free', 'calm', 'angry', 'safe',
+    'sweet', 'simple', 'easy', 'fair', 'kindly'
+]
+ACTIONS = [
+    'play', 'run', 'walk', 'jump', 'sit',
+    'stand', 'clap', 'wave', 'smile', 'laugh',
+    'cry', 'talk', 'listen', 'look', 'see',
+    'read', 'write', 'draw', 'paint', 'sing',
+    'dance', 'eat', 'drink', 'sleep', 'wake',
+    'wash', 'clean', 'help', 'share', 'give',
+    'take', 'open', 'close', 'come', 'go',
+    'throw', 'catch', 'kick', 'push', 'pull',
+    'carry', 'hold', 'hug', 'call', 'wait'
+]
+ACTIONS2 = [
+    'try again',
+    'go slowly',
+    'speak softly',
+    'say clearly',
+    'listen carefully',
+    'look here',
+    'come here',
+    'go there',
+    'sit down',
+    'stand up',
+    'open the book',
+    'close the door',
+    'pick it up',
+    'put it down',
+    'wash hands',
+    'drink water',
+    'eat food',
+    'take rest',
+    'wake up',
+    'go outside',
+    'come inside',
+    'play together',
+    'help mother',
+    'help father',
+    'help a friend',
+    'share toys',
+    'wait here',
+    'follow me',
+    'try slowly',
+    'say once',
+    'say again',
+    'read aloud',
+    'look at picture',
+    'point here',
+    'touch this',
+    'hold this',
+    'count numbers',
+    'name colors',
+    'tell name',
+    'tell story',
+    'answer question',
+    'ask question',
+    'draw picture',
+    'write word',
+    'say thank you',
+    'say sorry',
+    'say please',
+    'smile again',
+    'take turn'
+]
+PLACES = [
+    'home', 'house', 'room', 'school', 'class',
+    'park', 'garden', 'playground', 'road', 'street',
+    'shop', 'market', 'mall', 'temple', 'mosque',
+    'church', 'hospital', 'clinic', 'office', 'bank',
+    'bus stop', 'railway station', 'village', 'town', 'city',
+    'farm', 'field', 'forest', 'river', 'lake',
+    'pond', 'beach', 'hill', 'mountain', 'valley',
+    'zoo', 'museum', 'library', 'restaurant', 'hotel',
+    'kitchen', 'bathroom', 'bedroom', 'balcony', 'terrace',
+    'courtyard', 'neighborhood', 'ground'
+]
 
 def capitalize_first(text):
     """Capitalize first letter of text"""
@@ -191,11 +319,17 @@ def generate_random_story():
         
         # Trigger Audio Generation Immediately
         try:
-            from routes.speech import generate_audio_file
+            from routes.speech import generate_audio_file, pregenerate_sentence_audio
             # Reconstruct full text for audio
             full_text = " ".join([s.strip() + '.' for s in content.split('.') if s.strip()])
             print(f"DEBUG: Generating initial audio for Story {story_id} at speed {speed}")
+            
+            # 1. Generate Full Audio (Legacy fallback)
             generate_audio_file(story_id, full_text, speed)
+            
+            # 2. Pre-generate Sentence Audio (For new player)
+            pregenerate_sentence_audio(story_id, speed)
+            
         except Exception as e:
             print(f"Initial Audio Gen Failed: {e}")
         
@@ -251,19 +385,25 @@ def generate_topic_story():
         
         # Trigger Audio Generation Immediately
         try:
-            from routes.speech import generate_audio_file
+            from routes.speech import generate_audio_file, pregenerate_sentence_audio
             # Reconstruct full text for audio
             full_text = " ".join([s.strip() + '.' for s in content.split('.') if s.strip()])
-            print(f"DEBUG: Generating initial audio for Story {story_id} at speed {speed}")
+            print(f"DEBUG: Generating topic audio for Story {story_id} at speed {speed}")
+            
+            # 1. Generate Full Audio
             generate_audio_file(story_id, full_text, speed)
+            
+            # 2. Pre-generate Sentence Audio
+            pregenerate_sentence_audio(story_id, speed)
+            
         except Exception as e:
-            print(f"Initial Audio Gen Failed: {e}")
+            print(f"Topic Audio Gen Failed: {e}")
 
         return jsonify({
             'success': True,
             'story_id': story_id,
             'title': title,
-            'message': f'Story about "{topic}" generated successfully!'
+            'message': 'Story created and audio generating...'
         }), 201
         
     except Exception as e:

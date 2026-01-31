@@ -102,9 +102,10 @@ def generate_story_text(topic, length='short'):
     CRITICAL RULES:
     1. Single Character Focus: The story must focus on ONE main character (e.g., a bear, a boy, a car) doing clear actions.
     2. Simple Grammar: Use short Subject-Verb-Object sentences (e.g., "The cat sees the ball." "The cat runs.").
-    3. Action Oriented: Focus on concrete actions (run, jump, eat, sleep) and descriptive words (colors, sizes).
-    4. Repetition: Repeat key vocabulary words 2-3 times naturally.
-    5. No Metaphors: Avoid abstract concepts or idioms. Keep it literal and concrete.
+    3. Pronouns: Introduce the character ONCE by name, then use pronouns (He/She/It) for the rest of the story. Do NOT repeat the name constantly.
+    4. Action Oriented: Focus on concrete actions (run, jump, eat, sleep) and descriptive words (colors, sizes).
+    5. Repetition: Repeat key vocabulary words 2-3 times naturally.
+    6. No Metaphors: Avoid abstract concepts or idioms. Keep it literal and concrete.
     
     Format the output as:
     TITLE: [Simple Literal Title]

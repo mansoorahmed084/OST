@@ -7,6 +7,7 @@ from flask import Blueprint, jsonify, request
 import os
 from gtts import gTTS
 import uuid
+import hashlib
 
 bp = Blueprint('speech', __name__)
 
@@ -114,9 +115,9 @@ def generate_openai_tts(text, voice_preset, outfile, speed):
 def text_to_speech():
     """Convert text to speech and return audio file path"""
     try:
-        data = request.json
+        data = request.get_json(silent=True) or {}
         text = data.get('text')
-        speed = data.get('speed', 1.0)  # 0.5 to 1.5
+        speed = float(data.get('speed', 1.0))  # 0.5 to 1.5
         
         if not text:
             return jsonify({
@@ -126,10 +127,21 @@ def text_to_speech():
         
         config = get_tts_config()
         provider = config['provider']
+        voice = config['voice_preset']
         
-        # Generate unique filename
-        filename = f"{uuid.uuid4()}.mp3"
+        # Generate hash-based filename for caching
+        # Filename: tts_{hash}.mp3
+        input_str = f"{provider}_{voice}_{speed}_{text}"
+        file_hash = hashlib.md5(input_str.encode('utf-8')).hexdigest()
+        filename = f"tts_{file_hash}.mp3"
         filepath = os.path.join(AUDIO_DIR, filename)
+
+        if os.path.exists(filepath):
+            return jsonify({
+                'success': True,
+                'audio_url': f'/audio/{filename}',
+                'message': 'Audio from cache'
+            })
         
         generated = False
         
@@ -287,6 +299,59 @@ def full_story_audio(story_id):
             'success': False,
             'error': str(e)
         }), 500
+
+def pregenerate_sentence_audio(story_id, speed=1.0):
+    """
+    Pre-generate audio segments for each sentence in the story.
+    This runs after story generation to ensure low-latency playback.
+    """
+    print(f"DEBUG: Pre-generating audio segments for Story {story_id}")
+    try:
+        from database import get_db_context
+        config = get_tts_config()
+        provider = config['provider']
+        voice = config['voice_preset']
+        
+        sentences = []
+        with get_db_context() as conn:
+            cursor = conn.cursor()
+            cursor.execute('SELECT sentence_text FROM story_sentences WHERE story_id = ? ORDER BY sentence_order', (story_id,))
+            sentences = [r[0] for r in cursor.fetchall()]
+            
+        for text in sentences:
+            if not text.strip(): continue
+            
+            # Generate hash-based filename (Same logic as text_to_speech)
+            input_str = f"{provider}_{voice}_{speed}_{text}"
+            file_hash = hashlib.md5(input_str.encode('utf-8')).hexdigest()
+            filename = f"tts_{file_hash}.mp3"
+            filepath = os.path.join(AUDIO_DIR, filename)
+
+            if os.path.exists(filepath):
+                continue
+            
+            # Generate
+            if provider == 'edge_tts':
+                try:
+                    generate_edge_tts(text, voice, filepath, speed)
+                except:
+                    pass
+            elif provider == 'openai':
+                try:
+                    generate_openai_tts(text, voice, filepath, speed)
+                except:
+                    pass
+            
+            if not os.path.exists(filepath):
+                 try:
+                    tts = gTTS(text=text, lang='en', slow=(speed < 0.8))
+                    tts.save(filepath)
+                 except: 
+                     pass
+                     
+        print(f"DEBUG: Pre-generation complete for {len(sentences)} sentences")
+    except Exception as e:
+        print(f"Error in pregenerate_sentence_audio: {e}")
 
 
 
