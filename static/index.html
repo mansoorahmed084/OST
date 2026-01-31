@@ -235,20 +235,37 @@
                             <span class="btn-icon">⏸️</span>
                             <span>Pause</span>
                         </button>
-
-
+                        <button id="stop-story" class="control-btn">
+                            <span class="btn-icon">⏹️</span>
+                            <span>Play from Start</span>
+                        </button>
                     </div>
 
-                    <div id="story-text" class="story-text">
-                        <!-- Story sentences will be displayed here -->
-                    </div>
+                    <div class="story-layout-container">
+                        <!-- Left Column: Story Text & Moral -->
+                        <div class="story-main-column">
+                            <div id="story-text" class="story-text">
+                                <!-- Story sentences -->
+                            </div>
 
-                    <!-- Moral Section -->
-                    <div id="story-moral" class="story-moral hidden">
-                        <h3>🌟 Moral of the Story</h3>
-                        <p id="moral-text"></p>
+                            <!-- Moral Section -->
+                            <div id="story-moral" class="story-moral hidden">
+                                <h3>🌟 Moral of the Story</h3>
+                                <p id="moral-text"></p>
+                            </div>
+                        </div>
+
+                        <!-- Right Column: Context/Vocab -->
+                        <div class="story-sidebar-column">
+                            <!-- Vocab Section -->
+                            <div id="story-vocab" class="story-vocab hidden">
+                                <h3>📚 New Words</h3>
+                                <div id="vocab-list" class="vocab-list-vertical"></div>
+                            </div>
+                        </div>
                     </div>
                 </div>
+            </div>
             </div>
             </div>
         </section>

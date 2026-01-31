@@ -230,6 +230,21 @@ def generate_audio_file(story_id, text_content, speed=1.0):
             except Exception as e:
                 print(f"DEBUG: gTTS Failed: {e}")
                 raise e
+        
+        # ADDED: Prepend Silence (300ms) to prevent start clipping
+        try:
+            from pydub import AudioSegment
+            print("DEBUG: Adding silence padding...")
+            audio_segment = AudioSegment.from_file(filepath)
+            silence = AudioSegment.silent(duration=300) # 300ms silence
+            final_audio = silence + audio_segment
+            final_audio.export(filepath, format="mp3")
+            print("DEBUG: Silence added successfully")
+        except ImportError:
+             print("DEBUG: pydub not installed, skipping silence padding")
+        except Exception as e:
+            print(f"DEBUG: Error adding silence: {e}")
+            # Non-critical, continue
             
         return True, f'/audio/{filename}'
     except Exception as e:

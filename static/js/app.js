@@ -1,5 +1,5 @@
 // ===================================
-// OST - Omar's Speech Teacher
+// OST - Omar's Speech Trainer
 // Main Application Logic
 // ===================================
 
@@ -161,6 +161,17 @@ function initializeStoriesPage() {
     // Play/Pause buttons
     document.getElementById('play-story')?.addEventListener('click', playStory);
     document.getElementById('pause-story')?.addEventListener('click', pauseStory);
+    document.getElementById('stop-story')?.addEventListener('click', () => {
+        // Explicit Hard Reset for "Start from Beginning"
+        if (state.currentAudio) {
+            state.currentAudio.pause();
+            state.currentAudio.currentTime = 0;
+        }
+        state.currentSentenceIndex = -1;
+        document.querySelectorAll('.active-sentence').forEach(el => el.classList.remove('active-sentence'));
+
+        playStory();
+    });
 
     // Speed controls
     document.querySelectorAll('.speed-btn').forEach(btn => {
@@ -292,6 +303,30 @@ function displayStory(story) {
         ).join(' ');
         return `<span class="story-sentence" data-index="${sentenceIdx}">${wordsHtml} </span>`;
     }).join('');
+
+    // Display Vocab
+    const vocabContainer = document.getElementById('story-vocab');
+    const vocabList = document.getElementById('vocab-list');
+
+    // Logic to handle vocab: could be object (new gen) or string (db)
+    let vocabData = story.vocab;
+    if (!vocabData && story.vocab_json) {
+        try {
+            vocabData = JSON.parse(story.vocab_json);
+        } catch (e) { console.error("Vocab Parse Error", e); }
+    }
+
+    if (vocabData && Object.keys(vocabData).length > 0) {
+        vocabList.innerHTML = Object.entries(vocabData).map(([word, def]) => `
+            <div class="vocab-card">
+                <span class="vocab-word">${word}</span>
+                <span class="vocab-def">${def}</span>
+            </div>
+        `).join('');
+        vocabContainer.classList.remove('hidden');
+    } else {
+        vocabContainer.classList.add('hidden');
+    }
 
     // Display Moral
     const moralContainer = document.getElementById('story-moral');
@@ -428,6 +463,21 @@ function playStory() {
     speakStory();
 }
 
+function stopStory() {
+    state.isPlaying = false;
+    document.getElementById('play-story').style.display = 'flex';
+    document.getElementById('pause-story').style.display = 'none';
+
+    if (state.currentAudio) {
+        state.currentAudio.pause();
+        state.currentAudio.currentTime = 0; // Reset
+    }
+
+    state.currentSentenceIndex = 0;
+    // Clear highlights
+    document.querySelectorAll('.active-sentence').forEach(el => el.classList.remove('active-sentence'));
+}
+
 function pauseStory() {
     state.isPlaying = false;
     document.getElementById('play-story').style.display = 'flex';
@@ -449,13 +499,33 @@ function stopStory() {
 }
 
 // Helper to delay
-const delay = ms => new Promise(res => setTimeout(res, ms));
+const SILENCE_PADDING = 0.1; // 300ms
 
 async function speakStory() {
     if (!state.currentStory || !state.isPlaying) return;
 
-    const textContainer = document.getElementById('story-text');
-    const sentences = state.currentStory.sentences;
+    // RESUME logic: If audio exists, just play
+    if (state.currentAudio) {
+        // If it was finished, reset
+        if (state.currentAudio.ended) {
+            state.currentAudio.currentTime = 0;
+            state.currentSentenceIndex = -1;
+        }
+
+        state.currentAudio.play().catch(e => console.error("Play error", e));
+
+        // Re-attach visual loop if needed (metadata already loaded)
+        // We need to re-calculate timings or store them? 
+        // Best to just re-run the visual loop logic assuming metadata is there.
+        // Actually, we can just trigger the loop. But we need 'sentenceEndTimes'.
+        // Let's re-calculate them or attach them to state?
+        // For simplicity, let's just fall through if we don't have times, but we don't want to re-fetch.
+        // Let's attach 'sentenceEndTimes' to state.currentStoryMetadata if possible, or just re-calc.
+        // Re-calc is cheap.
+
+        startVisualSync(state.currentAudio, state.currentStory.sentences);
+        return;
+    }
 
     try {
         // 1. Get Full Story Audio (Better Intonation)
@@ -476,74 +546,15 @@ async function speakStory() {
         const audio = new Audio(data.audio_url);
         state.currentAudio = audio;
 
-        // 2. Map Sentences to Times (Heuristic: Word Count Proportionality)
-        // We need audio duration to do this, so we wait for metadata
         audio.onloadedmetadata = () => {
-            const totalDuration = audio.duration;
-            // Calculate total words
-            let totalWords = 0;
-            const sentenceWords = sentences.map(s => {
-                const count = s.sentence_text.split(/\s+/).length;
-                totalWords += count;
-                return count;
-            });
-
-            // Map end times
-            let accumulatedWords = 0;
-            const sentenceEndTimes = sentenceWords.map(count => {
-                accumulatedWords += count;
-                // Add a small buffer/correction factor (TTS often speeds up slightly at ends)
-                return (accumulatedWords / totalWords) * totalDuration;
-            });
-
-            // 3. Play & Sync Highlight
-            audio.play();
-
-            // Visual Sync Loop
-            const updateVisuals = () => {
-                if (!state.isPlaying || !state.currentAudio) return;
-
-                const time = audio.currentTime;
-
-                // Find which sentence we are in
-                let activeIndex = -1;
-                for (let i = 0; i < sentenceEndTimes.length; i++) {
-                    if (time < sentenceEndTimes[i]) {
-                        activeIndex = i;
-                        break;
-                    }
-                }
-                // If at end or lag, assume last
-                if (activeIndex === -1 && time < totalDuration) activeIndex = sentenceEndTimes.length - 1;
-
-                if (activeIndex !== -1 && activeIndex !== state.currentSentenceIndex) {
-                    // Remove old
-                    const old = document.querySelector('.story-sentence.active-sentence');
-                    if (old) old.classList.remove('active-sentence');
-
-                    // Add new
-                    state.currentSentenceIndex = activeIndex;
-                    const target = document.querySelector(`.story-sentence[data-index="${activeIndex}"]`);
-                    if (target) {
-                        target.classList.add('active-sentence');
-                        target.scrollIntoView({ behavior: 'smooth', block: 'center' });
-                    }
-                }
-
-                if (!audio.paused && !audio.ended) {
-                    requestAnimationFrame(updateVisuals);
-                }
-            };
-
-            requestAnimationFrame(updateVisuals);
+            startVisualSync(audio, state.currentStory.sentences);
+            audio.play().catch(e => console.error("Play error", e));
         };
 
         audio.onended = () => {
             stopStory();
-            // Clear highlight
-            const old = document.querySelector('.story-sentence.active-sentence');
-            if (old) old.classList.remove('active-sentence');
             state.currentSentenceIndex = 0;
+            document.querySelectorAll('.active-sentence').forEach(el => el.classList.remove('active-sentence'));
         };
 
         audio.onerror = (e) => {
@@ -556,6 +567,82 @@ async function speakStory() {
         stopStory();
     }
 }
+
+function startVisualSync(audio, sentences) {
+    const totalDuration = audio.duration;
+    // Calculate total words
+    let totalWords = 0;
+    const sentenceWords = sentences.map(s => {
+        const count = s.sentence_text.split(/\s+/).length;
+        totalWords += count;
+        return count;
+    });
+
+    // Map end times
+    let accumulatedWords = 0;
+    // Effective duration corresponds to text parts (Total - Silence)
+    // If silence is at start, we shift TIME check by -Silence.
+    // Total Duration = Silence + Content.
+    // Content Duration = Total - Silence.
+    const contentDuration = Math.max(0, totalDuration - SILENCE_PADDING);
+
+    const sentenceEndTimes = sentenceWords.map(count => {
+        accumulatedWords += count;
+        // Proportion of CONTENT duration
+        return (accumulatedWords / totalWords) * contentDuration;
+    });
+
+    // Force highlighting first immediately
+    if (state.currentSentenceIndex < 0) {
+        state.currentSentenceIndex = -1;
+        const first = document.querySelector(`.story-sentence[data-index="0"]`);
+        if (first) first.classList.add('active-sentence');
+    }
+
+    // Visual Sync Loop
+    const updateVisuals = () => {
+        if (!state.isPlaying || !state.currentAudio) return;
+
+        // Current time in CONTENT (Time - Silence)
+        // If Time < Silence, we are in padding (Index 0 or -1?) -> Index 0.
+        const effectiveTime = Math.max(0, audio.currentTime - SILENCE_PADDING);
+
+        // Find which sentence we are in
+        let activeIndex = -1;
+        for (let i = 0; i < sentenceEndTimes.length; i++) {
+            if (effectiveTime < sentenceEndTimes[i]) {
+                activeIndex = i;
+                break;
+            }
+        }
+        // If at end or lag, assume last
+        if (activeIndex === -1 && effectiveTime < contentDuration) activeIndex = sentenceEndTimes.length - 1;
+
+        // Safety for silence period
+        if (audio.currentTime < SILENCE_PADDING) activeIndex = 0;
+
+        // Sync UI
+        if (activeIndex !== -1 && activeIndex !== state.currentSentenceIndex) {
+            const old = document.querySelector('.story-sentence.active-sentence');
+            if (old) old.classList.remove('active-sentence');
+
+            state.currentSentenceIndex = activeIndex;
+            const target = document.querySelector(`.story-sentence[data-index="${activeIndex}"]`);
+            if (target) {
+                target.classList.add('active-sentence');
+                target.scrollIntoView({ behavior: 'smooth', block: 'center' });
+            }
+        }
+
+        if (!audio.paused && !audio.ended) {
+            requestAnimationFrame(updateVisuals);
+        }
+    };
+
+    requestAnimationFrame(updateVisuals);
+}
+
+
 
 // Deprecated single sentence player
 async function playSentenceAudio(text) {
@@ -590,14 +677,29 @@ function startPractice() {
     document.getElementById('practice-feedback').classList.add('hidden');
 }
 
-function listenToSentence() {
+async function listenToSentence() {
     const sentence = document.getElementById('practice-sentence').textContent;
 
     if (sentence && sentence !== "Click \"Start Practice\" to begin") {
-        const utterance = new SpeechSynthesisUtterance(sentence);
-        utterance.rate = 0.8; // Slower for practice
-        utterance.lang = 'en-IN';
-        state.synthesis.speak(utterance);
+        // Use Backend TTS for consistency
+        try {
+            const speed = getSelectedSpeed();
+            const response = await fetch(`${API_BASE}/speech/tts`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ text: sentence, speed: speed })
+            });
+            const data = await response.json();
+
+            if (data.success) {
+                const audio = new Audio(data.audio_url);
+                audio.play();
+            } else {
+                console.error("TTS Failed");
+            }
+        } catch (e) {
+            console.error("TTS Error", e);
+        }
     }
 }
 

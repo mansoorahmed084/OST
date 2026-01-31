@@ -42,7 +42,7 @@ def get_story(story_id):
             # Get story details
             cursor.execute('''
                 SELECT id, title, content, moral, theme, difficulty_level, 
-                       image_category, created_at, last_read
+                       image_category, vocab_json, created_at, last_read
                 FROM stories
                 WHERE id = ?
             ''', (story_id,))

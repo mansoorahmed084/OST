@@ -1544,10 +1544,72 @@ body::before {
     /* Removed box-shadow and font-weight to prevent flashing/reflow */
 }
 
+
+
 .story-sentence.active-sentence .story-word {
     color: #1a202c !important;
     text-shadow: none;
     /* font-weight: 600; Removed to stop width jumping */
+}
+
+/* Story Reader Layout */
+.story-layout-container {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 2rem;
+    margin-top: 1rem;
+    align-items: flex-start;
+}
+
+.story-main-column {
+    flex: 2;
+    min-width: 300px;
+}
+
+.story-sidebar-column {
+    flex: 1;
+    min-width: 250px;
+    position: sticky;
+    top: 20px;
+}
+
+/* Updated Vocab Section (Sidebar) */
+.story-vocab {
+    margin-top: 0;
+    padding-top: 0;
+    border-top: none;
+    background: rgba(255, 255, 255, 0.03);
+    /* Subtle bg for sidebar */
+    padding: 1rem;
+    border-radius: 12px;
+    border: 1px solid var(--border-color);
+}
+
+.vocab-list-vertical {
+    display: flex;
+    flex-direction: column;
+    gap: 1rem;
+    margin-top: 1rem;
+}
+
+.vocab-card {
+    background: var(--bg-card);
+    border: 1px solid var(--border-color);
+    border-radius: 8px;
+    padding: 0.75rem;
+    text-align: left;
+}
+
+.vocab-word {
+    font-weight: bold;
+    color: var(--primary-color);
+    display: block;
+    margin-bottom: 0.25rem;
+}
+
+.vocab-def {
+    font-size: 0.9rem;
+    color: var(--text-secondary);
 }
 
 /* Fun Loader */

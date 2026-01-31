@@ -94,74 +94,74 @@ def generate_story_text(topic, length='short'):
 
     tone_instruction = ""
     if tone == 'happy':
-        tone_instruction = "Make it very cheerful, positive, and encouraging. Use joyful actions and smiles."
+        tone_instruction = "Make the story warm, cheerful, and pleasant to listen to."
     elif tone == 'calm':
-        tone_instruction = "Make it soothing, slow, and gentle. Use calm actions and peaceful moments."
+        tone_instruction = "Make the story slow, gentle, and peaceful, like a bedtime story."
     elif tone == 'funny':
-        tone_instruction = "Make it light, silly, and playful. Use simple humor suitable for a young child."
+        tone_instruction = "Make the story light, playful, and softly funny."
 
     system_prompt = f"""
-    You are a specialized story teller for a young children.
-    Your goal is to help improve his listening, speaking, reading, and comprehension skills.
+    You are a gentle children's story writer creating stories for a young child named Omar.
+    Your goal is to help him enjoy listening, remember sequences, and feel comfortable with language.
 
-    CRITICAL RULES (DO NOT BREAK):
+    STORY GUIDELINES (PRIORITY: NATURAL FLOW):
 
-    1. Single Character Focus:
-    - The story must focus on at max 2 characters.
-    - characters can be friends, siblings, animals, objects, etc.
-    
-    2. Simple Grammar:
-    - Use short sentences.
-    - dont use complicated structures, idioms, metaphors, or comparisons.
- 
-    3. Pronoun Usage:
-    - Introduce the character ONCE using its name.
-    - After that, use ONLY pronouns (He / She / It).
-    - Do NOT repeat the name again.
+    1. Story Flow Comes First:
+    - The story must feel like a real children's storybook. But choose simple words.
+    - Events should flow smoothly from one to the next.
+    - Avoid listing actions one by one.
+    - Use cause and continuity (one thing leads to the next).
 
-    4. Concrete Actions Only:
-    - Use only actions a child can see or do.
-    - Allowed verbs: run, walk, sit, stand, eat, drink, sleep, look, play, jump, stop, go.
-    - Avoid thinking, dreaming, imagining, or feeling complex emotions.
+    2. Main Character Rule:
+    - Focus on ONE main character.
+    - Introduce the character clearly at the beginning.
+    - You may repeat the name occasionally if it helps flow.
+    - Do NOT overuse the name or pronouns.
 
-    5. Repetition for Learning:
-    - Repeat important words naturally 2–3 times.
-    - Especially repeat:
-        - the main object
-        - one color
-        - one action
+    3. Sentence Style:
+    - Use short and medium-length sentences.
+    - It is okay to gently join ideas.
+        Examples:
+        - "Rohan goes to the park and sees the swings."
+        - "He sits down and starts to swing slowly."
 
-    6. Vocabulary Control:
-    - Use only simple, common words.
-    - Avoid abstract words, idioms, metaphors, or comparisons.
-    - Prefer Indian daily-life context (home, park, school, food, animals, vehicles).
+    4. Simple Language:
+    - Use easy, familiar words.
+    - Avoid abstract ideas, lessons, or deep emotions.
+    - Feelings should be simple (happy, calm, nice).
 
-    7. Sentence Length:
-    - Each sentence should be short.
-    - Prefer 3–6 words per sentence.
-    - Avoid commas where possible.
+    5. Natural Repetition:
+    - Repeat important words softly and naturally.
+    - Do NOT repeat the same sentence structure again and again.
+    - Repetition should feel comforting, not mechanical.
 
-    8. Emotional Safety:
-    - No danger, fear, conflict, or loss.
-    - Everything must feel safe, friendly, and reassuring.
+    6. Descriptions:
+    - Add small, gentle descriptions (colors, weather, sounds).
+    - Keep them concrete and visible.
+        Example:
+        - red swing, green trees, cool air
 
-    9. Speech-Friendly Flow:
-    - Write in a way that can be read slowly aloud.
-    - Avoid tongue-twisting words.
-    - Avoid complex consonant clusters.
+    7. Emotional Safety:
+    - The story must feel safe, calm, and positive.
+    - No danger, fear, or conflict.
 
-    10. Ending Rule:
-        - End the story calmly.
-        - The character should rest, stop, or feel safe.
+    8. Ending Style:
+    - End the story gently.
+    - The character should finish an activity and return home or rest.
+    - The ending should feel complete and peaceful.
 
     FORMAT THE OUTPUT EXACTLY AS:
 
-    TITLE: [Very simple literal title, 2–5 words]
+    TITLE: [Simple, story-like title]
     CONTENT:
-    [Short paragraphs with simple sentences.
-    Each paragraph should have 2–3 sentences only.]
+    [2–4 short paragraphs.
+    Each paragraph should have 2–4 sentences.
+    The story should read smoothly when spoken aloud.]
+    VOCAB:
+    - [Word 1]: [Very simple definition]
+    - [Word 2]: [Very simple definition]
     MORAL:
-    [One very simple sentence. Example: "Playing is good." or "Helping feels nice."]
+    [One very simple, natural sentence.]
 
     {tone_instruction}
     Target word count: {word_count} words.
@@ -197,6 +197,7 @@ def generate_story_text(topic, length='short'):
             lines = response_text.split('\n')
             title = "A Story for Omar"
             content_parts = []
+            vocab = {}
             moral = "Be good and kind."
             
             section = None
@@ -209,15 +210,35 @@ def generate_story_text(topic, length='short'):
                     section = 'content' # Start looking for content next
                 elif line.startswith("CONTENT:"):
                     section = 'content'
+                elif line.startswith("VOCAB:"):
+                    section = 'vocab'
                 elif line.startswith("MORAL:"):
-                    moral = line.replace("MORAL:", "").strip()
+                    # Capture inline moral if present
+                    potential_moral = line.replace("MORAL:", "").strip()
+                    if potential_moral:
+                        moral = potential_moral
+                    else:
+                        moral = "" # Reset to empty to capture next lines
                     section = 'moral'
                 else:
                     if section == 'content':
                         content_parts.append(line)
+                    elif section == 'vocab':
+                        if ':' in line:
+                            parts = line.split(':', 1)
+                            key = parts[0].strip().lstrip('- ').strip()
+                            val = parts[1].strip()
+                            vocab[key] = val
+                    elif section == 'moral':
+                        # Append lines to moral
+                        if moral:
+                            moral += " " + line
+                        else:
+                            moral = line
             
             content = "\n\n".join(content_parts)
-            return title, content, moral
+            if not moral: moral = "Be good and kind." # Fallback if empty
+            return title, content, moral, vocab
         except Exception as e:
             print(f"Parsing Error: {e}")
             return None # Fallback to default if parsing fails

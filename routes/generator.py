@@ -258,7 +258,11 @@ def generate_story_content(topic, length='short'):
         llm_result = llm.generate_story_text(topic, length)
         if llm_result:
             print("DEBUG: LLM generation successful")
-            return llm_result # (title, content, moral)
+            # Unpack result (now includes vocab)
+            if len(llm_result) == 4:
+                return llm_result # (title, content, moral, vocab)
+            else:
+                 return (*llm_result, {}) # Backwards compatibility if 3 items
         else:
             print("DEBUG: LLM generation returned None (falling back)")
     except Exception as e:
@@ -280,7 +284,7 @@ def generate_story_content(topic, length='short'):
     moral = generate_moral(topic)
     title = generate_story_title(topic)
     
-    return title, content, moral
+    return title, content, moral, {}
 
 # ... (keep helper functions like is_abstract_concept, generate_moral, etc.)
 
@@ -296,16 +300,19 @@ def generate_random_story():
         topic = random.choice(RANDOM_TOPICS)
         
         # Generate story (Refactored to get title from tuple)
-        title, content, moral = generate_story_content(topic, length)
+        title, content, moral, vocab = generate_story_content(topic, length)
         theme = determine_theme(topic)
         
         # Save to database
+        import json
+        vocab_json = json.dumps(vocab)
+        
         with get_db_context() as conn:
             cursor = conn.cursor()
             cursor.execute('''
-                INSERT INTO stories (title, content, moral, theme, difficulty_level, image_category)
-                VALUES (?, ?, ?, ?, ?, ?)
-            ''', (title, content, moral, theme, 'easy', theme))
+                INSERT INTO stories (title, content, moral, theme, difficulty_level, image_category, vocab_json)
+                VALUES (?, ?, ?, ?, ?, ?, ?)
+            ''', (title, content, moral, theme, 'easy', theme, vocab_json))
             
             story_id = cursor.lastrowid
             
@@ -337,6 +344,7 @@ def generate_random_story():
             'success': True,
             'story_id': story_id,
             'title': title,
+            'vocab': vocab, # Return vocab to frontend
             'message': 'Random story and audio generated successfully!'
         }), 201
         
@@ -362,16 +370,19 @@ def generate_topic_story():
             }), 400
         
         # Generate story
-        title, content, moral = generate_story_content(topic, length)
+        title, content, moral, vocab = generate_story_content(topic, length)
         theme = determine_theme(topic)
         
         # Save to database
+        import json
+        vocab_json = json.dumps(vocab)
+        
         with get_db_context() as conn:
             cursor = conn.cursor()
             cursor.execute('''
-                INSERT INTO stories (title, content, moral, theme, difficulty_level, image_category)
-                VALUES (?, ?, ?, ?, ?, ?)
-            ''', (title, content, moral, theme, 'easy', theme))
+                INSERT INTO stories (title, content, moral, theme, difficulty_level, image_category, vocab_json)
+                VALUES (?, ?, ?, ?, ?, ?, ?)
+            ''', (title, content, moral, theme, 'easy', theme, vocab_json))
             
             story_id = cursor.lastrowid
             
@@ -403,6 +414,7 @@ def generate_topic_story():
             'success': True,
             'story_id': story_id,
             'title': title,
+            'vocab': vocab, # Return vocab to frontend
             'message': 'Story created and audio generating...'
         }), 201
         
