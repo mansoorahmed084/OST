@@ -751,12 +751,29 @@ body::before {
     border-left: 4px solid var(--primary-color);
 }
 
+/* Failsafe to prevent yellow background on the container if active-sentence is applied */
+.bilingual-sentence.active-sentence {
+    background: rgba(255, 255, 255, 0.05);
+    border-color: var(--secondary-color);
+    box-shadow: 0 0 15px rgba(255, 255, 255, 0.1);
+    /* Ensure no yellow background */
+    background-color: rgba(255, 255, 255, 0.05) !important;
+}
+
 .translated-text {
     display: block;
     font-size: 1.2rem;
     color: var(--secondary-light);
     margin-top: 0.5rem;
     font-weight: 500;
+    transition: all var(--transition-normal);
+}
+
+.translated-text.active-translation {
+    color: var(--secondary-color);
+    text-shadow: 0 0 10px rgba(245, 158, 11, 0.5);
+    transform: scale(1.02);
+    font-weight: 700;
 }
 
 .control-btn.secondary {

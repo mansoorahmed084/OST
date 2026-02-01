@@ -366,12 +366,12 @@ def generate_random_story():
             logger.info(f"DEBUG: Generating initial audio for Story {story_id} at speed {speed}")
             
             # Start Background Image Gen
-            # def generate_image_task_rnd(sid, title, txt):
-            #     log_prompt = f"Children's story illustration: {title}. Scene: {txt[:200]}"
-            #     generate_and_save_image(sid, log_prompt)
-            # 
-            # img_thread = threading.Thread(target=generate_image_task_rnd, args=(story_id, title, content))
-            # img_thread.start()
+            def generate_image_task_rnd(sid, title, txt):
+                log_prompt = f"Children's story illustration: {title}. Scene: {txt[:200]}"
+                generate_and_save_image(sid, log_prompt)
+            
+            img_thread = threading.Thread(target=generate_image_task_rnd, args=(story_id, title, content))
+            img_thread.start()
             
             # 1. Generate Full Audio (English)
             generate_audio_file(story_id, full_text_en, speed, language='en')

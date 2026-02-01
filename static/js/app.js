@@ -440,6 +440,9 @@ async function speakTranslation() {
     if (state.isPlaying) stopStory();
 
     state.isPlaying = true;
+    state.currentSentenceIndex = -1; // Force first sentence to be highlighted when sync starts
+    document.querySelectorAll('.active-sentence').forEach(el => el.classList.remove('active-sentence'));
+    document.querySelectorAll('.active-translation').forEach(el => el.classList.remove('active-translation'));
 
     // UI Updates
     document.getElementById('play-translation').classList.add('hidden'); // Hide self? Or show pause? 
@@ -479,20 +482,18 @@ async function speakTranslation() {
 
         audio.play().catch(e => console.error("Play error", e));
 
-        audio.play().catch(e => console.error("Play error", e));
-
-        // Wait for metadata to ensure duration is available for sync
-        audio.addEventListener('loadedmetadata', () => {
-            // Enable Visual Sync using translated text for timing estimates
-            if (state.currentStory.sentences) {
-                // Map to objects with 'sentence_text' property using the translation
-                // This tricks startVisualSync into calculating duration based on translated word counts
-                const translatedSentences = state.currentStory.sentences.map(s => ({
-                    sentence_text: s.translated_text || s.sentence_text // Fallback to English but use translation if available
-                }));
-                startVisualSync(audio, translatedSentences);
+        // Helper to start sync safely
+        const triggerSync = () => {
+            if (state.currentStory.sentences && state.currentAudio === audio) {
+                startVisualSync(audio, state.currentStory.sentences, 'translation');
             }
-        });
+        };
+
+        if (audio.readyState >= 1) {
+            triggerSync();
+        } else {
+            audio.addEventListener('loadedmetadata', triggerSync);
+        }
 
     } catch (e) {
         console.error("Translation Play Error", e);
@@ -517,44 +518,36 @@ function resetAudioUI() {
 // (Monkey patches removed - Logic moved to main functions)
 
 
-// Visual Sync (unchanged, but safe to keep)
-function startVisualSync(audio, sentences) {
+// Visual Sync (mode: 'normal' = highlight English, 'translation' = highlight Hindi/translated text)
+function startVisualSync(audio, sentences, mode = 'normal') {
+
     const totalDuration = audio.duration;
     // Calculate total words
     let totalWords = 0;
     const sentenceWords = sentences.map(s => {
-        const count = s.sentence_text.split(/\s+/).length;
+        // Use word count from the relevant text based on mode
+        const text = mode === 'translation' ? (s.translated_text || s.sentence_text) : s.sentence_text;
+        const count = text.split(/\s+/).length;
         totalWords += count;
         return count;
     });
 
     // Map end times
     let accumulatedWords = 0;
-    // Effective duration corresponds to text parts (Total - Silence)
-    // If silence is at start, we shift TIME check by -Silence.
-    // Total Duration = Silence + Content.
-    // Content Duration = Total - Silence.
     const contentDuration = Math.max(0, totalDuration - SILENCE_PADDING);
 
     const sentenceEndTimes = sentenceWords.map(count => {
         accumulatedWords += count;
-        // Proportion of CONTENT duration
         return (accumulatedWords / totalWords) * contentDuration;
     });
-
-    // Force highlighting first immediately
-    if (state.currentSentenceIndex < 0) {
-        state.currentSentenceIndex = -1;
-        const first = document.querySelector(`.story-sentence[data-index="0"]`);
-        if (first) first.classList.add('active-sentence');
-    }
 
     // Visual Sync Loop
     const updateVisuals = () => {
         if (!state.isPlaying || !state.currentAudio) return;
 
-        // Current time in CONTENT (Time - Silence)
-        // If Time < Silence, we are in padding (Index 0 or -1?) -> Index 0.
+        // Paranoid check: If we are in translation mode, ensure audio matches
+        if (mode === 'translation' && state.currentAudio !== audio) return;
+
         const effectiveTime = Math.max(0, audio.currentTime - SILENCE_PADDING);
 
         // Find which sentence we are in
@@ -565,33 +558,42 @@ function startVisualSync(audio, sentences) {
                 break;
             }
         }
-        // If at end or lag, assume last
         if (activeIndex === -1 && effectiveTime < contentDuration) activeIndex = sentenceEndTimes.length - 1;
-
-        // Safety for silence period
         if (audio.currentTime < SILENCE_PADDING) activeIndex = 0;
 
         // Sync UI
         if (activeIndex !== -1 && activeIndex !== state.currentSentenceIndex) {
-            const old = document.querySelector('.story-sentence.active-sentence');
-            if (old) old.classList.remove('active-sentence');
-
-            // Also remove bilingual active class if any
-            const oldBi = document.querySelector('.bilingual-sentence.active-sentence');
-            if (oldBi) oldBi.classList.remove('active-sentence');
+            // Cleanup old
+            document.querySelectorAll('.active-sentence').forEach(el => el.classList.remove('active-sentence'));
+            if (mode === 'translation') {
+                document.querySelectorAll('.active-translation').forEach(el => el.classList.remove('active-translation'));
+            }
 
             state.currentSentenceIndex = activeIndex;
-            const target = document.querySelector(`.story-sentence[data-index="${activeIndex}"]`);
-            if (target) {
-                target.classList.add('active-sentence');
 
-                // If inside a bilingual block, highlight that too/instead?
-                const parentBi = target.closest('.bilingual-sentence');
-                if (parentBi) {
-                    parentBi.classList.add('active-sentence'); // Add CSS for this too
-                    parentBi.scrollIntoView({ behavior: 'smooth', block: 'center' });
-                } else {
-                    target.scrollIntoView({ behavior: 'smooth', block: 'center' });
+            // Highlight Target
+            if (mode === 'translation') {
+                // Highlight Translated Text (Hindi)
+                const biContainer = document.querySelector(`.bilingual-sentence[data-index="${activeIndex}"]`);
+                if (biContainer) {
+                    const transEl = biContainer.querySelector('.translated-text');
+                    if (transEl) transEl.classList.add('active-translation');
+                    biContainer.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                }
+            } else {
+                // Standard Highlight
+                // console.log(`DEBUG: Highlighting English Index ${activeIndex}`);
+                const target = document.querySelector(`.story-sentence[data-index="${activeIndex}"]`);
+                if (target) {
+                    target.classList.add('active-sentence');
+                    // Check bilingual parent
+                    const parentBi = target.closest('.bilingual-sentence');
+                    if (parentBi) {
+                        parentBi.classList.add('active-sentence'); // This highlights the box for English
+                        parentBi.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                    } else {
+                        target.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                    }
                 }
             }
         }
@@ -745,6 +747,7 @@ function stopStory() {
     state.currentSentenceIndex = 0;
     // Clear highlights
     document.querySelectorAll('.active-sentence').forEach(el => el.classList.remove('active-sentence'));
+    document.querySelectorAll('.active-translation').forEach(el => el.classList.remove('active-translation'));
 
     // Restore UI elements (Translation button)
     resetAudioUI();
@@ -836,79 +839,8 @@ async function speakStory() {
     }
 }
 
-function startVisualSync(audio, sentences) {
-    const totalDuration = audio.duration;
-    // Calculate total words
-    let totalWords = 0;
-    const sentenceWords = sentences.map(s => {
-        const count = s.sentence_text.split(/\s+/).length;
-        totalWords += count;
-        return count;
-    });
-
-    // Map end times
-    let accumulatedWords = 0;
-    // Effective duration corresponds to text parts (Total - Silence)
-    // If silence is at start, we shift TIME check by -Silence.
-    // Total Duration = Silence + Content.
-    // Content Duration = Total - Silence.
-    const contentDuration = Math.max(0, totalDuration - SILENCE_PADDING);
-
-    const sentenceEndTimes = sentenceWords.map(count => {
-        accumulatedWords += count;
-        // Proportion of CONTENT duration
-        return (accumulatedWords / totalWords) * contentDuration;
-    });
-
-    // Force highlighting first immediately
-    if (state.currentSentenceIndex < 0) {
-        state.currentSentenceIndex = -1;
-        const first = document.querySelector(`.story-sentence[data-index="0"]`);
-        if (first) first.classList.add('active-sentence');
-    }
-
-    // Visual Sync Loop
-    const updateVisuals = () => {
-        if (!state.isPlaying || !state.currentAudio) return;
-
-        // Current time in CONTENT (Time - Silence)
-        // If Time < Silence, we are in padding (Index 0 or -1?) -> Index 0.
-        const effectiveTime = Math.max(0, audio.currentTime - SILENCE_PADDING);
-
-        // Find which sentence we are in
-        let activeIndex = -1;
-        for (let i = 0; i < sentenceEndTimes.length; i++) {
-            if (effectiveTime < sentenceEndTimes[i]) {
-                activeIndex = i;
-                break;
-            }
-        }
-        // If at end or lag, assume last
-        if (activeIndex === -1 && effectiveTime < contentDuration) activeIndex = sentenceEndTimes.length - 1;
-
-        // Safety for silence period
-        if (audio.currentTime < SILENCE_PADDING) activeIndex = 0;
-
-        // Sync UI
-        if (activeIndex !== -1 && activeIndex !== state.currentSentenceIndex) {
-            const old = document.querySelector('.story-sentence.active-sentence');
-            if (old) old.classList.remove('active-sentence');
-
-            state.currentSentenceIndex = activeIndex;
-            const target = document.querySelector(`.story-sentence[data-index="${activeIndex}"]`);
-            if (target) {
-                target.classList.add('active-sentence');
-                target.scrollIntoView({ behavior: 'smooth', block: 'center' });
-            }
-        }
-
-        if (!audio.paused && !audio.ended) {
-            requestAnimationFrame(updateVisuals);
-        }
-    };
-
-    requestAnimationFrame(updateVisuals);
-}
+// startVisualSync is defined above (single definition with mode support).
+// speakStory uses default mode 'normal' (highlights English); speakTranslation passes 'translation' (highlights Hindi/translated text).
 
 
 
