@@ -9,6 +9,19 @@ import os
 from dotenv import load_dotenv
 from database import init_db, get_db
 from routes import stories, speech, quiz, chatmode, generator, recall, settings, images
+import logging
+
+# Configure Logging
+logging.basicConfig(
+    level=logging.DEBUG,
+    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
+    handlers=[
+        logging.FileHandler("ost_debug.log"),
+        logging.StreamHandler()
+    ]
+)
+logger = logging.getLogger(__name__)
+logger.info("OST Startup - Logging Initiated")
 
 # Load environment variables
 load_dotenv()

@@ -207,7 +207,28 @@ A web application designed to help Omar improve his speech, reading comprehensio
 
 ---
 
-## Development Guidelines
+## Phase 9 – Bilingual Support & Advanced Audio
+215: 
+216: ### Objectives
+217: - Support bilingual story generation and reading
+218: - Provide native-quality audio for multiple languages
+219: - Enable side-by-side learning text views
+220: 
+221: ### Tasks
+222: 1. Update DB schema for translations
+223: 2. Integrate multi-language support in TTS engine (Hindi, Spanish, etc.)
+224: 3. Update LLM prompts for structured bilingual JSON output
+225: 4. Create separate audio generation for translated text
+226: 5. Build side-by-side / interleaved UI for reading
+227: 
+228: ### Test Criteria
+229: ✓ Stories generate with accurate translations
+230: ✓ Audio generated for both languages
+231: ✓ User can toggle between English and Translated audio
+232: 
+233: ---
+234: 
+235: ## Development Guidelines
 
 ### Vocabulary Considerations
 - Use simple, common words

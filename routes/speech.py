@@ -50,7 +50,7 @@ async def _gen_edge(text, voice, outfile, rate):
         print(f"EdgeTTS Async Error: {e}")
         raise
 
-def generate_edge_tts(text, voice_preset, outfile, speed):
+def generate_edge_tts(text, voice_preset, outfile, speed, is_raw_voice=False):
     # Map presets to Edge voices
     voices = {
         'default': 'en-US-AnaNeural', # Child-friendly default
@@ -58,7 +58,11 @@ def generate_edge_tts(text, voice_preset, outfile, speed):
         'aria': 'en-US-AriaNeural',
         'guy': 'en-US-GuyNeural'
     }
-    voice = voices.get(voice_preset, 'en-US-AnaNeural')
+    
+    if is_raw_voice:
+        voice = voice_preset
+    else:
+        voice = voices.get(voice_preset, 'en-US-AnaNeural')
     
     try:
         try:
@@ -176,22 +180,34 @@ def text_to_speech():
             'error': str(e)
         }), 500
 
-def generate_audio_file(story_id, text_content, speed=1.0):
+def generate_audio_file(story_id, text_content, speed=1.0, language='en'):
     """
     Core function to generate audio file for a story.
     Returns: (success, result_path_or_error)
     """
-    print(f"DEBUG: generate_audio_file called for Story {story_id}, Speed {speed}")
+    print(f"DEBUG: generate_audio_file called for Story {story_id}, Speed {speed}, Lang {language}")
     try:
         config = get_tts_config()
         provider = config['provider']
         voice = config['voice_preset']
+        
+        # Override voice for non-English languages
+        if language != 'en':
+            # Language mappings for EdgeTTS
+            lang_voices = {
+                'hi': 'hi-IN-SwaraNeural',
+                'es': 'es-ES-ElviraNeural', 
+                'fr': 'fr-FR-DeniseNeural',
+                'de': 'de-DE-KatjaNeural'
+            }
+            voice = lang_voices.get(language, 'en-US-AnaNeural')
+        
         print(f"DEBUG: Config - Provider: {provider}, Voice: {voice}")
         
-        # Filename: story_{id}_{provider}_{voice}_{speed}.mp3
+        # Filename: story_{id}_{lang}_{provider}_{voice}_{speed}.mp3
         # Normalize speed in filename to avoid float issues
         speed_str = str(speed).replace('.', '_')
-        filename = f"story_{story_id}_{provider}_{voice}_{speed_str}.mp3"
+        filename = f"story_{story_id}_{language}_{provider}_{voice}_{speed_str}.mp3"
         filepath = os.path.join(AUDIO_DIR, filename)
         print(f"DEBUG: Target filepath: {filepath}")
         
@@ -203,7 +219,10 @@ def generate_audio_file(story_id, text_content, speed=1.0):
         if provider == 'edge_tts':
             print("DEBUG: Attempting EdgeTTS...")
             try:
-                generate_edge_tts(text_content, voice, filepath, speed)
+                # Direct call to generate_edge_tts which does the threading/loop
+                # We need to bypass the 'preset' mapping if we are using a raw voice string
+                # So we update generate_edge_tts to handle raw voice strings too
+                generate_edge_tts(text_content, voice, filepath, speed, is_raw_voice=(language!='en'))
                 generated = True
                 print("DEBUG: EdgeTTS Success")
             except Exception as e:
@@ -212,6 +231,8 @@ def generate_audio_file(story_id, text_content, speed=1.0):
                 traceback.print_exc()
 
         elif provider == 'openai':
+            # OpenAI has limited language voices (models are multilingual but voices are same)
+            # We just use the same voice instructions, OpenAI handles accent auto-magically
             print("DEBUG: Attempting OpenAI TTS...")
             try:
                 if generate_openai_tts(text_content, voice, filepath, speed):
@@ -224,19 +245,19 @@ def generate_audio_file(story_id, text_content, speed=1.0):
             print("DEBUG: Attempting Fallback to gTTS...")
             try:
                 # Fallback to gTTS
-                tts = gTTS(text=text_content, lang='en', slow=(speed < 0.8))
+                tts = gTTS(text=text_content, lang=language, slow=(speed < 0.8))
                 tts.save(filepath)
                 print("DEBUG: gTTS Success")
             except Exception as e:
                 print(f"DEBUG: gTTS Failed: {e}")
                 raise e
         
-        # ADDED: Prepend Silence (300ms) to prevent start clipping
+        # ADDED: Prepend Silence (100ms) only for English usually, but good for all
         try:
             from pydub import AudioSegment
             print("DEBUG: Adding silence padding...")
             audio_segment = AudioSegment.from_file(filepath)
-            silence = AudioSegment.silent(duration=300) # 300ms silence
+            silence = AudioSegment.silent(duration=100) # Reduced to 100ms
             final_audio = silence + audio_segment
             final_audio.export(filepath, format="mp3")
             print("DEBUG: Silence added successfully")
@@ -261,27 +282,51 @@ def full_story_audio(story_id):
         # Use get_json(silent=True) to avoid 415 Unsupported Media Type if headers are missing
         data = request.get_json(silent=True) or {}
         speed = float(data.get('speed', 1.0))
-        print(f"DEBUG: Speed parsed: {speed}")
+        language = data.get('language', 'en')
+        print(f"DEBUG: Speed parsed: {speed}, Language: {language}")
         
-        # Imports are already at top level
-
-
         # 1. Fetch Story Content
         print("DEBUG: Fetching story content...")
         text_content = ""
         with get_db_context() as conn:
             cursor = conn.cursor()
-            cursor.execute('''
-                SELECT sentence_text FROM story_sentences 
-                WHERE story_id = ? 
-                ORDER BY sentence_order
-            ''', (story_id,))
-            rows = cursor.fetchall()
-            print(f"DEBUG: Found {len(rows)} sentences")
-            if not rows:
-                return jsonify({'success': False, 'error': 'Story not found or empty'}), 404
             
-            text_content = " ".join([r[0] for r in rows])
+            if language != 'en':
+                # Fetch translated text
+                # We need to check if we have translated text in story_sentences
+                cursor.execute('''
+                    SELECT translated_text FROM story_sentences 
+                    WHERE story_id = ? 
+                    ORDER BY sentence_order
+                ''', (story_id,))
+                rows = cursor.fetchall()
+                # If rows are empty or all none, fallback? 
+                # Assuming valid bilingual story has translations
+                parts = [r[0] for r in rows if r[0]]
+                if not parts:
+                    # Fallback to English if translation missing (failsafe)
+                    print("DEBUG: No translation text found, falling back to English")
+                    cursor.execute('''
+                        SELECT sentence_text FROM story_sentences 
+                        WHERE story_id = ? 
+                        ORDER BY sentence_order
+                    ''', (story_id,))
+                    rows = cursor.fetchall()
+                    parts = [r[0] for r in rows]
+                else:
+                    print(f"DEBUG: Found {len(parts)} translated sentences")
+                    
+                text_content = " ".join(parts)
+            else:
+                # Fetch English text
+                cursor.execute('''
+                    SELECT sentence_text FROM story_sentences 
+                    WHERE story_id = ? 
+                    ORDER BY sentence_order
+                ''', (story_id,))
+                rows = cursor.fetchall()
+                print(f"DEBUG: Found {len(rows)} sentences")
+                text_content = " ".join([r[0] for r in rows])
 
         if not text_content:
              return jsonify({'success': False, 'error': 'No text content'}), 400
@@ -290,7 +335,7 @@ def full_story_audio(story_id):
 
         # Call the core function
         print("DEBUG: Calling generate_audio_file...")
-        success, result = generate_audio_file(story_id, text_content, speed)
+        success, result = generate_audio_file(story_id, text_content, speed, language)
         print(f"DEBUG: generate_audio_file returned: {success}, {result}")
         
         if success:

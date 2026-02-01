@@ -246,7 +246,7 @@ from routes import llm
 
 # ... (Previous constants like ADJECTIVES, templates etc remain, just imports added above)
 
-def generate_story_content(topic, length='short'):
+def generate_story_content(topic, length='short', target_language='en'):
     """Generate story content, title, and moral based on topic and length"""
     
     # Try LLM first
@@ -255,14 +255,19 @@ def generate_story_content(topic, length='short'):
         provider = get_llm_provider()
         print(f"DEBUG: Generating story for topic '{topic}' using provider: {provider}")
         
-        llm_result = llm.generate_story_text(topic, length)
+        # Now passing target_language
+        llm_result = llm.generate_story_text(topic, length, target_language)
         if llm_result:
             print("DEBUG: LLM generation successful")
-            # Unpack result (now includes vocab)
-            if len(llm_result) == 4:
-                return llm_result # (title, content, moral, vocab)
+            # Unpack result (now includes translation_data)
+            if len(llm_result) == 5:
+                # (title, content, moral, vocab, translation_data)
+                return llm_result 
+            elif len(llm_result) == 4:
+                # Backwards compatibility
+                return (*llm_result, None)
             else:
-                 return (*llm_result, {}) # Backwards compatibility if 3 items
+                 return (*llm_result, None) 
         else:
             print("DEBUG: LLM generation returned None (falling back)")
     except Exception as e:
@@ -271,7 +276,7 @@ def generate_story_content(topic, length='short'):
         traceback.print_exc()
         # Fallback to templates
     
-    # Fallback Logic
+    # Fallback Logic (English Only)
     topic_lower = topic.lower().strip()
     is_concept = is_abstract_concept(topic)
     
@@ -284,7 +289,8 @@ def generate_story_content(topic, length='short'):
     moral = generate_moral(topic)
     title = generate_story_title(topic)
     
-    return title, content, moral, {}
+    # Fallback returns None for translation_data
+    return title, content, moral, {}, None
 
 # ... (keep helper functions like is_abstract_concept, generate_moral, etc.)
 
@@ -295,34 +301,54 @@ def generate_random_story():
         data = request.json or {}
         length = data.get('length', 'short')
         speed = float(data.get('speed', 1.0)) # Speed selection
+        target_language = data.get('language', 'en')
         
         # Pick a random topic
         topic = random.choice(RANDOM_TOPICS)
         
+        import logging
+        logger = logging.getLogger(__name__)
+        logger.info(f"DEBUG: generate_random_story called. Topic: {topic}, Lang: {target_language}")
+
         # Generate story (Refactored to get title from tuple)
-        title, content, moral, vocab = generate_story_content(topic, length)
+        title, content, moral, vocab, translation_data = generate_story_content(topic, length, target_language)
         theme = determine_theme(topic)
         
         # Save to database
         import json
         vocab_json = json.dumps(vocab)
         
+        # Extract translated fields
+        translated_title = None
+        if translation_data:
+            translated_title = translation_data.get('translated_title')
+
         with get_db_context() as conn:
             cursor = conn.cursor()
             cursor.execute('''
-                INSERT INTO stories (title, content, moral, theme, difficulty_level, image_category, vocab_json)
-                VALUES (?, ?, ?, ?, ?, ?, ?)
-            ''', (title, content, moral, theme, 'easy', theme, vocab_json))
+                INSERT INTO stories (title, content, moral, theme, difficulty_level, image_category, vocab_json, translated_title, target_language)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+            ''', (title, content, moral, theme, 'easy', theme, vocab_json, translated_title, target_language))
             
             story_id = cursor.lastrowid
             
             # Split into sentences
-            sentences = [s.strip() + '.' for s in content.split('.') if s.strip()]
-            for idx, sentence in enumerate(sentences):
-                cursor.execute('''
-                    INSERT INTO story_sentences (story_id, sentence_order, sentence_text)
-                    VALUES (?, ?, ?)
-                ''', (story_id, idx, sentence))
+            if translation_data and translation_data.get('sentences'):
+                 sentences_data = translation_data.get('sentences')
+                 for idx, item in enumerate(sentences_data):
+                     eng_text = item.get('text', '')
+                     trans_text = item.get('translation', '')
+                     cursor.execute('''
+                        INSERT INTO story_sentences (story_id, sentence_order, sentence_text, translated_text)
+                        VALUES (?, ?, ?, ?)
+                    ''', (story_id, idx, eng_text, trans_text))
+            else:
+                sentences = [s.strip() + '.' for s in content.split('.') if s.strip()]
+                for idx, sentence in enumerate(sentences):
+                    cursor.execute('''
+                        INSERT INTO story_sentences (story_id, sentence_order, sentence_text)
+                        VALUES (?, ?, ?)
+                    ''', (story_id, idx, sentence))
         
         # Trigger Audio and Image Generation Immediately (Concurrent)
         try:
@@ -331,25 +357,35 @@ def generate_random_story():
             import threading
             
             # Reconstruct full text for audio
-            full_text = " ".join([s.strip() + '.' for s in content.split('.') if s.strip()])
-            print(f"DEBUG: Generating initial audio for Story {story_id} at speed {speed}")
+            full_text_en = content
+            full_text_translated = ""
+            if translation_data:
+                full_text_en = " ".join([s['text'] for s in translation_data['sentences']])
+                full_text_translated = " ".join([s['translation'] for s in translation_data['sentences']])
+
+            logger.info(f"DEBUG: Generating initial audio for Story {story_id} at speed {speed}")
             
             # Start Background Image Gen
-            def generate_image_task_rnd(sid, title, txt):
-                log_prompt = f"Children's story illustration: {title}. Scene: {txt[:200]}"
-                generate_and_save_image(sid, log_prompt)
+            # def generate_image_task_rnd(sid, title, txt):
+            #     log_prompt = f"Children's story illustration: {title}. Scene: {txt[:200]}"
+            #     generate_and_save_image(sid, log_prompt)
+            # 
+            # img_thread = threading.Thread(target=generate_image_task_rnd, args=(story_id, title, content))
+            # img_thread.start()
             
-            img_thread = threading.Thread(target=generate_image_task_rnd, args=(story_id, title, content))
-            img_thread.start()
+            # 1. Generate Full Audio (English)
+            generate_audio_file(story_id, full_text_en, speed, language='en')
             
-            # 1. Generate Full Audio
-            generate_audio_file(story_id, full_text, speed)
-            
-            # 2. Pre-generate Sentence Audio
+            # 2. Generate Translated Audio (If applicable)
+            if target_language != 'en' and full_text_translated:
+                 logger.info(f"DEBUG: Generating {target_language} audio...")
+                 generate_audio_file(story_id, full_text_translated, speed, language=target_language)
+
+            # 3. Pre-generate English Sentence Audio
             pregenerate_sentence_audio(story_id, speed)
             
         except Exception as e:
-            print(f"Initial Audio/Image Gen Failed: {e}")
+            logger.error(f"Initial Audio/Image Gen Failed: {e}")
         
         return jsonify({
             'success': True,
@@ -373,37 +409,70 @@ def generate_topic_story():
         topic = data.get('topic', '').strip()
         length = data.get('length', 'short')
         speed = float(data.get('speed', 1.0)) # Speed selection
+        target_language = data.get('language', 'en') # New field
         
         if not topic:
             return jsonify({
                 'success': False,
                 'error': 'Topic is required'
             }), 400
+            
+        import logging
+        logger = logging.getLogger(__name__)
+        logger.info(f"DEBUG: RAW REQUEST BODY: {data}")
+        logger.info(f"DEBUG: generate_topic_story called. Topic: {topic}, Lang: {target_language} (Type: {type(target_language)})")
         
         # Generate story
-        title, content, moral, vocab = generate_story_content(topic, length)
+        # Now returns 5 items
+        title, content, moral, vocab, translation_data = generate_story_content(topic, length, target_language)
         theme = determine_theme(topic)
         
         # Save to database
         import json
         vocab_json = json.dumps(vocab)
         
+        # Extract translated fields
+        translated_title = None
+        translated_sentences_map = {} # Order -> text
+        
+        if translation_data:
+            logger.info("DEBUG: Translation data found, processing...")
+            translated_title = translation_data.get('translated_title')
+            # Create a map for easy lookup by index since order matches
+            for idx, item in enumerate(translation_data.get('sentences', [])):
+                translated_sentences_map[idx] = item.get('translation', '')
+        else:
+             logger.info("DEBUG: No translation_data returned from generate_story_content")
+
         with get_db_context() as conn:
             cursor = conn.cursor()
+            # New columns added: translated_title, target_language
             cursor.execute('''
-                INSERT INTO stories (title, content, moral, theme, difficulty_level, image_category, vocab_json)
-                VALUES (?, ?, ?, ?, ?, ?, ?)
-            ''', (title, content, moral, theme, 'easy', theme, vocab_json))
+                INSERT INTO stories (title, content, moral, theme, difficulty_level, image_category, vocab_json, translated_title, target_language)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+            ''', (title, content, moral, theme, 'easy', theme, vocab_json, translated_title, target_language))
             
             story_id = cursor.lastrowid
             
             # Split into sentences
-            sentences = [s.strip() + '.' for s in content.split('.') if s.strip()]
-            for idx, sentence in enumerate(sentences):
-                cursor.execute('''
-                    INSERT INTO story_sentences (story_id, sentence_order, sentence_text)
-                    VALUES (?, ?, ?)
-                ''', (story_id, idx, sentence))
+            # If we have translation_data, use the structured sentenes from it directly to ensure 1:1 mapping
+            if translation_data and translation_data.get('sentences'):
+                 sentences_data = translation_data.get('sentences')
+                 for idx, item in enumerate(sentences_data):
+                     eng_text = item.get('text', '')
+                     trans_text = item.get('translation', '')
+                     cursor.execute('''
+                        INSERT INTO story_sentences (story_id, sentence_order, sentence_text, translated_text)
+                        VALUES (?, ?, ?, ?)
+                    ''', (story_id, idx, eng_text, trans_text))
+            else:
+                # Fallback purely English
+                sentences = [s.strip() + '.' for s in content.split('.') if s.strip()]
+                for idx, sentence in enumerate(sentences):
+                    cursor.execute('''
+                        INSERT INTO story_sentences (story_id, sentence_order, sentence_text)
+                        VALUES (?, ?, ?)
+                    ''', (story_id, idx, sentence))
         
         # Trigger Audio and Image Generation Immediately (Concurrent)
         try:
@@ -412,32 +481,33 @@ def generate_topic_story():
             import threading
             
             # Reconstruct full text for audio
-            full_text = " ".join([s.strip() + '.' for s in content.split('.') if s.strip()])
+            # Use original content if English, or reconstruct from segments
+            full_text_en = content
+            full_text_translated = ""
+            
+            if translation_data:
+                full_text_en = " ".join([s['text'] for s in translation_data['sentences']])
+                full_text_translated = " ".join([s['translation'] for s in translation_data['sentences']])
+
             print(f"DEBUG: Generating topic audio for Story {story_id} at speed {speed}")
-            
-            # Audio Thread (or just run synch if fast enough, but thread is safer for response time)
-            # Actually, generating audio is blocking the return currently. 
-            # Let's keep Audio synch-ish for now or user might see empty player.
-            # But Image can definitely be background.
-            
-            # 1. Generate Full Audio (Blocking main thread to ensure audio plays immediately? 
-            # No, user said "image generated fine but late, it should be generated in parallel... available by time story is ready")
-            # If we make audio async too, the frontend needs to poll or wait.
-            # Current frontend logic waits for 'audio_url' or re-fetches.
-            # Let's keep Audio as is (blocking-ish) but put Image in parallel thread.
             
             def generate_image_task(sid, title, txt):
                 log_prompt = f"Children's story illustration: {title}. Scene: {txt[:200]}"
                 print(f"DEBUG: Starting Background Image Gen for Story {sid}")
-                generate_and_save_image(sid, log_prompt)
+                # generate_and_save_image(sid, log_prompt)
             
             img_thread = threading.Thread(target=generate_image_task, args=(story_id, title, content))
-            img_thread.start()
+            # img_thread.start()
 
-            # 1. Generate Full Audio
-            generate_audio_file(story_id, full_text, speed)
+            # 1. Generate Full Audio (English)
+            generate_audio_file(story_id, full_text_en, speed, language='en')
             
-            # 2. Pre-generate Sentence Audio
+            # 2. Generate Translated Audio (If applicable)
+            if target_language != 'en' and full_text_translated:
+                 print(f"DEBUG: Generating {target_language} audio...")
+                 generate_audio_file(story_id, full_text_translated, speed, language=target_language)
+
+            # 3. Pre-generate English Sentence Audio
             pregenerate_sentence_audio(story_id, speed)
             
         except Exception as e:
@@ -447,7 +517,7 @@ def generate_topic_story():
             'success': True,
             'story_id': story_id,
             'title': title,
-            'vocab': vocab, # Return vocab to frontend
+            'vocab': vocab, 
             'message': 'Story created and audio generating...'
         }), 201
         

@@ -188,6 +188,17 @@
                                 <option value="1.0">Fast (1.0x)</option>
                             </select>
                         </div>
+                        <div class="settings-option" style="margin-left: 1rem;">
+                            <span style="color: var(--text-secondary); margin-right: 0.5rem;">Language:</span>
+                            <select id="gen-language" class="form-select"
+                                style="background: var(--bg-card); color: var(--text-primary); border: 1px solid var(--border-color); padding: 5px; border-radius: 8px;">
+                                <option value="en" selected>English Only</option>
+                                <option value="hi">English + Hindi 🇮🇳</option>
+                                <option value="es">English + Spanish 🇪🇸</option>
+                                <option value="fr">English + French 🇫🇷</option>
+                                <option value="de">English + German 🇩🇪</option>
+                            </select>
+                        </div>
                     </div>
 
                     <div class="generator-row" style="justify-content: center;">
@@ -229,7 +240,11 @@
                     <div class="story-controls">
                         <button id="play-story" class="control-btn primary">
                             <span class="btn-icon">▶️</span>
-                            <span>Play Story</span>
+                            <span>Play English</span>
+                        </button>
+                        <button id="play-translation" class="control-btn secondary hidden">
+                            <span class="btn-icon">🗣️</span>
+                            <span>Play Translation</span>
                         </button>
                         <button id="pause-story" class="control-btn" style="display: none;">
                             <span class="btn-icon">⏸️</span>
@@ -237,7 +252,7 @@
                         </button>
                         <button id="stop-story" class="control-btn">
                             <span class="btn-icon">⏹️</span>
-                            <span>Play from Start</span>
+                            <span>Reset</span>
                         </button>
                     </div>
 

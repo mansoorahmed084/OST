@@ -42,7 +42,8 @@ def get_story(story_id):
             # Get story details
             cursor.execute('''
                 SELECT id, title, content, moral, theme, difficulty_level, 
-                       image_category, vocab_json, created_at, last_read
+                       image_category, vocab_json, created_at, last_read,
+                       translated_title, target_language
                 FROM stories
                 WHERE id = ?
             ''', (story_id,))
@@ -56,7 +57,7 @@ def get_story(story_id):
             
             # Get sentences
             cursor.execute('''
-                SELECT sentence_order, sentence_text
+                SELECT sentence_order, sentence_text, translated_text
                 FROM story_sentences
                 WHERE story_id = ?
                 ORDER BY sentence_order

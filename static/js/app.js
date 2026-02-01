@@ -163,14 +163,12 @@ function initializeStoriesPage() {
     document.getElementById('pause-story')?.addEventListener('click', pauseStory);
     document.getElementById('stop-story')?.addEventListener('click', () => {
         // Explicit Hard Reset for "Start from Beginning"
-        if (state.currentAudio) {
-            state.currentAudio.pause();
-            state.currentAudio.currentTime = 0;
-        }
-        state.currentSentenceIndex = -1;
-        document.querySelectorAll('.active-sentence').forEach(el => el.classList.remove('active-sentence'));
+        stopStory(); // Use stopStory to clean up state and reset UI (including translation button)
 
-        playStory();
+        // Wait a tick for UI to reset before playing again
+        setTimeout(() => {
+            playStory();
+        }, 50);
     });
 
     // Speed controls
@@ -273,58 +271,151 @@ function displayStories(stories) {
     });
 }
 
+async function generateTopicStory() {
+    const topicInput = document.getElementById('story-topic');
+    const topic = topicInput.value.trim();
+
+    if (!topic) {
+        showError('Please enter a topic');
+        return;
+    }
+
+    // Get Settings
+    const lengthBtn = document.querySelector('.length-btn.active');
+    const length = lengthBtn ? lengthBtn.dataset.length : 'short';
+    const speed = getSelectedSpeed();
+    const languageSelect = document.getElementById('gen-language');
+    const language = languageSelect ? languageSelect.value : 'en';
+
+    const btn = document.getElementById('generate-topic-story');
+    const originalText = btn.innerHTML;
+
+    try {
+        btn.innerHTML = '<span class="loading-spinner"></span> Generating...';
+        btn.disabled = true;
+
+        const response = await fetch(`${API_BASE}/generator/topic`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                topic: topic,
+                length: length,
+                speed: speed,
+                language: language
+            })
+        });
+
+        const data = await response.json();
+
+        if (data.success) {
+            // Poll for audio availability
+            // But first load the story to show text immediately
+            await loadStory(data.story_id);
+        } else {
+            showError(data.error || 'Failed to generate story');
+        }
+
+    } catch (error) {
+        console.error('Generation error:', error);
+        showError('Failed to connect to server');
+    } finally {
+        btn.innerHTML = originalText;
+        btn.disabled = false;
+    }
+}
+
+// ... (other functions)
+
 function displayStory(story) {
     // Hide stories list, show reader
     document.getElementById('stories-list').classList.add('hidden');
-    // Hide generator and controls when reading
     document.querySelector('.story-generator').classList.add('hidden');
     document.querySelector('.story-management').classList.add('hidden');
-
     document.getElementById('story-reader').classList.remove('hidden');
 
     // Set title
-    document.getElementById('story-title').textContent = story.title;
+    const titleEl = document.getElementById('story-title');
+    if (story.translated_title && story.target_language && story.target_language !== 'en') {
+        titleEl.innerHTML = `${story.title}<br><span style="font-size: 0.6em; color: var(--secondary-light);">${story.translated_title}</span>`;
+    } else {
+        titleEl.textContent = story.title;
+    }
 
-    // Set image (placeholder for now)
-    // Set image
+    // Image logic
     const imageContainer = document.querySelector('.story-image-container');
-
     let imgSrc = 'https://cdn-icons-png.flaticon.com/512/3408/3408506.png';
-
-    // Check if we have a generated image URL
     if (story.image_category && story.image_category.startsWith('/')) {
         imgSrc = story.image_category;
     } else {
-        // Trigger auto-generation if backend supports it
-        // We call a helper function (defined below)
         if (typeof generateImage === 'function') generateImage(story);
     }
-
     imageContainer.innerHTML = `<img id="story-image" src="${imgSrc}" class="story-image" style="object-fit: contain; width: 100%; height: 100%;">`;
 
-    // Display sentences with word-level wrapping
+    // Display sentences 
     const textContainer = document.getElementById('story-text');
-    textContainer.innerHTML = story.sentences.map((s, sentenceIdx) => {
-        // Split sentence into words
-        const words = s.sentence_text.trim().split(/\s+/);
-        const wordsHtml = words.map((word, wordIdx) =>
-            `<span class="story-word" data-sentence="${sentenceIdx}" data-word="${wordIdx}">${word}</span>`
-        ).join(' ');
-        return `<span class="story-sentence" data-index="${sentenceIdx}">${wordsHtml} </span>`;
-    }).join('');
+    const isBilingual = story.target_language && story.target_language !== 'en';
+
+    if (isBilingual) {
+        // Bilingual Rendering (Interleaved)
+        textContainer.innerHTML = story.sentences.map((s, sentenceIdx) => {
+            const words = s.sentence_text.trim().split(/\s+/);
+            const wordsHtml = words.map((word, wordIdx) =>
+                `<span class="story-word" data-sentence="${sentenceIdx}" data-word="${wordIdx}">${word}</span>`
+            ).join(' ');
+
+            const transText = s.translated_text || '';
+
+            return `
+                 <div class="bilingual-sentence" data-index="${sentenceIdx}">
+                    <div class="story-sentence" data-index="${sentenceIdx}" style="display:block; margin-bottom: 5px;">${wordsHtml}</div>
+                    <div class="translated-text">${transText}</div>
+                 </div>
+            `;
+        }).join('');
+
+        // Show Translation Play Button
+        const playTransBtn = document.getElementById('play-translation');
+        if (playTransBtn) {
+            playTransBtn.classList.remove('hidden');
+            // Remove old listeners to avoid duplicates if any (simple cloning trick or just direct assign)
+            const newBtn = playTransBtn.cloneNode(true);
+            playTransBtn.parentNode.replaceChild(newBtn, playTransBtn);
+            newBtn.addEventListener('click', () => speakTranslation());
+        }
+
+    } else {
+        // Standard English Rendering
+        textContainer.innerHTML = story.sentences.map((s, sentenceIdx) => {
+            const words = s.sentence_text.trim().split(/\s+/);
+            const wordsHtml = words.map((word, wordIdx) =>
+                `<span class="story-word" data-sentence="${sentenceIdx}" data-word="${wordIdx}">${word}</span>`
+            ).join(' ');
+            return `<span class="story-sentence" data-index="${sentenceIdx}">${wordsHtml} </span>`;
+        }).join('');
+
+        // Hide Translation Play Button
+        const playTransBtn = document.getElementById('play-translation');
+        if (playTransBtn) playTransBtn.classList.add('hidden');
+    }
+
+    // Vocab & Moral (Standard) ... same as before
+    // Display Moral
+    const moralContainer = document.getElementById('story-moral');
+    const moralText = document.getElementById('moral-text');
+    if (story.moral) {
+        moralText.textContent = story.moral;
+        moralContainer.classList.remove('hidden');
+    } else {
+        moralContainer.classList.add('hidden');
+    }
 
     // Display Vocab
     const vocabContainer = document.getElementById('story-vocab');
     const vocabList = document.getElementById('vocab-list');
-
-    // Logic to handle vocab: could be object (new gen) or string (db)
     let vocabData = story.vocab;
     if (!vocabData && story.vocab_json) {
-        try {
-            vocabData = JSON.parse(story.vocab_json);
-        } catch (e) { console.error("Vocab Parse Error", e); }
+        try { vocabData = JSON.parse(story.vocab_json); } catch (e) { }
     }
-
     if (vocabData && Object.keys(vocabData).length > 0) {
         vocabList.innerHTML = Object.entries(vocabData).map(([word, def]) => `
             <div class="vocab-card">
@@ -337,18 +428,170 @@ function displayStory(story) {
         vocabContainer.classList.add('hidden');
     }
 
-    // Display Moral
-    const moralContainer = document.getElementById('story-moral');
-    const moralText = document.getElementById('moral-text');
+    state.currentSentenceIndex = 0;
+}
 
-    if (story.moral) {
-        moralText.textContent = story.moral;
-        moralContainer.classList.remove('hidden');
-    } else {
-        moralContainer.classList.add('hidden');
+// ...
+
+async function speakTranslation() {
+    if (!state.currentStory) return;
+
+    // Stop English if playing
+    if (state.isPlaying) stopStory();
+
+    state.isPlaying = true;
+
+    // UI Updates
+    document.getElementById('play-translation').classList.add('hidden'); // Hide self? Or show pause? 
+    // Simplified: Just toggle Play/Pause icons generally or share the main Play/Pause UI?
+    // Let's share the main Pause button for simplicity
+    document.getElementById('play-story').style.display = 'flex'; // Reset English button
+    document.getElementById('pause-story').style.display = 'flex'; // Show Pause
+    // Hide Translation Play button temporarily? Or keep it? 
+    // Let's hide it to show we are playing
+    document.getElementById('play-translation').style.display = 'none';
+
+    try {
+        const speed = getSelectedSpeed();
+        // Request Translated Audio
+        const response = await fetch(`${API_BASE}/speech/story/${state.currentStory.id}`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                speed: speed,
+                language: state.currentStory.target_language
+            })
+        });
+        const data = await response.json();
+
+        if (!data.success) {
+            showError("Could not load translation audio.");
+            resetAudioUI();
+            return;
+        }
+
+        const audio = new Audio(data.audio_url);
+        state.currentAudio = audio;
+
+        audio.onended = () => {
+            resetAudioUI();
+        };
+
+        audio.play().catch(e => console.error("Play error", e));
+
+        // Simple sentence highlighting (approximate) or just highlight whole blocks progressively?
+        // Since we don't have word-timestamps for translation, we can't do precise visual sync easily
+        // without backend support (which I haven't built for translation timestamps).
+        // So just play audio.
+
+    } catch (e) {
+        console.error("Translation Play Error", e);
+        resetAudioUI();
+    }
+}
+
+function resetAudioUI() {
+    state.isPlaying = false;
+    state.currentAudio = null;
+    document.getElementById('play-story').style.display = 'flex';
+    document.getElementById('pause-story').style.display = 'none';
+
+    // Restore Translation button if bilingual
+    const story = state.currentStory;
+    if (story && story.target_language && story.target_language !== 'en') {
+        document.getElementById('play-translation').style.display = 'flex';
+        document.getElementById('play-translation').classList.remove('hidden');
+    }
+}
+
+// (Monkey patches removed - Logic moved to main functions)
+
+
+// Visual Sync (unchanged, but safe to keep)
+function startVisualSync(audio, sentences) {
+    const totalDuration = audio.duration;
+    // Calculate total words
+    let totalWords = 0;
+    const sentenceWords = sentences.map(s => {
+        const count = s.sentence_text.split(/\s+/).length;
+        totalWords += count;
+        return count;
+    });
+
+    // Map end times
+    let accumulatedWords = 0;
+    // Effective duration corresponds to text parts (Total - Silence)
+    // If silence is at start, we shift TIME check by -Silence.
+    // Total Duration = Silence + Content.
+    // Content Duration = Total - Silence.
+    const contentDuration = Math.max(0, totalDuration - SILENCE_PADDING);
+
+    const sentenceEndTimes = sentenceWords.map(count => {
+        accumulatedWords += count;
+        // Proportion of CONTENT duration
+        return (accumulatedWords / totalWords) * contentDuration;
+    });
+
+    // Force highlighting first immediately
+    if (state.currentSentenceIndex < 0) {
+        state.currentSentenceIndex = -1;
+        const first = document.querySelector(`.story-sentence[data-index="0"]`);
+        if (first) first.classList.add('active-sentence');
     }
 
-    state.currentSentenceIndex = 0;
+    // Visual Sync Loop
+    const updateVisuals = () => {
+        if (!state.isPlaying || !state.currentAudio) return;
+
+        // Current time in CONTENT (Time - Silence)
+        // If Time < Silence, we are in padding (Index 0 or -1?) -> Index 0.
+        const effectiveTime = Math.max(0, audio.currentTime - SILENCE_PADDING);
+
+        // Find which sentence we are in
+        let activeIndex = -1;
+        for (let i = 0; i < sentenceEndTimes.length; i++) {
+            if (effectiveTime < sentenceEndTimes[i]) {
+                activeIndex = i;
+                break;
+            }
+        }
+        // If at end or lag, assume last
+        if (activeIndex === -1 && effectiveTime < contentDuration) activeIndex = sentenceEndTimes.length - 1;
+
+        // Safety for silence period
+        if (audio.currentTime < SILENCE_PADDING) activeIndex = 0;
+
+        // Sync UI
+        if (activeIndex !== -1 && activeIndex !== state.currentSentenceIndex) {
+            const old = document.querySelector('.story-sentence.active-sentence');
+            if (old) old.classList.remove('active-sentence');
+
+            // Also remove bilingual active class if any
+            const oldBi = document.querySelector('.bilingual-sentence.active-sentence');
+            if (oldBi) oldBi.classList.remove('active-sentence');
+
+            state.currentSentenceIndex = activeIndex;
+            const target = document.querySelector(`.story-sentence[data-index="${activeIndex}"]`);
+            if (target) {
+                target.classList.add('active-sentence');
+
+                // If inside a bilingual block, highlight that too/instead?
+                const parentBi = target.closest('.bilingual-sentence');
+                if (parentBi) {
+                    parentBi.classList.add('active-sentence'); // Add CSS for this too
+                    parentBi.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                } else {
+                    target.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                }
+            }
+        }
+
+        if (!audio.paused && !audio.ended) {
+            requestAnimationFrame(updateVisuals);
+        }
+    };
+
+    requestAnimationFrame(updateVisuals);
 }
 
 async function loadStory(storyId) {
@@ -492,6 +735,9 @@ function stopStory() {
     state.currentSentenceIndex = 0;
     // Clear highlights
     document.querySelectorAll('.active-sentence').forEach(el => el.classList.remove('active-sentence'));
+
+    // Restore UI elements (Translation button)
+    resetAudioUI();
 }
 
 function pauseStory() {
@@ -509,10 +755,7 @@ function pauseStory() {
     });
 }
 
-function stopStory() {
-    pauseStory();
-    state.currentSentenceIndex = 0;
-}
+
 
 // Helper to delay
 const SILENCE_PADDING = 0.1; // 300ms
@@ -1280,10 +1523,14 @@ async function generateRandomStory() {
         const length = getSelectedLength();
         const speed = getSelectedSpeed();
 
+        // Get Language
+        const languageSelect = document.getElementById('gen-language');
+        const language = languageSelect ? languageSelect.value : 'en';
+
         const response = await fetch(`${API_BASE}/generator/random`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ length, speed })
+            body: JSON.stringify({ length, speed, language })
         });
 
         const data = await response.json();
@@ -1326,10 +1573,14 @@ async function generateTopicStory() {
         const length = getSelectedLength();
         const speed = parseFloat(document.getElementById('gen-speed').value || 1.0);
 
+        // Get Language
+        const languageSelect = document.getElementById('gen-language');
+        const language = languageSelect ? languageSelect.value : 'en';
+
         const response = await fetch(`${API_BASE}/generator/topic`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ topic, length, speed })
+            body: JSON.stringify({ topic, length, speed, language })
         });
 
         const data = await response.json();

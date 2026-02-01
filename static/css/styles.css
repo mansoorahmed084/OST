@@ -740,6 +740,37 @@ body::before {
     font-style: italic;
 }
 
+/* Bilingual Styles */
+.bilingual-sentence {
+    display: inline-block;
+    width: 100%;
+    margin-bottom: 1.5rem;
+    padding: 1rem;
+    background: rgba(255, 255, 255, 0.03);
+    border-radius: var(--radius-md);
+    border-left: 4px solid var(--primary-color);
+}
+
+.translated-text {
+    display: block;
+    font-size: 1.2rem;
+    color: var(--secondary-light);
+    margin-top: 0.5rem;
+    font-weight: 500;
+}
+
+.control-btn.secondary {
+    background: rgba(16, 185, 129, 0.2);
+    border: 1px solid var(--success-color);
+    color: var(--success-light);
+}
+
+.control-btn.secondary:hover {
+    background: var(--success-color);
+    color: #fff;
+    box-shadow: 0 0 15px rgba(16, 185, 129, 0.4);
+}
+
 /* === Story Management === */
 .story-management {
     display: flex;

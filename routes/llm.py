@@ -9,6 +9,9 @@ warnings.filterwarnings("ignore", category=FutureWarning, module="google.generat
 import google.generativeai as genai
 from flask import current_app
 from database import get_db_context
+import logging
+
+logger = logging.getLogger(__name__)
 
 # OpenAI import handled conditionally to avoid errors if not installed (though we installed it)
 try:
@@ -78,10 +81,11 @@ def generate_with_openai(system_prompt, user_prompt, api_key):
         print(f"OpenAI Error: {e}")
         return None
 
-def generate_story_text(topic, length='short'):
+def generate_story_text(topic, length='short', target_language='en'):
     """
     Generate story text using configured provider.
-    Returns (content, moral) tuple or None if default provider should be used.
+    Returns (title, content, moral, vocab, translation_data) or None.
+    translation_data is a dict or None if english only.
     """
     provider = get_llm_provider()
     tone = get_story_tone()
@@ -94,13 +98,48 @@ def generate_story_text(topic, length='short'):
 
     tone_instruction = ""
     if tone == 'happy':
-        tone_instruction = "Make the story warm, cheerful, and pleasant to listen to."
+        tone_instruction = "Make the story warm, cheerful, and pleasant."
     elif tone == 'calm':
-        tone_instruction = "Make the story slow, gentle, and peaceful, like a bedtime story."
+        tone_instruction = "Make the story slow, gentle, and peaceful."
     elif tone == 'funny':
         tone_instruction = "Make the story light, playful, and softly funny."
 
-    system_prompt = f"""
+    # Bilingual Mode
+    if target_language and target_language != 'en':
+        system_prompt = f"""
+        You are a gentle children's story writer.
+        Write a simple story for a child named Omar about: {topic}.
+        Tone: {tone_instruction}
+        Target Length: {word_count} words.
+        
+        CRITICAL: 
+        1. The story must be simple, safe, and flowing naturally.
+        2. You MUST output strictly VALID JSON.
+        3. Translate the story into {target_language}.
+        4. Use Character names from Indian origin and places example Raheem, Asif, Tajmahal, New Delhi, Bangalore, Hyderabad but simple ones.
+        
+        Output JSON Schema:
+        {{
+            "title": "English Title",
+            "translated_title": "{target_language} Title",
+            "sentences": [
+                {{ "text": "English sentence 1.", "translation": "{target_language} translation." }},
+                {{ "text": "English sentence 2.", "translation": "{target_language} translation." }}
+            ],
+            "vocab": {{ "word": "simple definition" }},
+            "moral": "English moral",
+            "translated_moral": "{target_language} moral"
+        }}
+        """
+        user_prompt = f"Write a bilingual story about {topic} in English and {target_language}."
+        
+    else:
+        # Standard English Mode (Legacy Text format or JSON? Let's stick to Text for now to minimize variance, or maybe JSON is safer?)
+        # Let's keep the Text prompt for English to avoid breaking the specific "style" instructions I fine-tuned before?
+        # Actually, the user liked the previous style. I should try to preserve it.
+        # But JSON is so much easier to parse.
+        # Let's keep the OLD prompt for English-only to be safe for now, as I don't want to change the 'feel' of English stories unnecessarily.
+        system_prompt = f"""
     You are a gentle children's story writer creating stories for a young child named Omar.
     Your goal is to help him enjoy listening, remember sequences, and feel comfortable with language.
 
@@ -166,34 +205,78 @@ def generate_story_text(topic, length='short'):
     {tone_instruction}
     Target word count: {word_count} words.
     """
-    
-    user_prompt = f"Write a story about: {topic}"
+        user_prompt = f"Write a story about: {topic}"
     
     response_text = None
     
     if provider == 'gemini':
         key = os.environ.get('GOOGLE_API_KEY')
         if key: 
-            print("Using Google API Key: Present")
             try:
-                # Direct call to the function which now uses the correct model
+                # Add JSON constraint for bilingual
+                if target_language and target_language != 'en':
+                    # Temporary configure for JSON?
+                    # `generate_with_gemini` treats it as text. 
+                    # We can instruct it in prompt (already did).
+                    pass
                 response_text = generate_with_gemini(system_prompt, user_prompt, key)
             except Exception as e:
                 print(f"Gemini generation failed: {e}")
-        else:
-            print("Using Google API Key: Missing")
             
     elif provider == 'openai':
         key = os.environ.get('OPENAI_API_KEY')
         if key:
-            print("Using OpenAI API Key: Present")
             response_text = generate_with_openai(system_prompt, user_prompt, key)
-        else:
-            print("Using OpenAI API Key: Missing")
             
     if response_text:
-        # Parse logic
+        # Bilingual JSON Parsing
+        if target_language and target_language != 'en':
+            try:
+                import json
+                print(f"DEBUG: Parsing Bilingual JSON for {target_language}...")
+                
+                # Robust JSON extraction
+                clean_text = response_text.strip()
+                start_idx = clean_text.find('{')
+                end_idx = clean_text.rfind('}')
+                
+                if start_idx != -1 and end_idx != -1:
+                    clean_text = clean_text[start_idx:end_idx+1]
+                else:
+                    print("DEBUG: No JSON braces found in response")
+                    # Fallback to simple markdown cleanup just in case
+                    clean_text = response_text.replace('```json', '').replace('```', '').strip()
+
+                data = json.loads(clean_text)
+                
+                title = data.get('title', 'A Story')
+                translated_title = data.get('translated_title', '')
+                
+                # Reconstruct content from sentences to ensure sync
+                sentences_list = data.get('sentences', [])
+                full_content = " ".join([s['text'] for s in sentences_list])
+                
+                moral = data.get('moral', '')
+                translated_moral = data.get('translated_moral', '')
+                vocab = data.get('vocab', {})
+                
+                translation_data = {
+                    'translated_title': translated_title,
+                    'translated_moral': translated_moral,
+                    'sentences': sentences_list # List of {text, translation}
+                }
+                
+                logger.info(f"DEBUG: JSON Parsing Successful. Title: {title}")
+                return title, full_content, moral, vocab, translation_data
+                
+            except Exception as e:
+                logger.error(f"JSON Parsing Error for Bilingual: {e}")
+                logger.error(f"Raw response was: {response_text}")
+                return None
+
+        # Text Parsing (Legacy)
         try:
+            logger.info("DEBUG: Parsing Standard Text Response...")
             lines = response_text.split('\n')
             title = "A Story for Omar"
             content_parts = []
@@ -207,18 +290,17 @@ def generate_story_text(topic, length='short'):
                 
                 if line.startswith("TITLE:"):
                     title = line.replace("TITLE:", "").strip()
-                    section = 'content' # Start looking for content next
+                    section = 'content' 
                 elif line.startswith("CONTENT:"):
                     section = 'content'
                 elif line.startswith("VOCAB:"):
                     section = 'vocab'
                 elif line.startswith("MORAL:"):
-                    # Capture inline moral if present
                     potential_moral = line.replace("MORAL:", "").strip()
                     if potential_moral:
                         moral = potential_moral
                     else:
-                        moral = "" # Reset to empty to capture next lines
+                        moral = "" 
                     section = 'moral'
                 else:
                     if section == 'content':
@@ -230,17 +312,18 @@ def generate_story_text(topic, length='short'):
                             val = parts[1].strip()
                             vocab[key] = val
                     elif section == 'moral':
-                        # Append lines to moral
                         if moral:
                             moral += " " + line
                         else:
                             moral = line
             
             content = "\n\n".join(content_parts)
-            if not moral: moral = "Be good and kind." # Fallback if empty
-            return title, content, moral, vocab
+            if not moral: moral = "Be good and kind."
+            
+            return title, content, moral, vocab, None
+            
         except Exception as e:
             print(f"Parsing Error: {e}")
-            return None # Fallback to default if parsing fails
+            return None 
             
     return None
