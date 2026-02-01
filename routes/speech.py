@@ -368,42 +368,76 @@ def pregenerate_sentence_audio(story_id, speed=1.0):
         provider = config['provider']
         voice = config['voice_preset']
         
-        sentences = []
+        sentences_data = []
+        target_language = 'en'
+        
         with get_db_context() as conn:
             cursor = conn.cursor()
-            cursor.execute('SELECT sentence_text FROM story_sentences WHERE story_id = ? ORDER BY sentence_order', (story_id,))
-            sentences = [r[0] for r in cursor.fetchall()]
+            # Get target language
+            cursor.execute('SELECT target_language FROM stories WHERE id = ?', (story_id,))
+            row = cursor.fetchone()
+            if row:
+                target_language = row[0]
             
-        for text in sentences:
-            if not text.strip(): continue
+            # Get sentences
+            cursor.execute('SELECT sentence_text, translated_text FROM story_sentences WHERE story_id = ? ORDER BY sentence_order', (story_id,))
+            sentences_data = cursor.fetchall()
             
-            # Generate hash-based filename (Same logic as text_to_speech)
-            input_str = f"{provider}_{voice}_{speed}_{text}"
-            file_hash = hashlib.md5(input_str.encode('utf-8')).hexdigest()
-            filename = f"tts_{file_hash}.mp3"
-            filepath = os.path.join(AUDIO_DIR, filename)
+        print(f"DEBUG: Found {len(sentences_data)} sentences to pre-generate. Target Land: {target_language}")
+            
+        for row in sentences_data:
+            eng_text = row[0]
+            trans_text = row[1]
+            
+            # 1. Generate English
+            if eng_text and eng_text.strip():
+                 _generate_segment(eng_text, 'en', provider, voice, speed)
+                 
+            # 2. Generate Translation (if exists)
+            if trans_text and trans_text.strip() and target_language != 'en':
+                 # Determine voice for language
+                 lang_voice = voice
+                 if target_language == 'hi': lang_voice = 'hi-IN-SwaraNeural'
+                 elif target_language == 'es': lang_voice = 'es-ES-ElviraNeural'
+                 elif target_language == 'fr': lang_voice = 'fr-FR-DeniseNeural'
+                 
+                 # Force use of specific voice instead of preset
+                 _generate_segment(trans_text, target_language, provider, lang_voice, speed, is_raw_voice=True)
 
-            if os.path.exists(filepath):
-                continue
-            
-            # Generate
-            if provider == 'edge_tts':
-                try:
-                    generate_edge_tts(text, voice, filepath, speed)
-                except:
-                    pass
-            elif provider == 'openai':
-                try:
-                    generate_openai_tts(text, voice, filepath, speed)
-                except:
-                    pass
-            
-            if not os.path.exists(filepath):
-                 try:
-                    tts = gTTS(text=text, lang='en', slow=(speed < 0.8))
-                    tts.save(filepath)
-                 except: 
-                     pass
+    except Exception as e:
+        print(f"Error in pregenerate_sentence_audio: {e}")
+
+def _generate_segment(text, lang, provider, voice, speed, is_raw_voice=False):
+    """Helper to generate segment"""
+    try:
+        # Generate hash-based filename
+        # Note: If is_raw_voice is True, 'voice' arg is the actual voice string, not preset name
+        # But text_to_speech usually uses preset name for hash?
+        # IMPORTANT: To match text_to_speech caching behavior, we need to be careful.
+        # However, text_to_speech endpoint currently only supports English config based on `get_tts_config`.
+        # If we want to support clicking on Hindi sentences, we'll need to update text_to_speech endpoint too.
+        # For now, let's just generate the file.
+        
+        # We'll stick to the standard naming: provider_voice_speed_text
+        input_str = f"{provider}_{voice}_{speed}_{text}"
+        file_hash = hashlib.md5(input_str.encode('utf-8')).hexdigest()
+        filename = f"tts_{file_hash}.mp3"
+        filepath = os.path.join(AUDIO_DIR, filename)
+
+        if os.path.exists(filepath):
+            return
+
+        if provider == 'edge_tts':
+             generate_edge_tts(text, voice, filepath, speed, is_raw_voice=is_raw_voice)
+        elif provider == 'openai':
+             generate_openai_tts(text, voice, filepath, speed)
+        
+        if not os.path.exists(filepath):
+             tts = gTTS(text=text, lang=lang, slow=(speed < 0.8))
+             tts.save(filepath)
+    except Exception as e:
+        print(f"Segment Gen Error ({lang}): {e}")
+
                      
         print(f"DEBUG: Pre-generation complete for {len(sentences)} sentences")
     except Exception as e:

@@ -479,10 +479,20 @@ async function speakTranslation() {
 
         audio.play().catch(e => console.error("Play error", e));
 
-        // Simple sentence highlighting (approximate) or just highlight whole blocks progressively?
-        // Since we don't have word-timestamps for translation, we can't do precise visual sync easily
-        // without backend support (which I haven't built for translation timestamps).
-        // So just play audio.
+        audio.play().catch(e => console.error("Play error", e));
+
+        // Wait for metadata to ensure duration is available for sync
+        audio.addEventListener('loadedmetadata', () => {
+            // Enable Visual Sync using translated text for timing estimates
+            if (state.currentStory.sentences) {
+                // Map to objects with 'sentence_text' property using the translation
+                // This tricks startVisualSync into calculating duration based on translated word counts
+                const translatedSentences = state.currentStory.sentences.map(s => ({
+                    sentence_text: s.translated_text || s.sentence_text // Fallback to English but use translation if available
+                }));
+                startVisualSync(audio, translatedSentences);
+            }
+        });
 
     } catch (e) {
         console.error("Translation Play Error", e);
