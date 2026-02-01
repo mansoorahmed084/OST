@@ -353,6 +353,13 @@ function displayStory(story) {
 
 async function loadStory(storyId) {
     try {
+        // Clear previous story audio state
+        if (state.currentAudio) {
+            state.currentAudio.pause();
+            state.currentAudio = null;
+        }
+        state.isPlaying = false;
+
         showLoading();
         const response = await fetch(`${API_BASE}/stories/${storyId}`);
         const data = await response.json();
@@ -513,27 +520,26 @@ const SILENCE_PADDING = 0.1; // 300ms
 async function speakStory() {
     if (!state.currentStory || !state.isPlaying) return;
 
-    // RESUME logic: If audio exists, just play
+    // RESUME logic: If audio exists AND matches current story, just play
+    const expectedFilename = `story_${state.currentStory.id}_`;
+
     if (state.currentAudio) {
-        // If it was finished, reset
-        if (state.currentAudio.ended) {
-            state.currentAudio.currentTime = 0;
-            state.currentSentenceIndex = -1;
+        // Check if this audio belongs to the current story
+        if (state.currentAudio.src && state.currentAudio.src.includes(expectedFilename)) {
+            // If it was finished, reset
+            if (state.currentAudio.ended) {
+                state.currentAudio.currentTime = 0;
+                state.currentSentenceIndex = -1;
+            }
+
+            state.currentAudio.play().catch(e => console.error("Play error", e));
+            startVisualSync(state.currentAudio, state.currentStory.sentences);
+            return;
+        } else {
+            // Mismatch - pause and clear old audio
+            state.currentAudio.pause();
+            state.currentAudio = null;
         }
-
-        state.currentAudio.play().catch(e => console.error("Play error", e));
-
-        // Re-attach visual loop if needed (metadata already loaded)
-        // We need to re-calculate timings or store them? 
-        // Best to just re-run the visual loop logic assuming metadata is there.
-        // Actually, we can just trigger the loop. But we need 'sentenceEndTimes'.
-        // Let's re-calculate them or attach them to state?
-        // For simplicity, let's just fall through if we don't have times, but we don't want to re-fetch.
-        // Let's attach 'sentenceEndTimes' to state.currentStoryMetadata if possible, or just re-calc.
-        // Re-calc is cheap.
-
-        startVisualSync(state.currentAudio, state.currentStory.sentences);
-        return;
     }
 
     try {
