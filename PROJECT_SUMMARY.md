@@ -31,12 +31,21 @@ I've successfully created **OST (Omar's Speech Teacher)** - a comprehensive web 
 - `DELETE /<id>` - Delete story
 
 **Speech API** (`/api/speech`)
-- `POST /tts` - Generate text-to-speech audio
+- `POST /tts` - Generate text-to-speech audio (optional `language`: en, hi, es, fr, de)
 - `POST /evaluate` - Evaluate speech with gentle feedback
+- `POST /story/<id>` - Full story or translated story audio
 
 **Quiz API** (`/api/quiz`)
 - `POST /generate/<story_id>` - Generate quiz questions
 - `POST /submit` - Submit answers and get encouraging feedback
+
+**Images API** (`/api/images`)
+- `POST /generate` - Story cover image (DALL-E 3)
+- `POST /generate-sentence` - Per-sentence image (DALL-E 2; optional `story_title` for context)
+
+**Settings API** (`/api/settings`)
+- `GET /` - Get settings (incl. `reader_layout`: classic | step_by_step)
+- `POST /` - Update settings (incl. reader_layout, llm_provider, tts_provider, voice_preset, story_tone)
 
 **ChatMode API** (`/api/chatmode`)
 - `POST /ask` - Process safe, whitelisted prompts
@@ -59,11 +68,14 @@ I've successfully created **OST (Omar's Speech Teacher)** - a comprehensive web 
 
 **Story Reading & Generation** 📖 ✨
 - **AI Story Generator**: Create unlimited custom stories on any topic!
-- **Dynamic Illustrations**: AI generates beautiful images for every story.
+- **Dynamic Illustrations**: AI generates beautiful images for every story (DALL-E 3 cover; DALL-E 2 per-sentence in step-by-step).
+- **Per-Sentence Images**: Step-by-step mode uses one image per sentence; generated at story creation for smooth, engaging playback; DALL-E prompt preserves story characters and context.
 - **Smart Audio**: High-quality TTS with restart/resume and latency compensation.
-- **Vocabulary Builder**: Automatically exacts simple definitions for hard words.
-- **Moral Extraction**: explicitly highlights the lesson of each story.
-- **Visual Layout**: 2-column reader with separate vocab sidebar.
+- **Vocabulary Builder**: Automatically extracts simple definitions for hard words.
+- **Moral Extraction**: Explicitly highlights the lesson of each story.
+- **Visual Layout**: 2-column reader with separate vocab sidebar (Classic); step-by-step viewport (one sentence + image, no scroll).
+- **Reader Layouts**: Settings → Reader Layout — **Classic** (one image, full story, auto-play) or **Step-by-step** (one sentence at a time, Back/Next, kid-paced).
+- **Bilingual Highlight**: When playing translated audio, the translated (e.g. Hindi) text is highlighted, not English.
 
 **Speaking Practice** 🎤
 - **Pro Voice**: Uses the same high-quality neural voice as the stories.
@@ -175,10 +187,11 @@ OST/
 
 ### 🎯 Ready to Use
 1. Open browser to `http://localhost:5000`
-2. **Generate a Story**: Type "Space Adventure" and watch it be created.
-3. **Listen**: Click "Play" to hear it narrated with highlighting.
-4. **Learn**: Check the "New Words" sidebar.
-5. **Practice**: Go to Practice mode or take a Quiz.
+2. **Generate a Story**: Type "Space Adventure" and watch it be created (cover + per-sentence images generate in background).
+3. **Choose layout**: Settings → Reader Layout → **Classic** (full story) or **Step-by-step** (one sentence at a time).
+4. **Listen**: Classic — Click "Play" / "Play Translation"; Step-by-step — Choose "Listen in English" or "Listen in Hindi", then use Back/Next (audio auto-plays on Next/Back).
+5. **Learn**: Check the "New Words" sidebar; use "Play translation" in step-by-step for bilingual stories.
+6. **Practice**: Go to Practice mode or take a Quiz.
 
 ---
 
@@ -284,8 +297,18 @@ OST/
 ### Long Term (Future)
 1. LangChain integration
 2. Adaptive difficulty
-3. Multi-language support
-4. Mobile app version
+3. Mobile app version
+
+---
+
+## 📋 Changelog (Recent Changes)
+
+- **Bilingual highlight**: Playing "Play Translation" now highlights the translated (e.g. Hindi) text instead of English.
+- **Reader layouts**: Settings → Reader Layout — **Classic** (one image, full story) or **Step-by-step** (one sentence + image at a time, Back/Next).
+- **Step-by-step reader**: Back button; auto-play on Next/Back; language choice (English vs Hindi/translation) for bilingual; "Play translation" button; per-sentence images generated at story creation.
+- **Per-sentence images**: Generated at story generation time (random + topic); DALL-E 2 with story-context prompt for consistent characters.
+- **TTS**: `/api/speech/tts` accepts optional `language` (en, hi, es, fr, de) for translation playback.
+- **API**: `POST /api/images/generate-sentence` (story_id, sentence_order, prompt, story_title); Settings supports `reader_layout`.
 
 ---
 

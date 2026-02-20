@@ -226,58 +226,108 @@
                 <!-- Stories will be loaded here -->
             </div>
 
-            <!-- Story Reader -->
+            <!-- Story Reader (two layouts: classic and step-by-step) -->
             <div id="story-reader" class="story-reader hidden">
-                <button class="back-btn" id="back-to-stories">← Back to Stories</button>
-
-                <div class="story-image-container">
-                    <img id="story-image" src="" alt="Story Image" class="story-image">
+                <div class="story-reader-header">
+                    <button class="back-btn" id="back-to-stories">← Back to Stories</button>
+                    <div class="play-mode-row">
+                        <span class="play-mode-label">Manual</span>
+                        <label class="toggle-switch" title="Manual: you tap Play/Next. Automated: story plays and advances by itself.">
+                            <input type="checkbox" id="play-mode-auto" aria-label="Automated play">
+                            <span class="toggle-slider"></span>
+                        </label>
+                        <span class="play-mode-label">Automated</span>
+                    </div>
                 </div>
 
-                <div class="story-content">
-                    <h2 id="story-title" class="story-title"></h2>
-
-                    <div class="story-controls">
-                        <button id="play-story" class="control-btn primary">
-                            <span class="btn-icon">▶️</span>
-                            <span>Play English</span>
-                        </button>
-                        <button id="play-translation" class="control-btn secondary hidden">
-                            <span class="btn-icon">🗣️</span>
-                            <span>Play Translation</span>
-                        </button>
-                        <button id="pause-story" class="control-btn" style="display: none;">
-                            <span class="btn-icon">⏸️</span>
-                            <span>Pause</span>
-                        </button>
-                        <button id="stop-story" class="control-btn">
-                            <span class="btn-icon">⏹️</span>
-                            <span>Reset</span>
-                        </button>
+                <!-- Classic layout: one image, full story, play/pause -->
+                <div id="story-reader-classic" class="story-reader-layout">
+                    <div class="story-image-container">
+                        <img id="story-image" src="" alt="Story Image" class="story-image">
                     </div>
-
-                    <div class="story-layout-container">
-                        <!-- Left Column: Story Text & Moral -->
-                        <div class="story-main-column">
-                            <div id="story-text" class="story-text">
-                                <!-- Story sentences -->
+                    <div class="story-content">
+                        <h2 id="story-title" class="story-title"></h2>
+                        <div class="story-controls">
+                            <button id="play-story" class="control-btn primary">
+                                <span class="btn-icon">▶️</span>
+                                <span>Play English</span>
+                            </button>
+                            <button id="play-translation" class="control-btn secondary hidden">
+                                <span class="btn-icon">🗣️</span>
+                                <span>Play Translation</span>
+                            </button>
+                            <button id="pause-story" class="control-btn" style="display: none;">
+                                <span class="btn-icon">⏸️</span>
+                                <span>Pause</span>
+                            </button>
+                            <button id="stop-story" class="control-btn">
+                                <span class="btn-icon">⏹️</span>
+                                <span>Reset</span>
+                            </button>
+                        </div>
+                        <div class="story-layout-container">
+                            <div class="story-main-column">
+                                <div id="story-text" class="story-text"></div>
+                                <div id="story-moral" class="story-moral hidden">
+                                    <h3>🌟 Moral of the Story</h3>
+                                    <p id="moral-text"></p>
+                                </div>
                             </div>
-
-                            <!-- Moral Section -->
-                            <div id="story-moral" class="story-moral hidden">
-                                <h3>🌟 Moral of the Story</h3>
-                                <p id="moral-text"></p>
+                            <div class="story-sidebar-column">
+                                <div id="story-vocab" class="story-vocab hidden">
+                                    <h3>📚 New Words</h3>
+                                    <div id="vocab-list" class="vocab-list-vertical"></div>
+                                </div>
                             </div>
                         </div>
+                    </div>
+                </div>
 
-                        <!-- Right Column: Context/Vocab -->
-                        <div class="story-sidebar-column">
-                            <!-- Vocab Section -->
-                            <div id="story-vocab" class="story-vocab hidden">
-                                <h3>📚 New Words</h3>
-                                <div id="vocab-list" class="vocab-list-vertical"></div>
-                            </div>
+                <!-- Step-by-step layout: one sentence + image at a time, Back/Next, language choice -->
+                <div id="story-reader-step" class="story-reader-layout hidden">
+                    <div id="step-language-choice" class="step-language-choice hidden">
+                        <p class="step-language-prompt">Listen to the story in:</p>
+                        <div class="step-language-buttons">
+                            <button id="step-listen-english" class="control-btn primary">Listen in English</button>
+                            <button id="step-listen-translation" class="control-btn secondary hidden">Listen in <span id="step-translation-lang">Hindi</span></button>
                         </div>
+                    </div>
+                    <div class="step-by-step-viewport">
+                        <h2 id="step-story-title" class="step-story-title"></h2>
+                        <div class="step-image-container">
+                            <img id="step-sentence-image" src="" alt="Sentence illustration" class="step-sentence-image">
+                            <div id="step-image-placeholder" class="step-image-placeholder">🖼️</div>
+                        </div>
+                        <div class="step-text-container">
+                            <h3 id="step-moral-heading" class="step-moral-heading hidden">Moral of the Story</h3>
+                            <p id="step-sentence-text" class="step-sentence-text"></p>
+                            <p id="step-sentence-translation" class="step-sentence-translation hidden"></p>
+                        </div>
+                        <div id="step-controls-nav" class="step-controls">
+                            <button id="step-back" class="control-btn hidden">
+                                <span class="btn-icon">⬅️</span>
+                                <span>Back</span>
+                            </button>
+                            <button id="step-play-sentence" class="control-btn primary hidden">
+                                <span class="btn-icon">▶️</span>
+                                <span>Play</span>
+                            </button>
+                            <button id="step-play-translation" class="control-btn secondary hidden">
+                                <span class="btn-icon">🗣️</span>
+                                <span>Play translation</span>
+                            </button>
+                            <button id="step-next" class="control-btn primary">
+                                <span>Next</span>
+                                <span class="btn-icon">➡️</span>
+                            </button>
+                        </div>
+                        <div id="step-controls-end" class="step-controls hidden">
+                            <button id="step-back-to-stories" class="control-btn primary">
+                                <span class="btn-icon">📚</span>
+                                <span>Back to Stories</span>
+                            </button>
+                        </div>
+                        <div id="step-progress" class="step-progress"></div>
                     </div>
                 </div>
             </div>
@@ -485,6 +535,21 @@
                         </div>
                         <div class="settings-option" data-value="funny">
                             <span class="option-label">Silly & Funny</span>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Reader Layout -->
+                <div class="settings-group">
+                    <h3>Reader Layout</h3>
+                    <div class="settings-options-grid" id="reader-layout-options">
+                        <div class="settings-option selected" data-value="classic">
+                            <span class="option-label">Classic</span>
+                            <span style="font-size: 0.8rem; color: var(--text-secondary);">One image, full story, auto-play</span>
+                        </div>
+                        <div class="settings-option" data-value="step_by_step">
+                            <span class="option-label">Step-by-step</span>
+                            <span style="font-size: 0.8rem; color: var(--text-secondary);">One sentence at a time, kid clicks Next</span>
                         </div>
                     </div>
                 </div>

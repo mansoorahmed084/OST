@@ -6,8 +6,48 @@ Using simple template-based generation (can be enhanced with LLM later)
 from flask import Blueprint, jsonify, request
 from database import get_db_context
 import random
+import threading
+import logging
+import sqlite3
 
 bp = Blueprint('generator', __name__)
+logger = logging.getLogger(__name__)
+
+
+def _generate_story_assets(story_id, title, content, full_text_en, full_text_translated,
+                           sentences_for_images, target_language, speed):
+    """Run audio and image generation in background. Does not block."""
+    try:
+        from routes.speech import generate_audio_file, pregenerate_sentence_audio
+        from routes.images import generate_and_save_image, generate_and_save_sentence_image
+
+        def story_cover_task(sid, t, txt):
+            log_prompt = f"Children's story illustration: {t}. Scene: {txt[:200]}"
+            generate_and_save_image(sid, log_prompt)
+
+        def all_sentence_images_task(sid, story_title, sentence_texts):
+            for idx, sent in enumerate(sentence_texts):
+                try:
+                    generate_and_save_sentence_image(sid, idx, (sent or '')[:200], story_title=story_title)
+                except Exception as e:
+                    logger.error("Sentence image %s failed: %s", idx, e)
+
+        img_thread = threading.Thread(target=story_cover_task, args=(story_id, title, content))
+        img_thread.start()
+        sent_img_thread = threading.Thread(target=all_sentence_images_task,
+                                           args=(story_id, title, sentences_for_images))
+        sent_img_thread.start()
+
+        generate_audio_file(story_id, full_text_en, speed, language='en')
+        if target_language != 'en' and full_text_translated:
+            generate_audio_file(story_id, full_text_translated, speed, language=target_language)
+        pregenerate_sentence_audio(story_id, speed)
+
+        sent_img_thread.join()
+        img_thread.join()
+        logger.info("Background asset generation finished for story %s", story_id)
+    except Exception as e:
+        logger.exception("Background audio/image generation failed for story %s: %s", story_id, e)
 
 # Kid-friendly topics for random generation
 RANDOM_TOPICS = [
@@ -325,11 +365,16 @@ def generate_random_story():
 
         with get_db_context() as conn:
             cursor = conn.cursor()
-            cursor.execute('''
-                INSERT INTO stories (title, content, moral, theme, difficulty_level, image_category, vocab_json, translated_title, target_language)
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
-            ''', (title, content, moral, theme, 'easy', theme, vocab_json, translated_title, target_language))
-            
+            try:
+                cursor.execute('''
+                    INSERT INTO stories (title, content, moral, theme, difficulty_level, image_category, vocab_json, translated_title, target_language, audio_speed)
+                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                ''', (title, content, moral, theme, 'easy', theme, vocab_json, translated_title, target_language, speed))
+            except sqlite3.OperationalError:
+                cursor.execute('''
+                    INSERT INTO stories (title, content, moral, theme, difficulty_level, image_category, vocab_json, translated_title, target_language)
+                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+                ''', (title, content, moral, theme, 'easy', theme, vocab_json, translated_title, target_language))
             story_id = cursor.lastrowid
             
             # Split into sentences
@@ -350,49 +395,32 @@ def generate_random_story():
                         VALUES (?, ?, ?)
                     ''', (story_id, idx, sentence))
         
-        # Trigger Audio and Image Generation Immediately (Concurrent)
+        # Build text/sentence lists for background asset generation
+        full_text_en = content
+        full_text_translated = ""
+        sentences_for_images = []
+        if translation_data and translation_data.get('sentences'):
+            full_text_en = " ".join([s['text'] for s in translation_data['sentences']])
+            full_text_translated = " ".join([s['translation'] for s in translation_data['sentences']])
+            sentences_for_images = [s['text'] for s in translation_data['sentences']]
+        else:
+            sentences_for_images = [s.strip() + '.' for s in content.split('.') if s.strip()]
+
+        # Generate all audio and images before returning (no runtime generation)
         try:
-            from routes.speech import generate_audio_file, pregenerate_sentence_audio
-            from routes.images import generate_and_save_image
-            import threading
-            
-            # Reconstruct full text for audio
-            full_text_en = content
-            full_text_translated = ""
-            if translation_data:
-                full_text_en = " ".join([s['text'] for s in translation_data['sentences']])
-                full_text_translated = " ".join([s['translation'] for s in translation_data['sentences']])
-
-            logger.info(f"DEBUG: Generating initial audio for Story {story_id} at speed {speed}")
-            
-            # Start Background Image Gen
-            def generate_image_task_rnd(sid, title, txt):
-                log_prompt = f"Children's story illustration: {title}. Scene: {txt[:200]}"
-                generate_and_save_image(sid, log_prompt)
-            
-            img_thread = threading.Thread(target=generate_image_task_rnd, args=(story_id, title, content))
-            img_thread.start()
-            
-            # 1. Generate Full Audio (English)
-            generate_audio_file(story_id, full_text_en, speed, language='en')
-            
-            # 2. Generate Translated Audio (If applicable)
-            if target_language != 'en' and full_text_translated:
-                 logger.info(f"DEBUG: Generating {target_language} audio...")
-                 generate_audio_file(story_id, full_text_translated, speed, language=target_language)
-
-            # 3. Pre-generate English Sentence Audio
-            pregenerate_sentence_audio(story_id, speed)
-            
+            _generate_story_assets(story_id, title, content, full_text_en, full_text_translated,
+                                  sentences_for_images, target_language, speed)
         except Exception as e:
-            logger.error(f"Initial Audio/Image Gen Failed: {e}")
-        
+            logger.exception("Audio/image generation failed for story %s", story_id)
+            # Still return success; story is saved; assets may be missing
+            pass
+
         return jsonify({
             'success': True,
             'story_id': story_id,
             'title': title,
-            'vocab': vocab, # Return vocab to frontend
-            'message': 'Random story and audio generated successfully!'
+            'vocab': vocab,
+            'message': 'Story created! Audio and images are ready.'
         }), 201
         
     except Exception as e:
@@ -446,12 +474,16 @@ def generate_topic_story():
 
         with get_db_context() as conn:
             cursor = conn.cursor()
-            # New columns added: translated_title, target_language
-            cursor.execute('''
-                INSERT INTO stories (title, content, moral, theme, difficulty_level, image_category, vocab_json, translated_title, target_language)
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
-            ''', (title, content, moral, theme, 'easy', theme, vocab_json, translated_title, target_language))
-            
+            try:
+                cursor.execute('''
+                    INSERT INTO stories (title, content, moral, theme, difficulty_level, image_category, vocab_json, translated_title, target_language, audio_speed)
+                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                ''', (title, content, moral, theme, 'easy', theme, vocab_json, translated_title, target_language, speed))
+            except sqlite3.OperationalError:
+                cursor.execute('''
+                    INSERT INTO stories (title, content, moral, theme, difficulty_level, image_category, vocab_json, translated_title, target_language)
+                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+                ''', (title, content, moral, theme, 'easy', theme, vocab_json, translated_title, target_language))
             story_id = cursor.lastrowid
             
             # Split into sentences
@@ -474,51 +506,31 @@ def generate_topic_story():
                         VALUES (?, ?, ?)
                     ''', (story_id, idx, sentence))
         
-        # Trigger Audio and Image Generation Immediately (Concurrent)
+        # Build text/sentence lists for background asset generation
+        full_text_en = content
+        full_text_translated = ""
+        sentences_for_images = []
+        if translation_data and translation_data.get('sentences'):
+            full_text_en = " ".join([s['text'] for s in translation_data['sentences']])
+            full_text_translated = " ".join([s['translation'] for s in translation_data['sentences']])
+            sentences_for_images = [s['text'] for s in translation_data['sentences']]
+        else:
+            sentences_for_images = [s.strip() + '.' for s in content.split('.') if s.strip()]
+
+        # Generate all audio and images before returning (no runtime generation)
         try:
-            from routes.speech import generate_audio_file, pregenerate_sentence_audio
-            from routes.images import generate_and_save_image
-            import threading
-            
-            # Reconstruct full text for audio
-            # Use original content if English, or reconstruct from segments
-            full_text_en = content
-            full_text_translated = ""
-            
-            if translation_data:
-                full_text_en = " ".join([s['text'] for s in translation_data['sentences']])
-                full_text_translated = " ".join([s['translation'] for s in translation_data['sentences']])
-
-            print(f"DEBUG: Generating topic audio for Story {story_id} at speed {speed}")
-            
-            def generate_image_task(sid, title, txt):
-                log_prompt = f"Children's story illustration: {title}. Scene: {txt[:200]}"
-                print(f"DEBUG: Starting Background Image Gen for Story {sid}")
-                # generate_and_save_image(sid, log_prompt)
-            
-            img_thread = threading.Thread(target=generate_image_task, args=(story_id, title, content))
-            # img_thread.start()
-
-            # 1. Generate Full Audio (English)
-            generate_audio_file(story_id, full_text_en, speed, language='en')
-            
-            # 2. Generate Translated Audio (If applicable)
-            if target_language != 'en' and full_text_translated:
-                 print(f"DEBUG: Generating {target_language} audio...")
-                 generate_audio_file(story_id, full_text_translated, speed, language=target_language)
-
-            # 3. Pre-generate English Sentence Audio
-            pregenerate_sentence_audio(story_id, speed)
-            
+            _generate_story_assets(story_id, title, content, full_text_en, full_text_translated,
+                                  sentences_for_images, target_language, speed)
         except Exception as e:
-            print(f"Topic Audio/Image Gen Failed: {e}")
+            logger.exception("Audio/image generation failed for story %s", story_id)
+            pass
 
         return jsonify({
             'success': True,
             'story_id': story_id,
             'title': title,
-            'vocab': vocab, 
-            'message': 'Story created and audio generating...'
+            'vocab': vocab,
+            'message': 'Story created! Audio and images are ready.'
         }), 201
         
     except Exception as e:

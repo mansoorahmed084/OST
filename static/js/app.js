@@ -17,7 +17,12 @@ const state = {
     synthesis: window.speechSynthesis,
     currentUtterance: null,
     isSelectMode: false,
-    selectedStories: new Set()
+    selectedStories: new Set(),
+    readerLayout: 'classic',  // 'classic' | 'step_by_step'
+    stepByStepIndex: 0,
+    stepByStepLanguage: 'en',  // 'en' | target_language (e.g. 'hi') for step-by-step narration
+    stepCurrentAudio: null,    // current playing Audio in step-by-step; stop before playing next
+    playMode: 'manual'         // 'manual' | 'automated' - selectable at start story
 };
 
 // ... (lines 20-186)
@@ -152,10 +157,31 @@ function initializeStoriesPage() {
     document.getElementById('back-to-stories')?.addEventListener('click', () => {
         document.getElementById('stories-list').classList.remove('hidden');
         document.getElementById('story-reader').classList.add('hidden');
-        // Unhide controls
         document.querySelector('.story-generator').classList.remove('hidden');
         document.querySelector('.story-management').classList.remove('hidden');
         stopStory();
+        if (state.stepCurrentAudio) {
+            state.stepCurrentAudio.pause();
+            state.stepCurrentAudio.currentTime = 0;
+            state.stepCurrentAudio = null;
+        }
+    });
+
+    // Play mode toggle (Manual vs Automated) - selectable at start story
+    document.getElementById('play-mode-auto')?.addEventListener('change', (e) => {
+        state.playMode = e.target.checked ? 'automated' : 'manual';
+        if (state.playMode === 'automated') {
+            if (state.readerLayout === 'classic' && state.currentStory) playStory();
+            else if (state.readerLayout === 'step_by_step' && state.currentStory && state.stepByStepLanguage != null)
+                stepPlayCurrentSentence();
+        } else {
+            if (state.readerLayout === 'classic') pauseStory();
+            else if (state.stepCurrentAudio) {
+                state.stepCurrentAudio.pause();
+                state.stepCurrentAudio.currentTime = 0;
+                state.stepCurrentAudio = null;
+            }
+        }
     });
 
     // Play/Pause buttons
@@ -203,6 +229,17 @@ function initializeStoriesPage() {
     // Story Management
     document.getElementById('toggle-select-mode')?.addEventListener('click', toggleSelectMode);
     document.getElementById('delete-selected')?.addEventListener('click', deleteSelectedStories);
+
+    // Step-by-step reader
+    document.getElementById('step-next')?.addEventListener('click', stepNext);
+    document.getElementById('step-back')?.addEventListener('click', stepBack);
+    document.getElementById('step-play-sentence')?.addEventListener('click', stepPlaySentence);
+    document.getElementById('step-play-translation')?.addEventListener('click', stepPlayTranslation);
+    document.getElementById('step-listen-english')?.addEventListener('click', () => stepChooseLanguage('en'));
+    document.getElementById('step-listen-translation')?.addEventListener('click', function () {
+        if (state.currentStory && state.currentStory.target_language) stepChooseLanguage(state.currentStory.target_language);
+    });
+    document.getElementById('step-back-to-stories')?.addEventListener('click', stepBackToStories);
 }
 
 async function loadStories() {
@@ -327,11 +364,14 @@ async function generateTopicStory() {
 // ... (other functions)
 
 function displayStory(story) {
-    // Hide stories list, show reader
     document.getElementById('stories-list').classList.add('hidden');
     document.querySelector('.story-generator').classList.add('hidden');
     document.querySelector('.story-management').classList.add('hidden');
     document.getElementById('story-reader').classList.remove('hidden');
+    document.getElementById('story-reader-classic').classList.remove('hidden');
+    document.getElementById('story-reader-step').classList.add('hidden');
+
+    state.playMode = document.getElementById('play-mode-auto')?.checked ? 'automated' : 'manual';
 
     // Set title
     const titleEl = document.getElementById('story-title');
@@ -429,6 +469,7 @@ function displayStory(story) {
     }
 
     state.currentSentenceIndex = 0;
+    if (state.playMode === 'automated') setTimeout(() => playStory(), 300);
 }
 
 // ...
@@ -455,8 +496,7 @@ async function speakTranslation() {
     document.getElementById('play-translation').style.display = 'none';
 
     try {
-        const speed = getSelectedSpeed();
-        // Request Translated Audio
+        const speed = (state.currentStory && state.currentStory.audio_speed != null) ? state.currentStory.audio_speed : getSelectedSpeed();
         const response = await fetch(`${API_BASE}/speech/story/${state.currentStory.id}`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
@@ -608,7 +648,6 @@ function startVisualSync(audio, sentences, mode = 'normal') {
 
 async function loadStory(storyId) {
     try {
-        // Clear previous story audio state
         if (state.currentAudio) {
             state.currentAudio.pause();
             state.currentAudio = null;
@@ -616,12 +655,24 @@ async function loadStory(storyId) {
         state.isPlaying = false;
 
         showLoading();
-        const response = await fetch(`${API_BASE}/stories/${storyId}`);
-        const data = await response.json();
+        const [storyRes, settingsRes] = await Promise.all([
+            fetch(`${API_BASE}/stories/${storyId}`),
+            fetch(`${API_BASE}/settings`)
+        ]);
+        const storyData = await storyRes.json();
+        let settingsData = { success: true, settings: {} };
+        try {
+            settingsData = await settingsRes.json();
+        } catch (e) { /* ignore */ }
 
-        if (data.success) {
-            state.currentStory = data.story;
-            displayStory(data.story);
+        if (storyData.success) {
+            state.currentStory = storyData.story;
+            state.readerLayout = (settingsData.settings && settingsData.settings.reader_layout) || 'classic';
+            if (state.readerLayout === 'step_by_step') {
+                displayStoryStepByStep(storyData.story);
+            } else {
+                displayStory(storyData.story);
+            }
         } else {
             showError('Failed to load story');
         }
@@ -799,8 +850,7 @@ async function speakStory() {
     }
 
     try {
-        // 1. Get Full Story Audio (Better Intonation)
-        const speed = getSelectedSpeed();
+        const speed = (state.currentStory && state.currentStory.audio_speed != null) ? state.currentStory.audio_speed : getSelectedSpeed();
         const response = await fetch(`${API_BASE}/speech/story/${state.currentStory.id}`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
@@ -842,11 +892,259 @@ async function speakStory() {
 // startVisualSync is defined above (single definition with mode support).
 // speakStory uses default mode 'normal' (highlights English); speakTranslation passes 'translation' (highlights Hindi/translated text).
 
+// ===================================
+// Step-by-step reader (one sentence + image at a time, Back/Next, language choice)
+// ===================================
+const STEP_LANG_NAMES = { hi: 'Hindi', es: 'Spanish', fr: 'French', de: 'German' };
 
+function displayStoryStepByStep(story) {
+    document.getElementById('stories-list').classList.add('hidden');
+    document.querySelector('.story-generator').classList.add('hidden');
+    document.querySelector('.story-management').classList.add('hidden');
+    document.getElementById('story-reader').classList.remove('hidden');
+    document.getElementById('story-reader-classic').classList.add('hidden');
+    document.getElementById('story-reader-step').classList.remove('hidden');
+
+    state.playMode = document.getElementById('play-mode-auto')?.checked ? 'automated' : 'manual';
+
+    const titleEl = document.getElementById('step-story-title');
+    if (story.translated_title && story.target_language && story.target_language !== 'en') {
+        titleEl.innerHTML = `${story.title} <span style="font-size: 0.85em; color: var(--secondary-light);">/ ${story.translated_title}</span>`;
+    } else {
+        titleEl.textContent = story.title;
+    }
+
+    const isBilingual = story.target_language && story.target_language !== 'en';
+    const choiceEl = document.getElementById('step-language-choice');
+    const transBtn = document.getElementById('step-play-translation');
+    if (isBilingual) {
+        choiceEl.classList.remove('hidden');
+        document.getElementById('step-translation-lang').textContent = STEP_LANG_NAMES[story.target_language] || story.target_language;
+        document.getElementById('step-listen-translation').classList.remove('hidden');
+        transBtn.classList.remove('hidden');
+        state.stepByStepLanguage = null; // user must choose
+    } else {
+        choiceEl.classList.add('hidden');
+        document.getElementById('step-listen-translation').classList.add('hidden');
+        transBtn.classList.add('hidden');
+        state.stepByStepLanguage = 'en';
+    }
+
+    state.stepByStepIndex = 0;
+    updateStepByStepView();
+    if (!isBilingual) {
+        state.stepByStepLanguage = 'en';
+        if (state.playMode === 'automated') setTimeout(() => stepPlayCurrentSentence(), 400);
+    }
+}
+
+function updateStepByStepView() {
+    const story = state.currentStory;
+    if (!story || !story.sentences || !story.sentences.length) return;
+
+    const idx = state.stepByStepIndex;
+    const total = story.sentences.length;
+    const sentence = story.sentences[idx];
+
+    document.getElementById('step-moral-heading')?.classList.add('hidden');
+    document.getElementById('step-sentence-text').textContent = sentence.sentence_text || '';
+    const transEl = document.getElementById('step-sentence-translation');
+    if (sentence.translated_text && story.target_language && story.target_language !== 'en') {
+        transEl.textContent = sentence.translated_text;
+        transEl.classList.remove('hidden');
+    } else {
+        transEl.textContent = '';
+        transEl.classList.add('hidden');
+    }
+
+    document.getElementById('step-progress').textContent = `${idx + 1} / ${total}`;
+
+    // First slide: only Next (no Back, Play, Play translation). Middle slides: Back + Next. End handled in stepNext.
+    const navWrap = document.getElementById('step-controls-nav');
+    const endWrap = document.getElementById('step-controls-end');
+    const stepBackBtn = document.getElementById('step-back');
+    const stepPlayBtn = document.getElementById('step-play-sentence');
+    const stepPlayTransBtn = document.getElementById('step-play-translation');
+    const stepNextBtn = document.getElementById('step-next');
+    if (navWrap) navWrap.classList.remove('hidden');
+    if (endWrap) endWrap.classList.add('hidden');
+    if (idx === 0) {
+        if (stepBackBtn) stepBackBtn.classList.add('hidden');
+        if (stepPlayBtn) stepPlayBtn.classList.add('hidden');
+        if (stepPlayTransBtn) stepPlayTransBtn.classList.add('hidden');
+        if (stepNextBtn) stepNextBtn.classList.remove('hidden');
+        // First slide: show Listen in English / Listen in Hindi for bilingual stories
+        const choiceEl = document.getElementById('step-language-choice');
+        if (choiceEl && story.target_language && story.target_language !== 'en') choiceEl.classList.remove('hidden');
+    } else {
+        if (stepBackBtn) stepBackBtn.classList.remove('hidden');
+        if (stepPlayBtn) stepPlayBtn.classList.add('hidden');
+        if (stepPlayTransBtn) stepPlayTransBtn.classList.add('hidden');
+        if (stepNextBtn) stepNextBtn.classList.remove('hidden');
+        // From slide 2 onward: hide language choice
+        document.getElementById('step-language-choice')?.classList.add('hidden');
+    }
+
+    const imgEl = document.getElementById('step-sentence-image');
+    const placeholderEl = document.getElementById('step-image-placeholder');
+    placeholderEl.textContent = '🖼️';
+    placeholderEl.style.display = 'block';
+    imgEl.style.display = 'none';
+    const imagePath = `/images/stories/story_${story.id}_sentence_${idx}.png`;
+    imgEl.onerror = () => {
+        if (state.currentStory && state.currentStory.id === story.id && state.stepByStepIndex === idx) {
+            imgEl.style.display = 'none';
+            placeholderEl.style.display = 'block';
+        }
+    };
+    imgEl.onload = () => {
+        if (state.currentStory && state.currentStory.id === story.id && state.stepByStepIndex === idx) {
+            imgEl.style.display = 'block';
+            placeholderEl.style.display = 'none';
+        }
+    };
+    imgEl.src = imagePath;
+}
+
+function ensureSentenceImage(storyId, sentenceOrder, prompt, storyTitle) {
+    const promptText = (prompt || 'A scene for a children story.').trim().substring(0, 200);
+    const payload = {
+        story_id: storyId,
+        sentence_order: sentenceOrder,
+        prompt: promptText
+    };
+    if (storyTitle) payload.story_title = storyTitle;
+    return fetch(`${API_BASE}/images/generate-sentence`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload)
+    }).then(r => r.json()).then(data => {
+        if (data.success && data.image_url) return data.image_url;
+        throw new Error(data.error || 'Image failed');
+    });
+}
+
+function stepNext() {
+    if (state.stepCurrentAudio) {
+        state.stepCurrentAudio.pause();
+        state.stepCurrentAudio.currentTime = 0;
+        state.stepCurrentAudio = null;
+    }
+    const story = state.currentStory;
+    if (!story || !story.sentences) return;
+    if (state.stepByStepIndex >= story.sentences.length) return;
+    if (state.stepByStepIndex < story.sentences.length - 1) {
+        state.stepByStepIndex++;
+        updateStepByStepView();
+        stepPlayCurrentSentence();
+    } else {
+        state.stepByStepIndex = story.sentences.length;
+        const moral = story.moral;
+        const moralHeading = document.getElementById('step-moral-heading');
+        if (moral) {
+            moralHeading?.classList.remove('hidden');
+            document.getElementById('step-sentence-text').textContent = moral;
+        } else {
+            moralHeading?.classList.add('hidden');
+            document.getElementById('step-sentence-text').textContent = 'The End';
+        }
+        document.getElementById('step-sentence-translation').classList.add('hidden');
+        document.getElementById('step-sentence-image').style.display = 'none';
+        document.getElementById('step-image-placeholder').style.display = 'block';
+        document.getElementById('step-image-placeholder').textContent = '✨';
+        document.getElementById('step-progress').textContent = 'The End';
+        document.getElementById('step-controls-nav')?.classList.add('hidden');
+        document.getElementById('step-controls-end')?.classList.remove('hidden');
+    }
+}
+
+function stepBack() {
+    if (state.stepCurrentAudio) {
+        state.stepCurrentAudio.pause();
+        state.stepCurrentAudio.currentTime = 0;
+        state.stepCurrentAudio = null;
+    }
+    const story = state.currentStory;
+    if (!story || !story.sentences) return;
+    if (state.stepByStepIndex >= story.sentences.length) {
+        state.stepByStepIndex = story.sentences.length - 1;
+    } else if (state.stepByStepIndex > 0) {
+        state.stepByStepIndex--;
+    } else {
+        return;
+    }
+    updateStepByStepView();
+    stepPlayCurrentSentence();
+}
+
+function stepPlayCurrentSentence() {
+    if (state.stepByStepLanguage == null) return;
+    const story = state.currentStory;
+    if (!story || !story.sentences) return;
+    const idx = state.stepByStepIndex;
+    if (idx >= story.sentences.length) return;
+    const lang = state.stepByStepLanguage;
+    const text = lang === 'en' ? story.sentences[idx].sentence_text : (story.sentences[idx].translated_text || story.sentences[idx].sentence_text);
+    if (!text) return;
+    stepTtsPlay(text, lang, idx);
+}
+
+async function stepTtsPlay(text, language, expectedIndex) {
+    if (state.stepCurrentAudio) {
+        state.stepCurrentAudio.pause();
+        state.stepCurrentAudio.currentTime = 0;
+        state.stepCurrentAudio = null;
+    }
+    try {
+        const speed = (state.currentStory && state.currentStory.audio_speed != null) ? state.currentStory.audio_speed : getSelectedSpeed();
+        const response = await fetch(`${API_BASE}/speech/tts`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ text: text, speed: speed, language: language || 'en' })
+        });
+        const data = await response.json();
+        if (data.success && state.stepByStepIndex === expectedIndex) {
+            const audio = new Audio(data.audio_url);
+            state.stepCurrentAudio = audio;
+            audio.onended = () => {
+                state.stepCurrentAudio = null;
+                if (state.playMode === 'automated') stepNext();
+            };
+            audio.onerror = () => { state.stepCurrentAudio = null; };
+            audio.play();
+        }
+    } catch (e) {
+        console.error('Step TTS error', e);
+        state.stepCurrentAudio = null;
+    }
+}
+
+async function stepPlaySentence() {
+    stepPlayCurrentSentence();
+}
+
+async function stepPlayTranslation() {
+    const story = state.currentStory;
+    if (!story || !story.sentences || !story.target_language || story.target_language === 'en') return;
+    const idx = state.stepByStepIndex;
+    if (idx >= story.sentences.length) return;
+    const text = story.sentences[idx].translated_text;
+    if (!text) return;
+    stepTtsPlay(text, story.target_language, idx);
+}
+
+function stepChooseLanguage(lang) {
+    state.stepByStepLanguage = lang;
+    // Keep language choice visible on first slide; it is hidden when moving to slide 2+ in updateStepByStepView
+    stepPlayCurrentSentence();
+}
+
+function stepBackToStories() {
+    document.getElementById('back-to-stories')?.click();
+}
 
 // Deprecated single sentence player
 async function playSentenceAudio(text) {
-    // ... kept for fallback if needed, but unused now
     return;
 }
 
@@ -1234,6 +1532,7 @@ async function loadSettings() {
             // Select Preset and Tone
             selectOption('voice-preset', data.settings.voice_preset || 'default');
             selectOption('tone', data.settings.story_tone || 'default');
+            selectOption('reader-layout', data.settings.reader_layout || 'classic');
         }
     } catch (error) {
         console.error('Error loading settings:', error);
@@ -1291,7 +1590,8 @@ async function saveSettings() {
         llm_provider: getSelectedValue('llm'),
         tts_provider: getSelectedValue('tts'),
         voice_preset: getSelectedValue('voice-preset'),
-        story_tone: getSelectedValue('tone')
+        story_tone: getSelectedValue('tone'),
+        reader_layout: getSelectedValue('reader-layout')
     };
 
     try {
@@ -1463,7 +1763,7 @@ async function generateRandomStory() {
         showLoading();
 
         const length = getSelectedLength();
-        const speed = getSelectedSpeed();
+        const speed = parseFloat(document.getElementById('gen-speed')?.value || '0.8') || 0.8;
 
         // Get Language
         const languageSelect = document.getElementById('gen-language');
@@ -1513,7 +1813,7 @@ async function generateTopicStory() {
         showLoading();
 
         const length = getSelectedLength();
-        const speed = parseFloat(document.getElementById('gen-speed').value || 1.0);
+        const speed = parseFloat(document.getElementById('gen-speed')?.value || '0.8') || 0.8;
 
         // Get Language
         const languageSelect = document.getElementById('gen-language');

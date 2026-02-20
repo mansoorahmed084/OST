@@ -40,16 +40,30 @@ def get_story(story_id):
             cursor = conn.cursor()
             
             # Get story details
-            cursor.execute('''
-                SELECT id, title, content, moral, theme, difficulty_level, 
-                       image_category, vocab_json, created_at, last_read,
-                       translated_title, target_language
-                FROM stories
-                WHERE id = ?
-            ''', (story_id,))
+            try:
+                cursor.execute('''
+                    SELECT id, title, content, moral, theme, difficulty_level, 
+                           image_category, vocab_json, created_at, last_read,
+                           translated_title, target_language, audio_speed
+                    FROM stories
+                    WHERE id = ?
+                ''', (story_id,))
+            except Exception:
+                cursor.execute('''
+                    SELECT id, title, content, moral, theme, difficulty_level, 
+                           image_category, vocab_json, created_at, last_read,
+                           translated_title, target_language
+                    FROM stories
+                    WHERE id = ?
+                ''', (story_id,))
             story = cursor.fetchone()
+            if story:
+                story_dict = dict(story)
+                story_dict.setdefault('audio_speed', None)
+            else:
+                story_dict = None
             
-            if not story:
+            if not story_dict:
                 return jsonify({
                     'success': False,
                     'error': 'Story not found'
@@ -71,7 +85,6 @@ def get_story(story_id):
                 WHERE id = ?
             ''', (datetime.now(), story_id))
             
-            story_dict = dict(story)
             story_dict['sentences'] = [dict(s) for s in sentences]
             
             return jsonify({

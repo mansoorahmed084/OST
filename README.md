@@ -50,7 +50,17 @@ A comprehensive web application designed to help Omar improve his speech, readin
 - ✅ Support for Indian Languages (Hindi) via EdgeTTS
 - ✅ Side-by-Side / Interleaved Story Reading View
 - ✅ Dual Audio Playback (Original + Translation)
+- ✅ **Translation highlight fix**: When playing translated audio, Hindi/translated text is highlighted (not English)
 - ✅ Educational "Learn a Language" Mode
+
+### Reader Layouts & Step-by-Step Mode (✅ Implemented)
+- ✅ **Two reader layouts** (Settings → Reader Layout):
+  - **Classic**: One image at top, full story, Play/Pause/Reset, auto-play with sentence highlighting
+  - **Step-by-step**: One sentence + one image at a time, no scrolling; kid clicks **Next** at their own pace
+- ✅ **Per-sentence images**: One image per sentence (DALL-E 2, 256×256, cost-saving); generated at **story generation time** for a smooth experience
+- ✅ **Step-by-step controls**: **Back** (previous sentence), **Play** (current sentence), **Next** (next sentence + auto-play), **Play translation** (bilingual)
+- ✅ **Language choice** (bilingual): On opening step-by-step, choose "Listen in English" or "Listen in [Hindi]" (or other target language); narration and auto-play use chosen language
+- ✅ **DALL-E story context**: Sentence images use consistent story characters and style (same story title/context in every prompt)
 
 ## 🚀 Getting Started
 
@@ -171,8 +181,9 @@ OST/
 - `DELETE /api/stories/<id>` - Delete story
 
 ### Speech
-- `POST /api/speech/tts` - Generate text-to-speech audio
+- `POST /api/speech/tts` - Generate text-to-speech audio (optional `language`: en, hi, es, fr, de for translation)
 - `POST /api/speech/evaluate` - Evaluate speech attempt
+- `POST /api/speech/story/<id>` - Full story or translated story audio
 
 ### Quiz
 - `POST /api/quiz/generate/<story_id>` - Generate quiz for story
@@ -181,6 +192,14 @@ OST/
 ### ChatMode
 - `POST /api/chatmode/ask` - Process ChatMode request
 - `GET /api/chatmode/history` - Get ChatMode history
+
+## 📋 Changelog (Recent Changes)
+
+- **Bilingual highlight**: Playing "Play Translation" now highlights the translated (e.g. Hindi) text instead of English.
+- **Reader layouts**: Settings → Reader Layout — **Classic** (one image, full story) or **Step-by-step** (one sentence + image at a time, Next/Back).
+- **Step-by-step reader**: Back button; auto-play on Next/Back; language choice (English vs Hindi/translation) for bilingual stories; "Play translation" for current sentence; images generated at story creation for smooth playback.
+- **Per-sentence images**: Generated at story generation time (random + topic); DALL-E 2 with story-context prompt for consistent characters across images.
+- **TTS**: `/api/speech/tts` accepts optional `language` (en, hi, es, fr, de) for translation playback.
 
 ## 🛣️ Roadmap
 

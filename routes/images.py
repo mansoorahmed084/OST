@@ -87,6 +87,66 @@ def generate_image_openai(prompt, output_path):
     return True
 
 
+def _sentence_image_prompt(scene_text, story_title=None):
+    """Build prompt that keeps same story characters and style; no random scenes."""
+    base = (
+        "Children's story book illustration. IMPORTANT: Draw the SAME main characters and "
+        "same art style in every image. Preserve story context. Do NOT draw random or unrelated scenes. "
+        "Gentle, colorful, simple, consistent character design throughout."
+    )
+    if story_title:
+        base += f" Story title: {story_title[:80]}."
+    base += f" This exact scene only: {scene_text[:150]}."
+    return base
+
+
+def generate_sentence_image_openai(prompt, output_path, story_title=None):
+    """Cost-saving: DALL-E 2, small size. Prompt preserves story context and characters."""
+    from openai import OpenAI
+    client = OpenAI()
+    full_prompt = _sentence_image_prompt(prompt, story_title) if story_title else f"Simple children's book illustration, gentle, colorful. Same characters throughout. Scene: {prompt[:150]}"
+    response = client.images.generate(
+        model="dall-e-2",
+        prompt=full_prompt,
+        size="256x256",
+        n=1,
+    )
+    image_url = response.data[0].url
+    img_data = requests.get(image_url).content
+    with open(output_path, 'wb') as f:
+        f.write(img_data)
+    return True
+
+
+def generate_and_save_sentence_image(story_id, sentence_order, prompt, story_title=None):
+    """
+    Generate and save one image for a sentence (basic/cost-saving).
+    story_title used to keep characters and context consistent across images.
+    Returns: (success, result_url_or_error)
+    """
+    try:
+        filename = f"story_{story_id}_sentence_{sentence_order}.png"
+        filepath = os.path.join(IMAGE_DIR, filename)
+        public_url = f"/images/stories/{filename}"
+
+        if os.path.exists(filepath):
+            return True, public_url
+
+        openai_key = os.environ.get('OPENAI_API_KEY')
+        if not openai_key or 'sk-' not in openai_key:
+            return False, 'OpenAI API key required for sentence images.'
+
+        try:
+            generate_sentence_image_openai(prompt, filepath, story_title=story_title)
+            return True, public_url
+        except Exception as e:
+            print(f"Sentence image gen failed: {e}")
+            return False, str(e)
+    except Exception as e:
+        print(f"Sentence image error: {e}")
+        return False, str(e)
+
+
 def generate_and_save_image(story_id, prompt):
     """
     Standalone function to generate and save image for a story.
@@ -159,5 +219,26 @@ def generate_story_image():
         else:
             return jsonify({'success': False, 'error': result}), 500
             
+    except Exception as e:
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+
+@bp.route('/generate-sentence', methods=['POST'])
+def generate_sentence_image():
+    """Generate one basic (cost-saving) image for a sentence. story_title keeps characters consistent."""
+    try:
+        data = request.json or {}
+        story_id = data.get('story_id')
+        sentence_order = data.get('sentence_order', 0)
+        prompt = data.get('prompt', '').strip()
+        story_title = data.get('story_title', '').strip() or None
+        if not prompt:
+            return jsonify({'success': False, 'error': 'Missing prompt'}), 400
+        if story_id is None:
+            return jsonify({'success': False, 'error': 'Missing story_id'}), 400
+        success, result = generate_and_save_sentence_image(story_id, sentence_order, prompt, story_title=story_title)
+        if success:
+            return jsonify({'success': True, 'image_url': result})
+        return jsonify({'success': False, 'error': result}), 500
     except Exception as e:
         return jsonify({'success': False, 'error': str(e)}), 500

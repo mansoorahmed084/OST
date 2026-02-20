@@ -59,7 +59,7 @@ def update_settings():
         updates = []
         
         # Whitelist keys to prevent garbage
-        allowed_keys = ['llm_provider', 'tts_provider', 'voice_preset', 'story_tone']
+        allowed_keys = ['llm_provider', 'tts_provider', 'voice_preset', 'story_tone', 'reader_layout']
         
         for key in allowed_keys:
             if key in data:

@@ -226,9 +226,50 @@ A web application designed to help Omar improve his speech, reading comprehensio
 230: ✓ Audio generated for both languages
 231: ✓ User can toggle between English and Translated audio
 232: 
-233: ---
-234: 
-235: ## Development Guidelines
+233: ### Implemented Fix
+234: ✓ **Translation highlight**: When playing translated audio, the translated (e.g. Hindi) text is highlighted, not English.
+235: 
+236: ---
+237: 
+238: ## Phase 10 – Reader Layouts & Step-by-Step Mode ✅ COMPLETE
+239: 
+240: ### Objectives
+241: - Offer two reader layouts: Classic (full story) and Step-by-step (one sentence at a time)
+242: - Generate per-sentence images at story creation for smooth step-by-step experience
+243: - Preserve story characters and context in all sentence images
+244: - Add language choice and translation playback in step-by-step
+245: 
+246: ### Tasks (Done)
+247: 1. Settings: Add reader_layout (classic | step_by_step); persist and load when opening a story.
+248: 2. Step-by-step UI: One sentence + one image at a time; viewport no scroll; Back, Play, Next, Play translation; progress (e.g. 1/5).
+249: 3. Back button: Step-by-step Back goes to previous sentence; auto-play current sentence after Back.
+250: 4. Auto-play: On Next (and Back), auto-play current sentence in chosen language.
+251: 5. Per-sentence images: Generated at story creation (random + topic) in background thread; DALL-E 2, 256×256; prompt includes story title and "Same characters and style."
+252: 6. DALL-E context: Sentence image prompt: "Same main characters and visual style in every image. Story: [title]. This scene: [sentence]."
+253: 7. Language choice: Bilingual step-by-step shows "Listen in English" / "Listen in [Hindi]"; choice stored; first sentence and all Next/Back play in chosen language.
+254: 8. Play translation: Step-by-step "Play translation" plays current sentence in translated language; TTS accepts optional language (en, hi, es, fr, de).
+255: 9. API: POST /api/images/generate-sentence (story_id, sentence_order, prompt, story_title); Settings supports reader_layout.
+256: 
+257: ### Test Criteria
+258: ✓ Classic layout unchanged (one image, full story, Play/Pause/Reset)
+259: ✓ Step-by-step shows one sentence + image; Back/Next work; audio auto-plays on Next/Back
+260: ✓ Bilingual: language choice at start; Play translation plays current sentence in other language
+261: ✓ Sentence images generated at story creation; consistent characters across images
+262: ✓ Settings Reader Layout switches layout when opening a story
+263: 
+264: ---
+265: 
+266: ## Changelog (Summary)
+267: - Bilingual: Play Translation highlights translated text (not English).
+268: - Reader layouts: Classic vs Step-by-step in Settings; step-by-step = one sentence + image, Back/Next, no scroll, kid-paced.
+269: - Step-by-step: Back button; auto-play on Next/Back; language choice (English vs translation); Play translation button.
+270: - Per-sentence images: Generated at story creation; DALL-E 2 with story-context prompt.
+271: - TTS: /api/speech/tts optional language for translation.
+272: - API: Images generate-sentence (story_title); Settings reader_layout.
+273: 
+274: ---
+275: 
+276: ## Development Guidelines
 
 ### Vocabulary Considerations
 - Use simple, common words
