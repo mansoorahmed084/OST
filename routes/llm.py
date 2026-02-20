@@ -13,6 +13,28 @@ import logging
 
 logger = logging.getLogger(__name__)
 
+# Transformers import for Local TinyStories
+try:
+    from transformers import pipeline
+except ImportError:
+    pipeline = None
+
+# Global variable to cache the local model in memory
+tinystories_pipe = None
+
+def get_tinystories():
+    global tinystories_pipe
+    if tinystories_pipe is None and pipeline is not None:
+        try:
+            print("Loading TinyStories-33M locally...")
+            tinystories_pipe = pipeline("text-generation", model="roneneldan/TinyStories-33M", device="cpu")
+            print("TinyStories-33M loaded successfully.")
+        except Exception as e:
+            print(f"Failed to load TinyStories: {e}")
+            tinystories_pipe = None
+    return tinystories_pipe
+
+
 # OpenAI import handled conditionally to avoid errors if not installed (though we installed it)
 try:
     from openai import OpenAI
@@ -92,6 +114,10 @@ def generate_story_text(topic, length='short', target_language='en'):
     
     if provider == 'default':
         return None
+
+    # Determine if we should use Local TinyStories
+    use_local_tinystories = (target_language == 'en' or not target_language)
+    local_pipe = get_tinystories() if use_local_tinystories else None
 
     # Construct Prompt
     word_count = "50-60" if length == 'short' else "100-120" if length == 'medium' else "150-180"
@@ -206,6 +232,34 @@ def generate_story_text(topic, length='short', target_language='en'):
     Target word count: {word_count} words.
     """
         user_prompt = f"Write a story about: {topic}"
+    
+    # Try Local TinyStories for English first
+    if local_pipe and use_local_tinystories:
+        try:
+            print(f"DEBUG: Generating English story using Local TinyStories-33M...")
+            
+            # TinyStories works best completing a sentence
+            prompt = f"Once upon a time, there was a {topic}."
+            
+            # Adjust max_new_tokens based on requested length
+            max_new_tokens = 70 if length == 'short' else 150 if length == 'medium' else 250
+            
+            result = local_pipe(prompt, max_new_tokens=max_new_tokens, do_sample=True, temperature=0.7, repetition_penalty=1.1)
+            generated_text = result[0]['generated_text']
+            
+            print(f"DEBUG: Local TinyStories generation successful.")
+            
+            # Format output specifically for TinyStories as it doesn't do JSON/Labels
+            title = f"The Story of the {topic.title()}"
+            content = generated_text.strip()
+            moral = "Always be kind and good." # Generic kid-friendly moral
+            vocab = {} # No vocab extraction for simple local model yet
+            
+            return title, content, moral, vocab, None
+            
+        except Exception as e:
+            print(f"Local TinyStories generation failed: {e}. Falling back to Cloud LLM...")
+            # Fall through to Cloud LLM
     
     response_text = None
     
