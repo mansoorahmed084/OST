@@ -103,6 +103,28 @@ def generate_with_openai(system_prompt, user_prompt, api_key):
         print(f"OpenAI Error: {e}")
         return None
 
+def generate_with_groq(system_prompt, user_prompt, api_key):
+    try:
+        import requests
+        headers = {
+            "Authorization": f"Bearer {api_key}",
+            "Content-Type": "application/json"
+        }
+        payload = {
+            "model": "llama3-8b-8192", 
+            "messages": [
+                {"role": "system", "content": system_prompt},
+                {"role": "user", "content": user_prompt}
+            ],
+            "temperature": 0.7
+        }
+        res = requests.post("https://api.groq.com/openai/v1/chat/completions", headers=headers, json=payload)
+        res.raise_for_status()
+        return res.json()["choices"][0]["message"]["content"]
+    except Exception as e:
+        print(f"Groq Error: {e}")
+        return None
+
 def generate_story_text(topic, length='short', target_language='en'):
     """
     Generate story text using configured provider.
@@ -115,8 +137,13 @@ def generate_story_text(topic, length='short', target_language='en'):
     if provider == 'default':
         return None
 
+    # Detect mismatch: TinyStories can't do translated text properly
+    if provider == 'tinystories' and target_language and target_language != 'en':
+        print("TinyStories requested but doesn't support bilingual. Falling back to Gemini.")
+        provider = 'gemini' 
+
     # Determine if we should use Local TinyStories
-    use_local_tinystories = (target_language == 'en' or not target_language)
+    use_local_tinystories = (provider == 'tinystories')
     local_pipe = get_tinystories() if use_local_tinystories else None
 
     # Construct Prompt
@@ -241,8 +268,9 @@ def generate_story_text(topic, length='short', target_language='en'):
             # TinyStories works best completing a sentence
             prompt = f"Once upon a time, there was a {topic}."
             
-            # Adjust max_new_tokens based on requested length
-            max_new_tokens = 70 if length == 'short' else 150 if length == 'medium' else 250
+            # The length setting shouldn't cut off TinyStories mid-sentence
+            # Set a high enough max tokens to let the model generate the full story naturally
+            max_new_tokens = 400 
             
             result = local_pipe(prompt, max_new_tokens=max_new_tokens, do_sample=True, temperature=0.7, repetition_penalty=1.1)
             generated_text = result[0]['generated_text']
@@ -252,8 +280,17 @@ def generate_story_text(topic, length='short', target_language='en'):
             # Format output specifically for TinyStories as it doesn't do JSON/Labels
             title = f"The Story of the {topic.title()}"
             content = generated_text.strip()
-            moral = "Always be kind and good." # Generic kid-friendly moral
-            vocab = {} # No vocab extraction for simple local model yet
+            
+            # Query the LLM to generate the moral and vocab
+            metadata = extract_metadata_and_questions(content, provider='tinystories')
+            if metadata:
+                moral = metadata.get('moral', 'Always be kind and good.')
+                # Vocab is returned as a list of dicts, format into dict to match signature
+                vocab_list = metadata.get('vocab', [])
+                vocab = {v.get('word', ''): v.get('meaning', '') for v in vocab_list if v.get('word')}
+            else:
+                moral = "Always be kind and good."
+                vocab = {}
             
             return title, content, moral, vocab, None
             
@@ -281,6 +318,10 @@ def generate_story_text(topic, length='short', target_language='en'):
         key = os.environ.get('OPENAI_API_KEY')
         if key:
             response_text = generate_with_openai(system_prompt, user_prompt, key)
+    elif provider == 'groq':
+        key = os.environ.get('GROQ_API_KEY')
+        if key:
+            response_text = generate_with_groq(system_prompt, user_prompt, key)
             
     if response_text:
         # Bilingual JSON Parsing
@@ -380,4 +421,59 @@ def generate_story_text(topic, length='short', target_language='en'):
             print(f"Parsing Error: {e}")
             return None 
             
+    return None
+
+def extract_metadata_and_questions(story_text, provider=None):
+    if not provider: provider = get_llm_provider()
+
+    system_prompt = """
+    You are an AI teacher helping a young kid named Omar understand stories.
+    Given the story text, extract the following and ONLY output VALID JSON:
+    1. A single sentence explaining the "moral" of the story.
+    2. "vocab": An array of 3-5 important words and their simple dictionary meanings formatted like {"word": "...", "meaning": "..."}.
+    3. "mcqs": An array of 3 multiple-choice questions formatted like {"question": "...", "options": ["A", "B", "C", "D"], "correct_answer": "A"}.
+    4. "fill_in_blanks": An array of 2-3 fill-in-the-blank questions formatted like {"sentence": "The dog was very ____.", "answer": "happy", "options": ["sad", "happy", "angry"]}.
+    5. "moral_questions": An array of 1-2 questions testing the moral understanding formatted like {"question": "...", "options": ["A", "B"], "correct_answer": "A"}.
+
+    JSON Schema exactly like this:
+    {
+        "moral": "...",
+        "vocab": [{"word": "...", "meaning": "..."}],
+        "mcqs": [{"question": "...", "options": ["A", "B", "C", "D"], "correct_answer": "A"}],
+        "fill_in_blanks": [{"sentence": "...", "answer": "...", "options": ["..."]}],
+        "moral_questions": [{"question": "...", "options": ["A", "B"], "correct_answer": "A"}]
+    }
+    """
+    user_prompt = f"Story: {story_text}"
+
+    response_text = None
+
+    # Fallback to a cloud LLM for metadata extraction if local is selected
+    if provider in ['tinystories', 'default']:
+        if os.environ.get('GOOGLE_API_KEY'): provider = 'gemini'
+        elif os.environ.get('GROQ_API_KEY'): provider = 'groq'
+        elif os.environ.get('OPENAI_API_KEY'): provider = 'openai'
+
+    if provider == 'gemini':
+        key = os.environ.get('GOOGLE_API_KEY')
+        if key: response_text = generate_with_gemini(system_prompt, user_prompt, key)
+    elif provider == 'openai':
+        key = os.environ.get('OPENAI_API_KEY')
+        if key: response_text = generate_with_openai(system_prompt, user_prompt, key)
+    elif provider == 'groq':
+        key = os.environ.get('GROQ_API_KEY')
+        if key: response_text = generate_with_groq(system_prompt, user_prompt, key)
+
+    if response_text:
+        try:
+            import json
+            clean_text = response_text.strip()
+            start_idx = clean_text.find('{')
+            end_idx = clean_text.rfind('}')
+            if start_idx != -1 and end_idx != -1:
+                clean_text = clean_text[start_idx:end_idx+1]
+            return json.loads(clean_text)
+        except Exception as e:
+            print(f"Failed to parse extract_metadata json: {e}")
+            return None
     return None

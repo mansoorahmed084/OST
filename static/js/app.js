@@ -85,6 +85,7 @@ document.addEventListener('DOMContentLoaded', () => {
     initializeChatPage();
     initializeRecallPage();
     initializeSettings();
+    initializeTinyStoriesPage();
 
     // Initialize Speech Recognition if available
     if ('webkitSpeechRecognition' in window || 'SpeechRecognition' in window) {
@@ -1533,6 +1534,14 @@ async function loadSettings() {
             selectOption('voice-preset', data.settings.voice_preset || 'default');
             selectOption('tone', data.settings.story_tone || 'default');
             selectOption('reader-layout', data.settings.reader_layout || 'classic');
+
+            // API Keys
+            if (data.api_keys) {
+                document.getElementById('settings-google-key').value = data.api_keys.google || '';
+                document.getElementById('settings-openai-key').value = data.api_keys.openai || '';
+                document.getElementById('settings-groq-key').value = data.api_keys.groq || '';
+                document.getElementById('settings-hf-token').value = data.api_keys.hf_token || '';
+            }
         }
     } catch (error) {
         console.error('Error loading settings:', error);
@@ -1547,8 +1556,10 @@ function renderProviderOptions(type, available, current) {
     // Define all known providers
     const allProviders = type === 'llm' ? [
         { id: 'default', name: 'Templates (Offline)', desc: 'Fast, Simple' },
+        { id: 'tinystories', name: 'TinyStories-33M', desc: 'Local & Kid Friendly' },
         { id: 'gemini', name: 'Google Gemini', desc: 'Creative, Smart' },
-        { id: 'openai', name: 'OpenAI GPT', desc: 'Premium Quality' }
+        { id: 'openai', name: 'OpenAI GPT', desc: 'Premium Quality' },
+        { id: 'groq', name: 'Groq Llama 3', desc: 'Fast Open Source' }
     ] : [
         { id: 'default', name: 'Basic (Offline)', desc: 'Robotic Voice' },
         { id: 'edge_tts', name: 'Microsoft Edge', desc: 'Natural, Free' },
@@ -1591,7 +1602,11 @@ async function saveSettings() {
         tts_provider: getSelectedValue('tts'),
         voice_preset: getSelectedValue('voice-preset'),
         story_tone: getSelectedValue('tone'),
-        reader_layout: getSelectedValue('reader-layout')
+        reader_layout: getSelectedValue('reader-layout'),
+        google_api_key: document.getElementById('settings-google-key').value.trim(),
+        openai_api_key: document.getElementById('settings-openai-key').value.trim(),
+        groq_api_key: document.getElementById('settings-groq-key').value.trim(),
+        hf_token: document.getElementById('settings-hf-token').value.trim()
     };
 
     try {
@@ -1605,6 +1620,7 @@ async function saveSettings() {
         if (data.success) {
             document.getElementById('settings-modal').classList.add('hidden');
             showError('Settings Saved!'); // Using Error toast as generic notification for now
+            loadSettings(); // Refresh to update provider availability
         }
     } catch (error) {
         console.error('Error saving settings:', error);
@@ -2072,3 +2088,191 @@ async function generateImage(story) {
         console.error("Image Gen Error", e);
     }
 }
+// ===================================
+// TinyStories Feature
+// ===================================
+
+function initializeTinyStoriesPage() {
+    loadTinyStories();
+
+    // Event listeners
+    document.getElementById('ts-generate-btn')?.addEventListener('click', generateTinyStory);
+    document.getElementById('ts-back-btn')?.addEventListener('click', () => {
+        document.getElementById('ts-reader').classList.add('hidden');
+        document.getElementById('ts-generator-box').classList.remove('hidden');
+        document.getElementById('ts-list').classList.remove('hidden');
+    });
+
+    document.getElementById('ts-start-test-btn')?.addEventListener('click', () => {
+        document.getElementById('ts-test-section').classList.remove('hidden');
+        document.getElementById('ts-start-test-btn').classList.add('hidden');
+    });
+}
+
+async function loadTinyStories() {
+    try {
+        const response = await fetch(`${API_BASE}/tinystories/`);
+        const data = await response.json();
+        const container = document.getElementById('ts-list');
+
+        if (data.success) {
+            if (data.stories.length === 0) {
+                container.innerHTML = '<p class="text-center">No TinyStories yet. Generate one!</p>';
+                return;
+            }
+
+            container.innerHTML = data.stories.map(story => `
+                <div class="story-card" data-id="${story.id}">
+                    <div class="story-card-icon">🧸</div>
+                    <h3>${story.title}</h3>
+                </div>
+            `).join('');
+
+            container.querySelectorAll('.story-card').forEach(c => {
+                c.addEventListener('click', () => loadTinyStoryDetail(c.dataset.id));
+            });
+        }
+    } catch (e) {
+        console.error(e);
+    }
+}
+
+async function generateTinyStory() {
+    const topic = document.getElementById('ts-topic').value.trim();
+    if (!topic) {
+        alert("Please enter a topic!");
+        return;
+    }
+
+    const btn = document.getElementById('ts-generate-btn');
+    const ogHtml = btn.innerHTML;
+    try {
+        btn.innerHTML = 'Generating... (Takes ~10s)';
+        btn.disabled = true;
+
+        const response = await fetch(`${API_BASE}/tinystories/generate`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ topic })
+        });
+        const data = await response.json();
+
+        if (data.success) {
+            document.getElementById('ts-topic').value = '';
+            await loadTinyStories();
+            await loadTinyStoryDetail(data.story_id);
+        } else {
+            alert("Error: " + data.error);
+        }
+    } catch (e) {
+        console.error(e);
+        alert("Generation failed");
+    } finally {
+        btn.innerHTML = ogHtml;
+        btn.disabled = false;
+    }
+}
+
+async function loadTinyStoryDetail(id) {
+    try {
+        const response = await fetch(`${API_BASE}/tinystories/${id}`);
+        const data = await response.json();
+        if (data.success) {
+            const story = data.story;
+
+            // UI toggles
+            document.getElementById('ts-list').classList.add('hidden');
+            document.getElementById('ts-generator-box').classList.add('hidden');
+            document.getElementById('ts-reader').classList.remove('hidden');
+            document.getElementById('ts-test-section').classList.add('hidden');
+            document.getElementById('ts-start-test-btn').classList.remove('hidden');
+
+            // Populate Content
+            document.getElementById('ts-title').innerText = story.title;
+            document.getElementById('ts-text').innerText = story.content;
+            document.getElementById('ts-moral-text').innerText = story.moral || "Be kind and good.";
+
+            // Vocab
+            const vocabContainer = document.getElementById('ts-vocab-list');
+            if (story.vocab && story.vocab.length) {
+                vocabContainer.innerHTML = story.vocab.map(v => `
+                    <div class="vocab-card">
+                        <span class="vocab-word">${v.word}</span>
+                        <span class="vocab-def">${v.meaning}</span>
+                    </div>
+                `).join('');
+                document.getElementById('ts-vocab-box').classList.remove('hidden');
+            } else {
+                document.getElementById('ts-vocab-box').classList.add('hidden');
+            }
+
+            // FIB
+            const fibContainer = document.getElementById('ts-fib-list');
+            if (story.fill_in_blanks && story.fill_in_blanks.length) {
+                fibContainer.innerHTML = story.fill_in_blanks.map((q, idx) => `
+                    <div style="margin-bottom: 1rem;">
+                        <p><strong>${idx + 1}.</strong> ${q.sentence.replace('____', '<span style="border-bottom: 2px solid; padding: 0 10px; color: var(--primary);">____</span>')}</p>
+                        <div style="display: flex; gap: 0.5rem; margin-top: 0.5rem; flex-wrap: wrap;">
+                            ${q.options.map(o => `
+                                <button class="control-btn" style="font-size: 0.9rem;" onclick="checkTsAnswer(this, '${o}', '${q.answer}')">${o}</button>
+                            `).join('')}
+                        </div>
+                    </div>
+                `).join('');
+            } else {
+                fibContainer.innerHTML = "<p>No questions generated.</p>";
+            }
+
+            // MCQ
+            const mcqContainer = document.getElementById('ts-mcq-list');
+            if (story.mcqs && story.mcqs.length) {
+                mcqContainer.innerHTML = story.mcqs.map((q, idx) => `
+                    <div style="margin-bottom: 1rem;">
+                        <p><strong>${idx + 1}.</strong> ${q.question}</p>
+                        <div style="display: flex; flex-direction: column; gap: 0.5rem; margin-top: 0.5rem;">
+                            ${q.options.map(o => `
+                                <button class="control-btn" style="text-align: left;" onclick="checkTsAnswer(this, '${o}', '${q.correct_answer}')">${o}</button>
+                            `).join('')}
+                        </div>
+                    </div>
+                `).join('');
+            } else {
+                mcqContainer.innerHTML = "<p>No questions generated.</p>";
+            }
+
+            // Moral Qs
+            const moralQContainer = document.getElementById('ts-moral-q-list');
+            if (story.moral_questions && story.moral_questions.length) {
+                moralQContainer.innerHTML = story.moral_questions.map((q, idx) => `
+                    <div style="margin-bottom: 1rem;">
+                        <p><strong>${idx + 1}.</strong> ${q.question}</p>
+                        <div style="display: flex; flex-direction: column; gap: 0.5rem; margin-top: 0.5rem;">
+                            ${q.options.map(o => `
+                                <button class="control-btn" style="text-align: left;" onclick="checkTsAnswer(this, '${o}', '${q.correct_answer}')">${o}</button>
+                            `).join('')}
+                        </div>
+                    </div>
+                `).join('');
+            } else {
+                moralQContainer.innerHTML = "<p>No questions generated.</p>";
+            }
+
+        }
+    } catch (e) {
+        console.error(e);
+    }
+}
+
+window.checkTsAnswer = function (btn, selected, correct) {
+    if (selected === correct) {
+        btn.style.backgroundColor = 'var(--success-color, #10b981)';
+        btn.style.color = 'white';
+        btn.innerText += ' ✅';
+    } else {
+        btn.style.backgroundColor = 'var(--danger-color, #ef4444)';
+        btn.style.color = 'white';
+        btn.innerText += ' ❌';
+    }
+    // Disable siblings
+    Array.from(btn.parentElement.children).forEach(b => b.disabled = true);
+};

@@ -86,6 +86,31 @@ def generate_image_openai(prompt, output_path):
         f.write(img_data)
     return True
 
+def generate_image_hf(prompt, output_path):
+    import requests
+    import os
+    
+    api_url = "https://router.huggingface.co/hf-inference/models/black-forest-labs/FLUX.1-schnell"
+    headers = {}
+    hf_token = os.environ.get('HF_TOKEN') or os.environ.get('HUGGINGFACE_API_KEY')
+    if hf_token:
+        headers["Authorization"] = f"Bearer {hf_token}"
+        
+    # Send request
+    # Since this is an image model, the prompt helps shape the style.
+    full_prompt = f"Children's story book illustration, gentle, colorful, simple: {prompt}"
+    
+    response = requests.post(api_url, headers=headers, json={"inputs": full_prompt})
+    if response.status_code == 200:
+        with open(output_path, 'wb') as f:
+            f.write(response.content)
+        return True
+    else:
+        # Check for model loading error
+        if 'is currently loading' in response.text:
+             raise Exception("Model is loading, try again later")
+        raise Exception(f"HF Image API Error {response.status_code}: {response.text}")
+
 
 def _sentence_image_prompt(scene_text, story_title=None):
     """Build prompt that keeps same story characters and style; no random scenes."""
@@ -132,9 +157,25 @@ def generate_and_save_sentence_image(story_id, sentence_order, prompt, story_tit
         if os.path.exists(filepath):
             return True, public_url
 
+        provider = get_llm_provider()
+        
+        # 0. Try Hugging Face first if TinyStories
+        if provider == 'tinystories':
+            try:
+                # Add context for HF prompt
+                hf_prompt = prompt
+                if story_title:
+                    hf_prompt = f"Scene from {story_title}: {prompt}"
+                print(f"Attempting HF FLUX.1-schnell for Sentence {sentence_order}...")
+                generate_image_hf(hf_prompt, filepath)
+                return True, public_url
+            except Exception as e:
+                print(f"HF Sentence Image Gen failed: {e}")
+                # Fall through to OpenAI if available
+
         openai_key = os.environ.get('OPENAI_API_KEY')
         if not openai_key or 'sk-' not in openai_key:
-            return False, 'OpenAI API key required for sentence images.'
+            return False, 'OpenAI API key required for sentence images if not using HF.'
 
         try:
             generate_sentence_image_openai(prompt, filepath, story_title=story_title)
@@ -168,9 +209,19 @@ def generate_and_save_image(story_id, prompt):
         openai_key = os.environ.get('OPENAI_API_KEY')
         
         success = False
+        provider = get_llm_provider()
         
-        # 1. Try OpenAI DALL-E 3 first if key exists (Higher quality/reliability currently)
-        if openai_key and 'sk-' in openai_key:
+        # 0. If TinyStories, Try Hugging Face model first
+        if provider == 'tinystories':
+             try:
+                 print(f"Attempting HF FLUX.1-schnell for Story {story_id}...")
+                 generate_image_hf(prompt, filepath)
+                 success = True
+             except Exception as e:
+                 print(f"HF Image Failed: {e}")
+        
+        # 1. Try OpenAI DALL-E 3 first if key exists AND (not successful yet)
+        if not success and openai_key and 'sk-' in openai_key:
              try:
                  print(f"Attempting OpenAI Image Gen for Story {story_id}...")
                  generate_image_openai(prompt, filepath)

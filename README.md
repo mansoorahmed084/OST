@@ -43,6 +43,9 @@ A comprehensive web application designed to help Omar improve his speech, readin
 ### Phase 7-8 - Advanced Features (✅ Integrated)
 - ✅ Google Gemini 2.0 Integration
 - ✅ OpenAI GPT-4o Integration
+- ✅ Groq Llama 3 Integration (Fast, Open Source)
+- ✅ Local `TinyStories-33M` Support for offline, safe, kid-friendly story text generation
+- ✅ Hugging Face Inference API (`Yntec/KIDSILLUSTRATIONS`) for beautiful children's book illustrations
 - ✅ Real-time Image Generation
 
 ### Phase 9 - Bilingual Support (✅ Implemented)
@@ -75,22 +78,32 @@ A comprehensive web application designed to help Omar improve his speech, readin
 cd c:/temp/AI/OST
 ```
 
-2. **Install dependencies:**
+2. **Set up Environment Variables (Optional but recommended):**
+You can configure API keys via the in-app `Settings Menu` (gear icon), or create a `.env` file in the root folder for easier startups:
+```env
+GOOGLE_API_KEY="your_google_key"
+OPENAI_API_KEY="your_openai_key"
+GROQ_API_KEY="your_groq_key"
+HF_TOKEN="your_huggingface_token"
+```
+
+3. **Install dependencies:**
 ```bash
 pip install -r requirements.txt
 ```
+*(Note: Initializing the app will download the local `TinyStories-33M` model logic using `torch` and `transformers`)*
 
-3. **Initialize the database:**
+4. **Initialize the database:**
 ```bash
 python database.py
 ```
 
-4. **Run the application:**
+5. **Run the application:**
 ```bash
 python app.py
 ```
 
-5. **Open your browser and navigate to:**
+6. **Open your browser and navigate to:**
 ```
 http://localhost:5000
 ```
@@ -135,9 +148,10 @@ OST/
 - **Backend**: Flask (Python)
 - **Frontend**: HTML5, CSS3, Vanilla JavaScript
 - **Database**: SQLite
-- **TTS**: gTTS (Google Text-to-Speech) + Web Speech API
+- **AI Text Models**: Google Gemini, OpenAI GPT, Groq Llama 3, Local `TinyStories-33M` (`torch` + `transformers`)
+- **AI Image Models**: OpenAI DALL-E, Google Imagen 3, Hugging Face (`Yntec/KIDSILLUSTRATIONS`)
+- **TTS**: gTTS (Google Text-to-Speech), Microsoft Edge TTS, OpenAI TTS
 - **STT**: Web Speech API (Browser-based)
-- **Future**: LangChain, Bing Image Search API
 
 ## 🎯 Usage Guide
 
@@ -195,10 +209,12 @@ OST/
 
 ## 📋 Changelog (Recent Changes)
 
+- **TinyStories UI & Generator**: Fully integrated local Kid-Friendly `TinyStories-33M` for both stories and tests, decoupled from OpenAI.
+- **Dynamic API Keys UI**: Manage `Google Gemini`, `OpenAI`, `Groq`, and `Hugging Face` tokens live inside the Settings modal.
 - **Bilingual highlight**: Playing "Play Translation" now highlights the translated (e.g. Hindi) text instead of English.
 - **Reader layouts**: Settings → Reader Layout — **Classic** (one image, full story) or **Step-by-step** (one sentence + image at a time, Next/Back).
 - **Step-by-step reader**: Back button; auto-play on Next/Back; language choice (English vs Hindi/translation) for bilingual stories; "Play translation" for current sentence; images generated at story creation for smooth playback.
-- **Per-sentence images**: Generated at story generation time (random + topic); DALL-E 2 with story-context prompt for consistent characters across images.
+- **Per-sentence images**: Generated at story generation time (using DALL-E 2 or Hugging Face `Yntec/KIDSILLUSTRATIONS`) with story-context prompt for consistent characters.
 - **TTS**: `/api/speech/tts` accepts optional `language` (en, hi, es, fr, de) for translation playback.
 
 ## 🛣️ Roadmap

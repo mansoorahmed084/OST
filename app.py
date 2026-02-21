@@ -8,7 +8,7 @@ from flask_cors import CORS
 import os
 from dotenv import load_dotenv
 from database import init_db, get_db
-from routes import stories, speech, quiz, chatmode, generator, recall, settings, images
+from routes import stories, speech, quiz, chatmode, generator, recall, settings, images, tinystories
 import logging
 
 # Configure Logging
@@ -58,6 +58,7 @@ app.register_blueprint(generator.bp, url_prefix='/api/generator')
 app.register_blueprint(recall.bp, url_prefix='/api/recall')
 app.register_blueprint(settings.bp, url_prefix='/api/settings')
 app.register_blueprint(images.bp, url_prefix='/api/images')
+app.register_blueprint(tinystories.bp, url_prefix='/api/tinystories')
 
 # Serve frontend
 @app.route('/')

@@ -47,6 +47,10 @@
                     <span class="nav-icon">🧠</span>
                     <span>Daily</span>
                 </button>
+                <button class="nav-btn" data-page="tinystories">
+                    <span class="nav-icon">🧸</span>
+                    <span>TinyStories</span>
+                </button>
                 <button class="nav-btn" id="settings-btn">
                     <span class="nav-icon">⚙️</span>
                 </button>
@@ -91,6 +95,11 @@
                             <div class="card-icon">🧠</div>
                             <h3>Daily Challenge</h3>
                             <p>Remember and write</p>
+                        </div>
+                        <div class="hero-card" data-navigate="tinystories">
+                            <div class="card-icon">🧸</div>
+                            <h3>TinyStories</h3>
+                            <p>Generate & Learn</p>
                         </div>
                     </div>
                 </div>
@@ -232,7 +241,8 @@
                     <button class="back-btn" id="back-to-stories">← Back to Stories</button>
                     <div class="play-mode-row">
                         <span class="play-mode-label">Manual</span>
-                        <label class="toggle-switch" title="Manual: you tap Play/Next. Automated: story plays and advances by itself.">
+                        <label class="toggle-switch"
+                            title="Manual: you tap Play/Next. Automated: story plays and advances by itself.">
                             <input type="checkbox" id="play-mode-auto" aria-label="Automated play">
                             <span class="toggle-slider"></span>
                         </label>
@@ -289,13 +299,15 @@
                         <p class="step-language-prompt">Listen to the story in:</p>
                         <div class="step-language-buttons">
                             <button id="step-listen-english" class="control-btn primary">Listen in English</button>
-                            <button id="step-listen-translation" class="control-btn secondary hidden">Listen in <span id="step-translation-lang">Hindi</span></button>
+                            <button id="step-listen-translation" class="control-btn secondary hidden">Listen in <span
+                                    id="step-translation-lang">Hindi</span></button>
                         </div>
                     </div>
                     <div class="step-by-step-viewport">
                         <h2 id="step-story-title" class="step-story-title"></h2>
                         <div class="step-image-container">
-                            <img id="step-sentence-image" src="" alt="Sentence illustration" class="step-sentence-image">
+                            <img id="step-sentence-image" src="" alt="Sentence illustration"
+                                class="step-sentence-image">
                             <div id="step-image-placeholder" class="step-image-placeholder">🖼️</div>
                         </div>
                         <div class="step-text-container">
@@ -332,6 +344,87 @@
                 </div>
             </div>
             </div>
+            </div>
+        </section>
+
+        <!-- TinyStories Page -->
+        <section id="tinystories-page" class="page">
+            <div class="page-header">
+                <h1>🧸 TinyStories</h1>
+                <p>Generate stories instantly and test your knowledge!</p>
+            </div>
+
+            <div class="tinystories-container">
+                <!-- Generator -->
+                <div class="story-generator" id="ts-generator-box">
+                    <div class="generator-row" style="justify-content: center;">
+                        <input type="text" id="ts-topic" class="topic-input"
+                            placeholder="Topic (e.g. a friendly dog, space adventure)...">
+                        <button id="ts-generate-btn" class="generate-btn">
+                            <span>✨</span>
+                            <span>Generate Story</span>
+                        </button>
+                    </div>
+                </div>
+
+                <!-- List -->
+                <div id="ts-list" class="stories-grid">
+                    <p class="text-center">Loading stories...</p>
+                </div>
+
+                <!-- Reader & Test -->
+                <div id="ts-reader" class="story-reader hidden">
+                    <div class="story-reader-header">
+                        <button class="back-btn" id="ts-back-btn">← Back to List</button>
+                    </div>
+
+                    <div class="story-reader-layout">
+                        <div class="story-content" style="width: 100%;">
+                            <h2 id="ts-title" class="story-title">...</h2>
+                            <div id="ts-text" class="story-text" style="margin-bottom: 2rem;"></div>
+
+                            <button id="ts-start-test-btn" class="control-btn primary"
+                                style="margin: 0 auto; display: block;">
+                                <span>📝 Take Test</span>
+                            </button>
+                        </div>
+                    </div>
+
+                    <!-- Test section -->
+                    <div id="ts-test-section" class="quiz-container hidden" style="margin-top: 2rem;">
+                        <!-- Vocab -->
+                        <div id="ts-vocab-box" class="story-vocab" style="margin-bottom: 2rem;">
+                            <h3>📚 Vocabulary</h3>
+                            <div id="ts-vocab-list" class="vocab-list"></div>
+                        </div>
+
+                        <!-- Moral -->
+                        <div class="quiz-card" style="margin-bottom: 2rem;">
+                            <h3>🌟 Moral</h3>
+                            <p id="ts-moral-text"
+                                style="font-size: 1.2rem; text-align: center; color: var(--success); font-weight: bold;">
+                            </p>
+                        </div>
+
+                        <!-- Fill in the blanks -->
+                        <div class="quiz-card" style="margin-bottom: 2rem;">
+                            <h3>✍️ Fill in the Blanks</h3>
+                            <div id="ts-fib-list"></div>
+                        </div>
+
+                        <!-- MCQs -->
+                        <div class="quiz-card" style="margin-bottom: 2rem;">
+                            <h3>🤔 Multiple Choice Questions</h3>
+                            <div id="ts-mcq-list"></div>
+                        </div>
+
+                        <!-- Moral Questions -->
+                        <div class="quiz-card" style="margin-bottom: 2rem;">
+                            <h3>🤔 Moral Understanding</h3>
+                            <div id="ts-moral-q-list"></div>
+                        </div>
+                    </div>
+                </div>
             </div>
         </section>
 
@@ -484,79 +577,118 @@
                 <button class="control-btn" id="close-settings">❌</button>
             </div>
 
-            <div class="settings-body">
-                <!-- LLM Settings -->
-                <div class="settings-group">
-                    <h3>Story Engine (AI)</h3>
-                    <div class="settings-options-grid" id="llm-options">
-                        <!-- Items injected by JS -->
-                    </div>
-                </div>
-
-                <!-- TTS Settings -->
-                <div class="settings-group">
-                    <h3>Voice (TTS)</h3>
-                    <div class="settings-options-grid" id="tts-options">
-                        <!-- Items injected by JS -->
-                    </div>
-                </div>
-
-                <!-- Voice Preset -->
-                <div class="settings-group">
-                    <h3>Voice Tone</h3>
-                    <div class="settings-options-grid" id="voice-preset-options">
-                        <div class="settings-option selected" data-value="default">
-                            <span class="option-label">Child Friendly (Soft)</span>
-                        </div>
-                        <div class="settings-option" data-value="ana">
-                            <span class="option-label">Ana (Sweet)</span>
-                        </div>
-                        <div class="settings-option" data-value="aria">
-                            <span class="option-label">Aria (Clear)</span>
-                        </div>
-                        <div class="settings-option" data-value="guy">
-                            <span class="option-label">Guy (Male)</span>
+            <div class="settings-body" style="display: grid; grid-template-columns: 1fr 1fr; gap: 2rem;">
+                <!-- Column 1 -->
+                <div>
+                    <!-- LLM Settings -->
+                    <div class="settings-group">
+                        <h3>Story Engine (AI)</h3>
+                        <div class="settings-options-grid" id="llm-options">
+                            <!-- Items injected by JS -->
                         </div>
                     </div>
-                </div>
 
-                <!-- Story Tone -->
-                <div class="settings-group">
-                    <h3>Story Style</h3>
-                    <div class="settings-options-grid" id="tone-options">
-                        <div class="settings-option selected" data-value="default">
-                            <span class="option-label">Normal</span>
-                        </div>
-                        <div class="settings-option" data-value="happy">
-                            <span class="option-label">Super Happy</span>
-                        </div>
-                        <div class="settings-option" data-value="calm">
-                            <span class="option-label">Calm & Gentle</span>
-                        </div>
-                        <div class="settings-option" data-value="funny">
-                            <span class="option-label">Silly & Funny</span>
+                    <!-- TTS Settings -->
+                    <div class="settings-group">
+                        <h3>Voice (TTS)</h3>
+                        <div class="settings-options-grid" id="tts-options">
+                            <!-- Items injected by JS -->
                         </div>
                     </div>
-                </div>
 
-                <!-- Reader Layout -->
-                <div class="settings-group">
-                    <h3>Reader Layout</h3>
-                    <div class="settings-options-grid" id="reader-layout-options">
-                        <div class="settings-option selected" data-value="classic">
-                            <span class="option-label">Classic</span>
-                            <span style="font-size: 0.8rem; color: var(--text-secondary);">One image, full story, auto-play</span>
-                        </div>
-                        <div class="settings-option" data-value="step_by_step">
-                            <span class="option-label">Step-by-step</span>
-                            <span style="font-size: 0.8rem; color: var(--text-secondary);">One sentence at a time, kid clicks Next</span>
+                </div> <!-- End Column 1 -->
+
+                <!-- Column 2 -->
+                <div>
+                    <!-- Voice Preset -->
+                    <div class="settings-group">
+                        <h3>Voice Tone</h3>
+                        <div class="settings-options-grid" id="voice-preset-options">
+                            <div class="settings-option selected" data-value="default">
+                                <span class="option-label">Child Friendly (Soft)</span>
+                            </div>
+                            <div class="settings-option" data-value="ana">
+                                <span class="option-label">Ana (Sweet)</span>
+                            </div>
+                            <div class="settings-option" data-value="aria">
+                                <span class="option-label">Aria (Clear)</span>
+                            </div>
+                            <div class="settings-option" data-value="guy">
+                                <span class="option-label">Guy (Male)</span>
+                            </div>
                         </div>
                     </div>
-                </div>
 
+                    <!-- Story Tone -->
+                    <div class="settings-group">
+                        <h3>Story Style</h3>
+                        <div class="settings-options-grid" id="tone-options">
+                            <div class="settings-option selected" data-value="default">
+                                <span class="option-label">Normal</span>
+                            </div>
+                            <div class="settings-option" data-value="happy">
+                                <span class="option-label">Super Happy</span>
+                            </div>
+                            <div class="settings-option" data-value="calm">
+                                <span class="option-label">Calm & Gentle</span>
+                            </div>
+                            <div class="settings-option" data-value="funny">
+                                <span class="option-label">Silly & Funny</span>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Reader Layout -->
+                    <div class="settings-group">
+                        <h3>Reader Layout</h3>
+                        <div class="settings-options-grid" id="reader-layout-options">
+                            <div class="settings-option selected" data-value="classic">
+                                <span class="option-label">Classic</span>
+                                <span style="font-size: 0.8rem; color: var(--text-secondary);">One image, full story,
+                                    auto-play</span>
+                            </div>
+                            <div class="settings-option" data-value="step_by_step">
+                                <span class="option-label">Step-by-step</span>
+                                <span style="font-size: 0.8rem; color: var(--text-secondary);">One sentence at a time,
+                                    kid
+                                    clicks Next</span>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- API Keys -->
+                    <div class="settings-group">
+                        <h3>API Keys (.env)</h3>
+                        <div class="settings-options-grid" style="gap: 10px;">
+                            <div>
+                                <label style="color: var(--text-secondary); font-size: 0.9rem;">Google API Key
+                                    (Gemini)</label>
+                                <input type="password" id="settings-google-key" class="chat-input"
+                                    placeholder="AIzaSy..." style="width: 100%; margin-top: 5px; padding: 0.8rem;">
+                            </div>
+                            <div>
+                                <label style="color: var(--text-secondary); font-size: 0.9rem;">OpenAI API Key</label>
+                                <input type="password" id="settings-openai-key" class="chat-input" placeholder="sk-..."
+                                    style="width: 100%; margin-top: 5px; padding: 0.8rem;">
+                            </div>
+                            <div>
+                                <label style="color: var(--text-secondary); font-size: 0.9rem;">Groq API Key</label>
+                                <input type="password" id="settings-groq-key" class="chat-input" placeholder="gsk_..."
+                                    style="width: 100%; margin-top: 5px; padding: 0.8rem;">
+                            </div>
+                            <div>
+                                <label style="color: var(--text-secondary); font-size: 0.9rem;">Hugging Face
+                                    Token</label>
+                                <input type="password" id="settings-hf-token" class="chat-input" placeholder="hf_..."
+                                    style="width: 100%; margin-top: 5px; padding: 0.8rem;">
+                            </div>
+                        </div>
+                    </div>
+
+                </div> <!-- End Column 2 -->
             </div>
 
-            <div class="text-center mt-3">
+            <div class="text-center mt-3" style="grid-column: 1 / -1;">
                 <button id="save-settings-btn" class="control-btn primary">Save Changes</button>
             </div>
         </div>

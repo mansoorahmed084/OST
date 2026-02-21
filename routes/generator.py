@@ -32,19 +32,39 @@ def _generate_story_assets(story_id, title, content, full_text_en, full_text_tra
                 except Exception as e:
                     logger.error("Sentence image %s failed: %s", idx, e)
 
-        img_thread = threading.Thread(target=story_cover_task, args=(story_id, title, content))
-        img_thread.start()
-        sent_img_thread = threading.Thread(target=all_sentence_images_task,
-                                           args=(story_id, title, sentences_for_images))
-        sent_img_thread.start()
+        def get_reader_layout():
+            try:
+                with get_db_context() as conn:
+                    cursor = conn.cursor()
+                    cursor.execute("SELECT value FROM settings WHERE key = 'reader_layout'")
+                    row = cursor.fetchone()
+                    if row: return row['value']
+            except Exception as e:
+                logger.error("Error reading layout: %s", e)
+            return 'classic'
+
+        layout = get_reader_layout()
+        
+        img_thread = None
+        sent_img_thread = None
+
+        if layout == 'classic':
+            logger.info("Layout is classic: Generating single cover image")
+            img_thread = threading.Thread(target=story_cover_task, args=(story_id, title, content))
+            img_thread.start()
+        else:
+            logger.info("Layout is step_by_step: Generating one image per sentence")
+            sent_img_thread = threading.Thread(target=all_sentence_images_task,
+                                               args=(story_id, title, sentences_for_images))
+            sent_img_thread.start()
 
         generate_audio_file(story_id, full_text_en, speed, language='en')
         if target_language != 'en' and full_text_translated:
             generate_audio_file(story_id, full_text_translated, speed, language=target_language)
         pregenerate_sentence_audio(story_id, speed)
 
-        sent_img_thread.join()
-        img_thread.join()
+        if sent_img_thread: sent_img_thread.join()
+        if img_thread: img_thread.join()
         logger.info("Background asset generation finished for story %s", story_id)
     except Exception as e:
         logger.exception("Background audio/image generation failed for story %s: %s", story_id, e)
