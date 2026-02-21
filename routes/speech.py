@@ -490,6 +490,18 @@ def evaluate_speech():
         
         # Find words that need practice
         missing_words = [w for w in expected_words if w not in spoken_words]
+
+        # Save to progress if successful
+        if accuracy >= 70:
+            try:
+                with get_db_context() as conn:
+                    cursor = conn.cursor()
+                    cursor.execute('''
+                        INSERT INTO user_progress (story_id, activity_type, score)
+                        VALUES (?, ?, ?)
+                    ''', (0, 'practice', accuracy))
+            except:
+                pass
         
         return jsonify({
             'success': True,

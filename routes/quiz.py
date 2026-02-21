@@ -1,11 +1,10 @@
-"""
-Quiz API Routes
-For comprehension testing
-"""
-
 from flask import Blueprint, jsonify, request
 from database import get_db_context
+from routes.llm import extract_metadata_and_questions
 import random
+import logging
+
+logger = logging.getLogger(__name__)
 
 bp = Blueprint('quiz', __name__)
 
@@ -34,64 +33,63 @@ def generate_quiz(story_id):
                 # === Generate New Questions ===
                 generated_questions = []
                 
-                # 1. Theme Question
-                themes = ['Animals', 'Vehicles', 'Family', 'Food', 'Nature', 'Values']
-                distractors = [t for t in themes if t.lower() != theme.lower()]
-                random.shuffle(distractors)
-                
-                generated_questions.append({
-                    'question': 'What is this story mostly about?',
-                    'options': sorted([theme.capitalize()] + distractors[:2]),
-                    'correct_answer': theme.capitalize(),
-                    'hint': f"Think about the main picture. Is it about {distractors[0]} or {theme}?",
-                    'explanation': f"The story is about {theme.capitalize()}!"
-                })
-                
-                # 2. Moral Question (if exists)
-                if moral:
-                    generic_morals = [
-                        "Always run fast.",
-                        "Eating candy is good.",
-                        "Sleep all day.",
-                        "Never share toys.",
-                        "Shout loudly."
-                    ]
-                    # Better positive distractors
-                    positive_distractors = [
-                        "Always brush your teeth.",
-                        "Look both ways before crossing.",
-                        "Vegetables make you strong.",
-                        "Read books every day."
-                    ] 
-                    # Filter out similar valid morals to avoid confusion? 
-                    # For simplicity, mix random specific wrong ones or irrelevant positive ones.
-                    distractors = random.sample(positive_distractors, 2)
-                    
-                    options = [moral] + distractors
-                    random.shuffle(options)
+                # Try AI Generation first
+                try:
+                    logger.info(f"Attempting AI quiz generation for story {story_id}")
+                    metadata = extract_metadata_and_questions(story_dict['content'])
+                    if metadata and 'mcqs' in metadata:
+                        for q in metadata['mcqs']:
+                            generated_questions.append({
+                                'question': q['question'],
+                                'options': q['options'],
+                                'correct_answer': q['correct_answer'],
+                                'hint': f"Think about what happened to the {theme.lower()}.",
+                                'explanation': "You got it! Well done! 🌟"
+                            })
+                except Exception as e:
+                    logger.warning(f"AI quiz generation failed: {e}. Falling back to templates.")
+
+                # Fallback / Padding with templates if AI didn't provide enough
+                if len(generated_questions) < 2:
+                    # 1. Theme Question
+                    themes = ['Animals', 'Vehicles', 'Family', 'Food', 'Nature', 'Values']
+                    distractors = [t for t in themes if t.lower() != theme.lower()]
+                    random.shuffle(distractors)
                     
                     generated_questions.append({
-                        'question': 'What is the lesson of the story?',
-                        'options': options,
-                        'correct_answer': moral,
-                        'hint': "It teaches us how to be good.",
-                        'explanation': f"Yes! The lesson is: {moral}"
+                        'question': 'What is this story mostly about?',
+                        'options': sorted([theme.capitalize()] + distractors[:2]),
+                        'correct_answer': theme.capitalize(),
+                        'hint': f"Think about the main picture. Is it about {distractors[0]} or {theme}?",
+                        'explanation': f"The story is about {theme.capitalize()}!"
                     })
-                
-                # 3. Title/Content Question
-                generated_questions.append({
-                    'question': "What is the name of the story?",
-                    'options': [title, f"The Sad {theme.capitalize()}", f"A Big {theme.capitalize()}"], # Simple fake titles
-                    'correct_answer': title,
-                    'hint': "Look at the top of the story page.",
-                    'explanation': f"Correct! The story is named '{title}'."
-                })
-                
+                    
+                    # 2. Moral Question (if exists)
+                    if moral:
+                        positive_distractors = [
+                            "Always brush your teeth.",
+                            "Look both ways before crossing.",
+                            "Vegetables make you strong.",
+                            "Read books every day."
+                        ] 
+                        distractors = random.sample(positive_distractors, 2)
+                        options = [moral] + distractors
+                        random.shuffle(options)
+                        
+                        generated_questions.append({
+                            'question': 'What is the lesson of the story?',
+                            'options': options,
+                            'correct_answer': moral,
+                            'hint': "It teaches us how to be good.",
+                            'explanation': f"Yes! The lesson is: {moral}"
+                        })
+
                 # Save generated questions
                 for q in generated_questions:
-                    # Shuffle options one last time to be sure
                     opts = q['options']
-                    random.shuffle(opts)
+                    # Ensure options is a list and shuffle
+                    if isinstance(opts, list):
+                        random.shuffle(opts)
                     
                     cursor.execute('''
                         INSERT INTO quiz_questions 
@@ -134,6 +132,7 @@ def submit_quiz():
         data = request.json
         story_id = data.get('story_id')
         score = data.get('score', 0)
+        activity_type = data.get('activity_type', 'quiz')
         
         with get_db_context() as conn:
             cursor = conn.cursor()
@@ -142,7 +141,7 @@ def submit_quiz():
             cursor.execute('''
                 INSERT INTO user_progress (story_id, activity_type, score)
                 VALUES (?, ?, ?)
-            ''', (story_id, 'quiz', score))
+            ''', (story_id, activity_type, score))
             
             return jsonify({
                 'success': True,

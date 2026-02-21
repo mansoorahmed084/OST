@@ -70,6 +70,17 @@
                     <p class="hero-subtitle">
                         Let's learn, read, and speak together!
                     </p>
+
+                    <!-- Daily Adventure Progress -->
+                    <div class="daily-adventure-status">
+                        <div class="adventure-header">
+                            <span>🚀 Today's Adventure</span>
+                            <span id="adventure-progress-text">0/3 Missions</span>
+                        </div>
+                        <div class="adventure-progress-bar">
+                            <div id="adventure-progress-fill" class="progress-fill" style="width: 0%;"></div>
+                        </div>
+                    </div>
                     <div class="hero-cards">
                         <div class="hero-card" data-navigate="stories">
                             <div class="card-icon">📚</div>
@@ -110,14 +121,42 @@
         <!-- Recall / Daily Page -->
         <section id="recall-page" class="page">
             <div class="page-header">
-                <h1>🧠 Daily Challenge</h1>
-                <p>Let's remember what we read!</p>
+                <h1>🗺️ Daily Adventure</h1>
+                <p>Complete your missions to earn badges!</p>
             </div>
 
             <div class="recall-container">
-                <div id="due-stories-list" class="stories-grid">
-                    <!-- Due stories will load here -->
-                    <p class="text-center">Loading challenges...</p>
+                <!-- Mission List -->
+                <div id="daily-missions-list" class="missions-grid">
+                    <!-- Missions like "Read a Story", "Practice Words" etc -->
+                    <div class="mission-card" id="mission-read">
+                        <div class="mission-icon">📖</div>
+                        <div class="mission-info">
+                            <h3>Story Explorer</h3>
+                            <p>Read one story today</p>
+                        </div>
+                        <div class="mission-status">⏳</div>
+                    </div>
+                    <div class="mission-card" id="mission-practice">
+                        <div class="mission-icon">🎤</div>
+                        <div class="mission-info">
+                            <h3>Magic Words</h3>
+                            <p>Practice speaking 3 new words</p>
+                        </div>
+                        <div class="mission-status">⏳</div>
+                    </div>
+                    <div class="mission-card" id="mission-chat">
+                        <div class="mission-icon">💬</div>
+                        <div class="mission-info">
+                            <h3>Chat Buddy</h3>
+                            <p>Say hello to Buddy in Chat</p>
+                        </div>
+                        <div class="mission-status">⏳</div>
+                    </div>
+                </div>
+
+                <div id="due-stories-list" class="stories-grid hidden">
+                    <!-- Kept for compatibility but hidden -->
                 </div>
 
                 <div id="writing-exercise" class="writing-exercise hidden">
@@ -128,7 +167,11 @@
 
                         <div class="prompt-box">
                             <span class="prompt-icon">💡</span>
-                            <p id="writing-prompt">Loading prompt...</p>
+                            <div style="flex: 1; text-align: center;">
+                                <p id="writing-prompt">Loading prompt...</p>
+                                <img id="writing-image" src="" alt="Story visual"
+                                    style="display: none; max-height: 200px; max-width: 100%; border-radius: 8px; margin-top: 10px; box-shadow: 0 4px 6px rgba(0,0,0,0.1);">
+                            </div>
                         </div>
 
                         <div class="keywords-box">

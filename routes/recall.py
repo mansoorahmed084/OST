@@ -89,20 +89,28 @@ def get_writing_prompt(story_id):
     try:
         with get_db_context() as conn:
             cursor = conn.cursor()
-            cursor.execute('SELECT title, content, theme, moral FROM stories WHERE id = ?', (story_id,))
+            cursor.execute('SELECT title, content, theme, moral, image_category FROM stories WHERE id = ?', (story_id,))
             story = cursor.fetchone()
             
             if not story:
                 return jsonify({'success': False, 'error': 'Story not found'}), 404
                 
+            image_url = None
+            if story['image_category'] and story['image_category'].startswith('/'):
+                image_url = story['image_category']
+                
             # Generate simple prompts
-            prompts = [
-                f"What happened in '{story['title']}'?",
-                f"What was your favorite part of the story?",
-                f"Write a new ending for '{story['title']}'.",
-                f"How would you explain the moral: '{story['moral']}'?" if story['moral'] else "What did you learn from this story?"
-            ]
-            
+            if image_url:
+                prompt_text = "Describe what is happening in this picture! Use the words below."
+            else:
+                prompts = [
+                    f"What happened in '{story['title']}'?",
+                    f"What was your favorite part of the story?",
+                    f"Write a new ending for '{story['title']}'.",
+                    f"How would you explain the moral: '{story['moral']}'?" if story['moral'] else "What did you learn from this story?"
+                ]
+                prompt_text = random.choice(prompts)
+                
             # Extract some keywords for checking
             content_words = set(story['content'].lower().split())
             important_words = [w for w in content_words if len(w) > 3]
@@ -110,9 +118,10 @@ def get_writing_prompt(story_id):
             
             return jsonify({
                 'success': True,
-                'prompt': random.choice(prompts),
+                'prompt': prompt_text,
                 'story_title': story['title'],
-                'keywords': keywords
+                'keywords': keywords,
+                'image_url': image_url
             })
             
     except Exception as e:
@@ -170,6 +179,55 @@ def check_writing():
             'emoji': emoji
         })
         
+    except Exception as e:
+        return jsonify({
+            'success': False,
+            'error': str(e)
+        }), 500
+
+@bp.route('/daily-progress', methods=['GET'])
+def get_daily_progress():
+    """Get completion status of daily missions"""
+    try:
+        today_start = datetime.now().replace(hour=0, minute=0, second=0, microsecond=0).isoformat()
+        
+        with get_db_context() as conn:
+            cursor = conn.cursor()
+            
+            # 1. Read a Story
+            cursor.execute('''
+                SELECT COUNT(*) FROM user_progress 
+                WHERE activity_type = 'story_read' AND created_at >= ?
+            ''', (today_start,))
+            story_read = cursor.fetchone()[0] > 0
+            
+            # 2. Practice Speaking
+            cursor.execute('''
+                SELECT COUNT(*) FROM user_progress 
+                WHERE activity_type = 'practice' AND created_at >= ?
+            ''', (today_start,))
+            practice_done = cursor.fetchone()[0] > 0
+            
+            # 3. Chat Buddy
+            cursor.execute('''
+                SELECT COUNT(*) FROM chatbot_messages 
+                WHERE role = 'user' AND created_at >= ?
+            ''', (today_start,))
+            chat_done = cursor.fetchone()[0] > 0
+            
+            completion_count = sum([story_read, practice_done, chat_done])
+            
+            return jsonify({
+                'success': True,
+                'missions': {
+                    'read': story_read,
+                    'practice': practice_done,
+                    'chat': chat_done
+                },
+                'total': 3,
+                'completed': completion_count,
+                'percentage': (completion_count / 3) * 100
+            })
     except Exception as e:
         return jsonify({
             'success': False,

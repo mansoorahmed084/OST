@@ -877,6 +877,9 @@ async function speakStory() {
             stopStory();
             state.currentSentenceIndex = 0;
             document.querySelectorAll('.active-sentence').forEach(el => el.classList.remove('active-sentence'));
+
+            // Log that the user finished reading/listening to the story
+            submitActivity('story_read', state.currentStory.id, 100);
         };
 
         audio.onerror = (e) => {
@@ -1056,6 +1059,9 @@ function stepNext() {
         document.getElementById('step-progress').textContent = 'The End';
         document.getElementById('step-controls-nav')?.classList.add('hidden');
         document.getElementById('step-controls-end')?.classList.remove('hidden');
+
+        // Log that the user finished reading the story manually
+        submitActivity('story_read', state.currentStory.id, 100);
     }
 }
 
@@ -1162,24 +1168,40 @@ function startPractice() {
     // For now, use a simple sentence
     // In Phase 3, we'll integrate with stories
     const sentences = [
-        "The dog is happy.",
-        "I like to play.",
-        "The sun is bright.",
-        "I love my family.",
-        "The car is red."
+        "The dog is happy",
+        "I like to play",
+        "The sun is bright",
+        "I love my family",
+        "The car is red"
     ];
 
     const randomSentence = sentences[Math.floor(Math.random() * sentences.length)];
-    document.getElementById('practice-sentence').textContent = randomSentence;
+
+    // Create Word Bubbles UI
+    const container = document.getElementById('practice-sentence');
+    container.innerHTML = '';
+
+    const words = randomSentence.split(/\s+/);
+    words.forEach((word, index) => {
+        const bubble = document.createElement('span');
+        bubble.className = 'word-bubble';
+        bubble.textContent = word;
+        bubble.dataset.word = word.toLowerCase().replace(/[^a-z]/g, '');
+        container.appendChild(bubble);
+    });
 
     // Hide feedback
     document.getElementById('practice-feedback').classList.add('hidden');
+
+    // Store original string for evaluation
+    container.dataset.fullSentence = randomSentence;
 }
 
 async function listenToSentence() {
-    const sentence = document.getElementById('practice-sentence').textContent;
+    const container = document.getElementById('practice-sentence');
+    const sentence = container.dataset.fullSentence;
 
-    if (sentence && sentence !== "Click \"Start Practice\" to begin") {
+    if (sentence && container.children.length > 0) {
         // Use Backend TTS for consistency
         try {
             const speed = getSelectedSpeed();
@@ -1208,8 +1230,9 @@ function recordSpeech() {
         return;
     }
 
-    const sentence = document.getElementById('practice-sentence').textContent;
-    if (sentence === "Click \"Start Practice\" to begin") {
+    const container = document.getElementById('practice-sentence');
+    const sentence = container.dataset.fullSentence;
+    if (!sentence || container.children.length === 0 || sentence === "Click \"Start Practice\" to begin") {
         showError('Please start practice first');
         return;
     }
@@ -1227,7 +1250,20 @@ function recordSpeech() {
         console.error('Speech recognition error:', event.error);
         recordBtn.classList.remove('recording');
         recordBtn.querySelector('span:last-child').textContent = 'Record Your Voice';
-        showError('Could not recognize speech. Please try again.');
+
+        let msg = 'Could not recognize speech. Please try again.';
+        if (event.error === 'not-allowed') {
+            msg = 'Microphone access denied. Please click the icon in your browser address bar to allow microphone access.';
+        } else if (event.error === 'no-speech') {
+            msg = 'No speech detected. Please check your microphone and speak louder.';
+        } else if (event.error === 'network') {
+            msg = 'Network error. Speech recognition requires an internet connection.';
+        } else if (event.error === 'audio-capture') {
+            msg = 'No microphone was found or it is disabled. Please check your microphone connection and Windows Sound Settings.';
+        } else {
+            msg = `Speech recognition error: ${event.error}. Please try again.`;
+        }
+        showError(msg);
     };
 
     state.recognition.onend = () => {
@@ -1266,6 +1302,22 @@ function displayPracticeFeedback(data) {
     const feedbackClass = data.accuracy >= 70 ? 'success' : 'info';
     const icon = data.accuracy >= 70 ? '🌟' : '💙';
 
+    // Highlight/Pop Word Bubbles
+    const container = document.getElementById('practice-sentence');
+    const bubbles = container.querySelectorAll('.word-bubble');
+
+    // Spoken Text matching
+    const spokenWords = (data.spoken_text || '').toLowerCase().split(/\s+/);
+
+    bubbles.forEach(bubble => {
+        const targetWord = bubble.dataset.word;
+        if (spokenWords.includes(targetWord)) {
+            bubble.classList.add('popped');
+        } else {
+            bubble.classList.add('missed');
+        }
+    });
+
     feedbackContainer.className = `practice-feedback ${feedbackClass}`;
     feedbackContainer.innerHTML = `
         <div class="feedback-icon">${icon}</div>
@@ -1279,6 +1331,15 @@ function displayPracticeFeedback(data) {
     `;
 
     feedbackContainer.classList.remove('hidden');
+
+    // Buddy speaks feedback
+    speakBuddy(data.feedback + " " + data.encouragement);
+
+    // Complete activity if accuracy is good
+    if (data.accuracy >= 70) {
+        updateAdventureProgress(); // Refresh progress bar explicitly
+        showStickerReward();
+    }
 }
 
 // ===================================
@@ -1323,6 +1384,68 @@ function resetQuizUI() {
     loadQuizStories();
 }
 
+// === Daily Adventure / Recall Management ===
+async function submitActivity(activityType, storyId = null, score = 0) {
+    try {
+        await fetch(`${API_BASE}/quiz/submit`, { // Re-using existing progress save route for generic activities
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                story_id: storyId || 0,
+                activity_type: activityType,
+                score: score
+            })
+        });
+        updateAdventureProgress();
+    } catch (e) {
+        console.error("Failed to submit activity", e);
+    }
+}
+
+async function updateAdventureProgress() {
+    try {
+        const response = await fetch(`${API_BASE}/recall/daily-progress`);
+        const data = await response.json();
+
+        if (data.success) {
+            const missions = data.missions;
+            const progress = data.percentage;
+
+            // Update Home Progress Bar
+            const bar = document.getElementById('adventure-progress-fill');
+            const text = document.getElementById('adventure-progress-text');
+            if (bar) bar.style.width = `${progress}%`;
+            if (text) text.textContent = `${data.completed}/${data.total} Missions`;
+
+            // Update Recall Page Cards
+            updateMissionCard('mission-read', missions.read);
+            updateMissionCard('mission-practice', missions.practice);
+            updateMissionCard('mission-chat', missions.chat);
+
+            // If all done, maybe a special celebration?
+            if (data.completed === data.total && !state.dailyCelebrated) {
+                state.dailyCelebrated = true;
+                // show celebration?
+            }
+        }
+    } catch (e) {
+        console.error("Failed to update daily progress", e);
+    }
+}
+
+function updateMissionCard(id, isCompleted) {
+    const card = document.getElementById(id);
+    if (!card) return;
+
+    if (isCompleted) {
+        card.classList.add('completed');
+        card.querySelector('.mission-status').textContent = '✅';
+    } else {
+        card.classList.remove('completed');
+        card.querySelector('.mission-status').textContent = '⏳';
+    }
+}
+
 async function loadQuizStories() {
     try {
         const container = document.getElementById('quiz-stories-list');
@@ -1352,6 +1475,29 @@ async function loadQuizStories() {
         }
     } catch (error) {
         console.error('Error loading quiz stories:', error);
+    }
+}
+
+// Helper to speak text using Buddy's voice
+async function speakBuddy(text) {
+    try {
+        const response = await fetch(`${API_BASE}/speech/tts`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                text: text,
+                speed: 0.8 // Kid-friendly slow speed
+            })
+        });
+        const data = await response.json();
+        if (data.success) {
+            if (state.currentBuddyAudio) state.currentBuddyAudio.pause();
+            const audio = new Audio(data.audio_url);
+            state.currentBuddyAudio = audio;
+            audio.play().catch(e => console.error("Audio play error", e));
+        }
+    } catch (e) {
+        console.error("Buddy TTS error", e);
     }
 }
 
@@ -1407,7 +1553,21 @@ function showQuizQuestion(index) {
     document.getElementById('quiz-feedback').classList.add('hidden');
     document.getElementById('quiz-feedback').className = 'quiz-feedback hidden';
 
-    // Disable next button initially (shown only after correct answer)
+    // Buddy speaks the question
+    speakBuddy(question.question);
+}
+
+function showStickerReward() {
+    const stickers = ['🌟', '⭐', '🎈', '🎉', '🚀', '🌈', '🍦', '🦁', '🦖', '⚽'];
+    const sticker = stickers[Math.floor(Math.random() * stickers.length)];
+
+    const div = document.createElement('div');
+    div.className = 'sticker-reward';
+    div.textContent = sticker;
+    document.body.appendChild(div);
+
+    // Remove after animation
+    setTimeout(() => div.remove(), 1500);
 }
 
 function checkQuizAnswer(btn, selectedAnswer) {
@@ -1439,6 +1599,12 @@ function checkQuizAnswer(btn, selectedAnswer) {
 
         state.quizScore++;
 
+        // Buddy praises
+        speakBuddy(title.textContent + " " + msg.textContent);
+
+        // Show Sticker
+        showStickerReward();
+
         // Show Next Button
         feedbackBox.classList.remove('hidden');
         document.getElementById('quiz-next-btn').classList.remove('hidden');
@@ -1453,6 +1619,9 @@ function checkQuizAnswer(btn, selectedAnswer) {
         title.textContent = "Not quite...";
         msg.textContent = question.hint || "Try again!";
         icon.textContent = "🤔";
+
+        // Buddy hints
+        speakBuddy(title.textContent + " " + msg.textContent);
 
         feedbackBox.classList.remove('hidden');
         document.getElementById('quiz-next-btn').classList.add('hidden'); // Hide next until correct
@@ -1644,6 +1813,14 @@ function initializeBuddyChat() {
         if (e.key === 'Enter') sendBuddyMessage();
     });
     resetBtn?.addEventListener('click', resetBuddyChat);
+
+    // Initial Load - Update progress when entering recall or home
+    document.querySelector('.nav-btn[data-page="recall"]')?.addEventListener('click', updateAdventureProgress);
+    document.querySelector('.nav-btn[data-page="home"]')?.addEventListener('click', updateAdventureProgress);
+
+    // Periodically update
+    setInterval(updateAdventureProgress, 60000);
+    updateAdventureProgress();
 
     // Initial Load
     loadBuddyHistory();
@@ -1938,6 +2115,14 @@ async function startWritingExercise(storyId) {
             // Update UI
             document.getElementById('writing-story-title').textContent = data.story_title;
             document.getElementById('writing-prompt').textContent = data.prompt;
+
+            const imageEl = document.getElementById('writing-image');
+            if (data.image_url) {
+                imageEl.src = data.image_url;
+                imageEl.style.display = 'inline-block';
+            } else {
+                imageEl.style.display = 'none';
+            }
 
             // Set keywords
             const keywordsContainer = document.getElementById('writing-keywords');
