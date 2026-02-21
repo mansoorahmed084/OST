@@ -43,29 +43,43 @@ Buddy:"""
 _memory_cache = {}
 
 def get_llm():
-    """Get LLM based on settings"""
+    """Get LLM based on settings, preferring Gemini if available to avoid quota issues"""
+    provider = 'gemini' # Default to Gemini
     try:
         with get_db_context() as conn:
             cursor = conn.cursor()
             cursor.execute("SELECT value FROM settings WHERE key='llm_provider'")
             row = cursor.fetchone()
-            provider = row[0] if row else 'openai'
+            if row:
+                provider = row[0]
     except:
-        provider = 'openai'
+        pass
 
+    # If Gemini is requested and we have the key, use it
     if provider == 'gemini' and os.environ.get('GOOGLE_API_KEY'):
         return ChatGoogleGenerativeAI(
-            model="gemini-1.5-flash",
+            model="gemini-2.0-flash",
             google_api_key=os.environ.get('GOOGLE_API_KEY'),
             temperature=0.7
         )
-    else:
-        # Fallback to OpenAI
+    
+    # If OpenAI is requested or fallback
+    if os.environ.get('OPENAI_API_KEY'):
         return ChatOpenAI(
             model="gpt-4o-mini",
             openai_api_key=os.environ.get('OPENAI_API_KEY'),
             temperature=0.7
         )
+    
+    # Final fallback to Gemini if OpenAI key missing but Gemini key exists
+    if os.environ.get('GOOGLE_API_KEY'):
+         return ChatGoogleGenerativeAI(
+            model="gemini-1.5-flash",
+            google_api_key=os.environ.get('GOOGLE_API_KEY'),
+            temperature=0.7
+        )
+
+    return None
 
 def get_buddy_memory(session_id, llm):
     """Get or create memory for a session"""
@@ -130,7 +144,21 @@ def ask():
         )
 
         # Generate Response
-        buddy_response = conversation.predict(input=user_input)
+        try:
+            buddy_response = conversation.predict(input=user_input)
+        except Exception as e:
+            # Automatic fallback to Gemini if OpenAI fails (likely quota)
+            if "insufficient_quota" in str(e) or "429" in str(e):
+                logger.warning("OpenAI quota hit, falling back to Gemini for this message...")
+                fallback_llm = ChatGoogleGenerativeAI(
+                    model="gemini-2.0-flash",
+                    google_api_key=os.environ.get('GOOGLE_API_KEY'),
+                    temperature=0.7
+                )
+                conversation.llm = fallback_llm
+                buddy_response = conversation.predict(input=user_input)
+            else:
+                raise e
 
         # Persist to DB
         try:
