@@ -15,6 +15,7 @@ bp = Blueprint('tinystories', __name__)
 def generate():
     data = request.json or {}
     topic = data.get('topic', 'a friendly dog')
+    speed = float(data.get('speed', 0.8))
     
     if not topic or topic.lower() == 'random':
         topic = random.choice(RANDOM_TOPICS)
@@ -53,34 +54,51 @@ def generate():
         with get_ts_db_context() as conn:
             cursor = conn.cursor()
             cursor.execute('''
-                INSERT INTO tinystories (title, content, moral, vocab_json, fill_in_blanks_json, mcq_json, moral_questions_json)
-                VALUES (?, ?, ?, ?, ?, ?, ?)
-            ''', (title, content, moral, json.dumps(vocab), json.dumps(fill_in_blanks), json.dumps(mcqs), json.dumps(moral_questions)))
+                INSERT INTO tinystories (title, content, moral, vocab_json, fill_in_blanks_json, mcq_json, moral_questions_json, audio_speed)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+            ''', (title, content, moral, json.dumps(vocab), json.dumps(fill_in_blanks), json.dumps(mcqs), json.dumps(moral_questions), speed))
             story_id = cursor.lastrowid
+
+            # Update vocabulary progress
+            if vocab:
+                for v in vocab:
+                    word = v.get('word', '').lower().strip()
+                    meaning = v.get('meaning', '')
+                    if word:
+                        cursor.execute('''
+                            INSERT INTO vocabulary_progress (word, meaning, last_seen, occurrence_count)
+                            VALUES (?, ?, CURRENT_TIMESTAMP, 1)
+                            ON CONFLICT(word) DO UPDATE SET
+                                last_seen = CURRENT_TIMESTAMP,
+                                occurrence_count = occurrence_count + 1
+                        ''', (word, meaning))
+
+        # Audio and image generation should only be triggered if metadata (correction) succeeded
+        if metadata:
+            def background_assets(sid, t, c, spd):
+                # Image
+                try:
+                    filename = f"tinystory_{sid}.png"
+                    filepath = os.path.join(IMAGE_DIR, filename)
+                    prompt = f"Children's story book illustration about: {t}. Beautiful watercolor, simple, bright. Context: {c[:200]}"
+                    if generate_image_hf(prompt, filepath):
+                        public_url = f"/images/stories/{filename}"
+                        with get_ts_db_context() as conn:
+                            conn.execute("UPDATE tinystories SET image_url = ? WHERE id = ?", (public_url, sid))
+                except Exception as e:
+                    print(f"TS Image Gen Failed: {e}")
+                    
+                # Audio
+                try:
+                    # Use a unique prefix to avoid ID collisions in global audio cache
+                    success, result = generate_audio_file(f"ts_story_{sid}", c, speed=spd, language='en')
+                    if success:
+                        with get_ts_db_context() as conn:
+                            conn.execute("UPDATE tinystories SET audio_url = ? WHERE id = ?", (result, sid))
+                except Exception as e:
+                    print(f"TS Audio Gen Failed: {e}")
             
-        def background_assets():
-            # Image
-            try:
-                filename = f"tinystory_{story_id}.png"
-                filepath = os.path.join(IMAGE_DIR, filename)
-                prompt = f"Children's story book illustration about: {topic}. Beautiful watercolor, simple, bright. Context: {content[:200]}"
-                generate_image_hf(prompt, filepath)
-                public_url = f"/images/stories/{filename}"
-                with get_ts_db_context() as conn:
-                    conn.execute("UPDATE tinystories SET image_url = ? WHERE id = ?", (public_url, story_id))
-            except Exception as e:
-                print(f"TS Image Gen Failed: {e}")
-                
-            # Audio
-            try:
-                success, result = generate_audio_file(f"ts_story_{story_id}", content, speed=1.0, language='en')
-                if success:
-                    with get_ts_db_context() as conn:
-                        conn.execute("UPDATE tinystories SET audio_url = ? WHERE id = ?", (result, story_id))
-            except Exception as e:
-                print(f"TS Audio Gen Failed: {e}")
-                
-        threading.Thread(target=background_assets).start()
+            threading.Thread(target=background_assets, args=(story_id, topic, content, speed)).start()
             
         return jsonify({
             "success": True,
@@ -97,7 +115,7 @@ def list_stories():
     try:
         with get_ts_db_context() as conn:
             cursor = conn.cursor()
-            cursor.execute('SELECT id, title, created_at FROM tinystories ORDER BY id DESC')
+            cursor.execute('SELECT id, title, image_url, created_at FROM tinystories ORDER BY id DESC')
             stories = [dict(row) for row in cursor.fetchall()]
         return jsonify({"success": True, "stories": stories})
     except Exception as e:
@@ -123,3 +141,71 @@ def get_story(story_id):
         return jsonify({"success": True, "story": story})
     except Exception as e:
          return jsonify({"success": False, "error": str(e)}), 500
+
+@bp.route('/assets/<int:story_id>', methods=['POST'])
+def generate_assets(story_id):
+    try:
+        with get_ts_db_context() as conn:
+            cursor = conn.cursor()
+            cursor.execute('SELECT title, content, audio_speed FROM tinystories WHERE id = ?', (story_id,))
+            row = cursor.fetchone()
+            if not row:
+                return jsonify({"success": False, "error": "Story not found"}), 404
+            
+            title = row['title']
+            content = row['content']
+            speed = row['audio_speed'] or 0.8
+            
+        def background_assets(sid, t, c, spd):
+            # Image
+            try:
+                filename = f"tinystory_{sid}.png"
+                filepath = os.path.join(IMAGE_DIR, filename)
+                prompt = f"Children's story book illustration about: {t}. Beautiful watercolor, simple, bright. Context: {c[:200]}"
+                if generate_image_hf(prompt, filepath):
+                    public_url = f"/images/stories/{filename}"
+                    with get_ts_db_context() as conn:
+                        conn.execute("UPDATE tinystories SET image_url = ? WHERE id = ?", (public_url, sid))
+            except Exception as e:
+                print(f"TS Image Gen Failed: {e}")
+                
+            # Audio
+            try:
+                success, result = generate_audio_file(f"ts_story_{sid}", c, speed=spd, language='en')
+                if success:
+                    with get_ts_db_context() as conn:
+                        conn.execute("UPDATE tinystories SET audio_url = ? WHERE id = ?", (result, sid))
+            except Exception as e:
+                print(f"TS Audio Gen Failed: {e}")
+        
+        threading.Thread(target=background_assets, args=(story_id, title, content, speed)).start()
+        return jsonify({"success": True, "message": "Asset generation started in background."})
+    except Exception as e:
+        return jsonify({"success": False, "error": str(e)}), 500
+
+@bp.route('/vocabulary', methods=['GET'])
+def list_vocabulary():
+    try:
+        with get_ts_db_context() as conn:
+            cursor = conn.cursor()
+            cursor.execute('SELECT * FROM vocabulary_progress ORDER BY last_seen DESC')
+            vocab = [dict(row) for row in cursor.fetchall()]
+        return jsonify({"success": True, "vocabulary": vocab})
+    except Exception as e:
+        return jsonify({"success": False, "error": str(e)}), 500
+
+@bp.route('/vocabulary/status', methods=['POST'])
+def update_vocab_status():
+    data = request.json or {}
+    word = data.get('word', '').lower().strip()
+    status = data.get('status', 'learning') # learning, mastered
+    
+    if not word:
+        return jsonify({"success": False, "error": "Word is required"}), 400
+        
+    try:
+        with get_ts_db_context() as conn:
+            conn.execute('UPDATE vocabulary_progress SET status = ? WHERE word = ?', (status, word))
+        return jsonify({"success": True})
+    except Exception as e:
+        return jsonify({"success": False, "error": str(e)}), 500

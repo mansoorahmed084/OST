@@ -55,6 +55,14 @@ A comprehensive web application designed to help Omar improve his speech, readin
 - ✅ Dual Audio Playback (Original + Translation)
 - ✅ **Translation highlight fix**: When playing translated audio, Hindi/translated text is highlighted (not English)
 - ✅ Educational "Learn a Language" Mode
+### Phase 10 - Read & Learn Enhancements (✅ Implemented)
+- ✅ **AI Story Correction**: Every story is polished by a high-power LLM to fix context loss and grammar.
+- ✅ **Random Story Generation**: Instantly generate stories from a list of 50+ kid-friendly topics.
+- ✅ **Hugging Face FLUX.1 Integration**: High-fidelity children's book illustrations via Flux.1-schnell.
+- ✅ **Adaptive Vocabulary Tracking**: Tracks "New Words" vs "Learned Words" across all stories.
+- ✅ **Premium Word Sync**: Words pulse and glow with a professional 15% scale-up effect during playback.
+- ✅ **Asset Regeneration**: One-click regeneration of images and audio if needed.
+- ✅ **Migrated to google-genai**: Now using the modern Google Generative AI Python SDK.
 
 ### Reader Layouts & Step-by-Step Mode (✅ Implemented)
 - ✅ **Two reader layouts** (Settings → Reader Layout):
@@ -148,10 +156,11 @@ OST/
 - **Backend**: Flask (Python)
 - **Frontend**: HTML5, CSS3, Vanilla JavaScript
 - **Database**: SQLite
-- **AI Text Models**: Google Gemini, OpenAI GPT, Groq Llama 3, Local `TinyStories-33M` (`torch` + `transformers`)
-- **AI Image Models**: OpenAI DALL-E, Google Imagen 3, Hugging Face (`Yntec/KIDSILLUSTRATIONS`)
-- **TTS**: gTTS (Google Text-to-Speech), Microsoft Edge TTS, OpenAI TTS
+- **AI Text Models**: Google Gemini 1.5 Flash/Pro, OpenAI GPT-4o, Groq Llama 3, Local `TinyStories-33M` (`torch` + `transformers`)
+- **AI Image Models**: Hugging Face FLUX.1-schnell (Primary for Read & Learn), OpenAI DALL-E 3, Google Imagen 3
+- **TTS**: Microsoft Edge TTS (Primary), OpenAI TTS, gTTS (Google Text-to-Speech)
 - **STT**: Web Speech API (Browser-based)
+
 
 ## 🎯 Usage Guide
 
@@ -207,15 +216,12 @@ OST/
 - `POST /api/chatmode/ask` - Process ChatMode request
 - `GET /api/chatmode/history` - Get ChatMode history
 
-## 📋 Changelog (Recent Changes)
+- **Read & Learn Enhancements**: Added random generation (🎲), AI story correction to fix illogical plots, and background asset generation for a faster UI experience.
+- **Vocabulary Progress Dashboard**: Track lifetime learning stats (Learned vs Seen) with interactive status badges.
+- **Premium Glow Highlights**: Word-by-word sync now features a soft pulsing glow and 15% scaling for improved focus.
+- **FLUX.1 Illustrations**: Migrated to FLUX.1-schnell for higher-quality, consistent children's story artwork.
+- **Gemini SDK Migration**: Full migration from legacy `google-generativeai` to the modern `google-genai` SDK.
 
-- **TinyStories UI & Generator**: Fully integrated local Kid-Friendly `TinyStories-33M` for both stories and tests, decoupled from OpenAI.
-- **Dynamic API Keys UI**: Manage `Google Gemini`, `OpenAI`, `Groq`, and `Hugging Face` tokens live inside the Settings modal.
-- **Bilingual highlight**: Playing "Play Translation" now highlights the translated (e.g. Hindi) text instead of English.
-- **Reader layouts**: Settings → Reader Layout — **Classic** (one image, full story) or **Step-by-step** (one sentence + image at a time, Next/Back).
-- **Step-by-step reader**: Back button; auto-play on Next/Back; language choice (English vs Hindi/translation) for bilingual stories; "Play translation" for current sentence; images generated at story creation for smooth playback.
-- **Per-sentence images**: Generated at story generation time (using DALL-E 2 or Hugging Face `Yntec/KIDSILLUSTRATIONS`) with story-context prompt for consistent characters.
-- **TTS**: `/api/speech/tts` accepts optional `language` (en, hi, es, fr, de) for translation playback.
 
 ## 🛣️ Roadmap
 

@@ -36,7 +36,20 @@ def init_ts_db():
                 moral_questions_json TEXT,
                 image_url TEXT,
                 audio_url TEXT,
+                audio_speed REAL,
                 created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+            )
+        ''')
+
+        # Vocabulary progress table
+        cursor.execute('''
+            CREATE TABLE IF NOT EXISTS vocabulary_progress (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                word TEXT UNIQUE NOT NULL,
+                meaning TEXT,
+                status TEXT DEFAULT 'new', -- new, learning, mastered
+                last_seen TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                occurrence_count INTEGER DEFAULT 1
             )
         ''')
         
@@ -48,6 +61,11 @@ def init_ts_db():
             
         try:
             cursor.execute("ALTER TABLE tinystories ADD COLUMN audio_url TEXT")
+        except sqlite3.OperationalError:
+            pass # Column exists
+
+        try:
+            cursor.execute("ALTER TABLE tinystories ADD COLUMN audio_speed REAL")
         except sqlite3.OperationalError:
             pass # Column exists
 

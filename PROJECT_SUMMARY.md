@@ -234,6 +234,14 @@ OST/
 - Whitelisted content
 - Simple explanations
 - ⏳ Real images to be added
+### ✅ Phase 10: Read & Learn Enhancements (COMPLETE)
+- ✅ AI Story Correction (Local Output → LLM Refinement)
+- ✅ Random Story Generator (🎲)
+- ✅ Background Image/Audio Tasking
+- ✅ Lifetime Vocabulary Progress Tracking
+- ✅ Premium Glow-Highlight Word Sync
+- ✅ Gemini SDK Modernization
+- ✅ FLUX.1 Illustration Integration
 
 ### 📋 Phase 7-8: Advanced Features (PLANNED)
 - Voice input for ChatMode
@@ -301,14 +309,12 @@ OST/
 
 ---
 
-## 📋 Changelog (Recent Changes)
+- **Read & Learn Enhancements**: Added random generation (🎲), AI story correction to fix illogical plots, and background asset generation for a faster UI experience.
+- **Vocabulary Progress Dashboard**: Track lifetime learning stats (Learned vs Seen) with interactive status badges.
+- **Premium Glow Highlights**: Word-by-word sync now features a soft pulsing glow and 15% scaling for improved focus.
+- **FLUX.1 Illustrations**: Migrated to FLUX.1-schnell for higher-quality, consistent children's story artwork.
+- **Gemini SDK Migration**: Full migration from legacy `google-generativeai` to the modern `google-genai` SDK.
 
-- **Bilingual highlight**: Playing "Play Translation" now highlights the translated (e.g. Hindi) text instead of English.
-- **Reader layouts**: Settings → Reader Layout — **Classic** (one image, full story) or **Step-by-step** (one sentence + image at a time, Back/Next).
-- **Step-by-step reader**: Back button; auto-play on Next/Back; language choice (English vs Hindi/translation) for bilingual; "Play translation" button; per-sentence images generated at story creation.
-- **Per-sentence images**: Generated at story generation time (random + topic); DALL-E 2 with story-context prompt for consistent characters.
-- **TTS**: `/api/speech/tts` accepts optional `language` (en, hi, es, fr, de) for translation playback.
-- **API**: `POST /api/images/generate-sentence` (story_id, sentence_order, prompt, story_title); Settings supports `reader_layout`.
 
 ---
 

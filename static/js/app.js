@@ -2108,10 +2108,28 @@ function initializeTinyStoriesPage() {
         document.getElementById('ts-test-section').classList.remove('hidden');
         document.getElementById('ts-start-test-btn').classList.add('hidden');
     });
+
+    document.getElementById('ts-regen-assets-btn')?.addEventListener('click', () => {
+        const id = document.getElementById('ts-reader').dataset.currentId;
+        if (id) regenTinyStoryAssets(id);
+    });
 }
 
 async function loadTinyStories() {
     try {
+        // Fetch progress stats
+        fetch(`${API_BASE}/tinystories/vocabulary`)
+            .then(res => res.json())
+            .then(data => {
+                if (data.success) {
+                    const total = data.vocabulary.length;
+                    const learned = data.vocabulary.filter(i => i.status === 'mastered').length;
+                    document.getElementById('ts-learned-count').innerText = learned;
+                    document.getElementById('ts-seen-count').innerText = total;
+                    document.getElementById('ts-progress-container').style.display = total > 0 ? 'flex' : 'none';
+                }
+            });
+
         const response = await fetch(`${API_BASE}/tinystories/`);
         const data = await response.json();
         const container = document.getElementById('ts-list');
@@ -2124,7 +2142,12 @@ async function loadTinyStories() {
 
             container.innerHTML = data.stories.map(story => `
                 <div class="story-card" data-id="${story.id}">
-                    <div class="story-card-icon">🧸</div>
+                    <div class="story-card-img-container">
+                        ${story.image_url
+                    ? `<img src="${story.image_url}" class="story-thumbnail" alt="${story.title}">`
+                    : `<div class="story-card-icon">🧸</div>`
+                }
+                    </div>
                     <h3>${story.title}</h3>
                 </div>
             `).join('');
@@ -2147,6 +2170,7 @@ async function generateTinyStory(forcedTopic = null) {
 
     const btn = document.getElementById('ts-generate-btn');
     const randomBtn = document.getElementById('ts-random-btn');
+    const speed = document.getElementById('ts-gen-speed')?.value || '0.8';
     const ogHtml = btn.innerHTML;
     try {
         btn.innerHTML = 'Generating... (Takes ~10s)';
@@ -2156,7 +2180,7 @@ async function generateTinyStory(forcedTopic = null) {
         const response = await fetch(`${API_BASE}/tinystories/generate`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ topic })
+            body: JSON.stringify({ topic, speed })
         });
         const data = await response.json();
 
@@ -2183,6 +2207,7 @@ async function loadTinyStoryDetail(id) {
         const data = await response.json();
         if (data.success) {
             const story = data.story;
+            document.getElementById('ts-reader').dataset.currentId = id;
 
             // UI toggles
             document.getElementById('ts-list').classList.add('hidden');
@@ -2193,7 +2218,9 @@ async function loadTinyStoryDetail(id) {
 
             // Populate Content
             document.getElementById('ts-title').innerText = story.title;
-            document.getElementById('ts-text').innerText = story.content;
+            const textEl = document.getElementById('ts-text');
+            const words = story.content.split(/\s+/);
+            textEl.innerHTML = words.map((w, idx) => `<span class="story-word" data-idx="${idx}">${w} </span>`).join('');
             document.getElementById('ts-moral-text').innerText = story.moral || "Be kind and good.";
 
             // Image
@@ -2204,6 +2231,7 @@ async function loadTinyStoryDetail(id) {
                 imgContainer.classList.remove('hidden');
             } else {
                 imgContainer.classList.add('hidden');
+                imgEl.src = '';
             }
 
             // Audio
@@ -2212,19 +2240,57 @@ async function loadTinyStoryDetail(id) {
             if (story.audio_url) {
                 audioEl.src = story.audio_url;
                 audioContainer.classList.remove('hidden');
+
+                // Audio sync
+                audioEl.onplay = () => {
+                    startTinyStorySync(audioEl, words.length);
+                };
+                audioEl.onpause = () => {
+                    // Sync loop should stop automatically if audio is paused
+                };
+                audioEl.onended = () => {
+                    document.querySelectorAll('.story-word').forEach(w => w.classList.remove('highlight'));
+                };
             } else {
                 audioContainer.classList.add('hidden');
+                audioEl.src = '';
+            }
+
+            // If assets are missing, poll once or twice
+            if (!story.image_url || !story.audio_url) {
+                setTimeout(() => {
+                    const currentId = document.getElementById('ts-reader').dataset.currentId;
+                    if (currentId == id) loadTinyStoryDetail(id);
+                }, 10000); // Wait 10s then check again
             }
 
             // Vocab
             const vocabContainer = document.getElementById('ts-vocab-list');
             if (story.vocab && story.vocab.length) {
-                vocabContainer.innerHTML = story.vocab.map(v => `
-                    <div class="vocab-card">
-                        <span class="vocab-word">${v.word}</span>
-                        <span class="vocab-def">${v.meaning}</span>
-                    </div>
-                `).join('');
+                // Fetch current vocab progress to show badges
+                const vResponse = await fetch(`${API_BASE}/tinystories/vocabulary`);
+                const vData = await vResponse.json();
+                const masteredWords = (vData.vocabulary || [])
+                    .filter(item => item.status === 'mastered')
+                    .map(item => item.word.toLowerCase());
+
+                vocabContainer.innerHTML = story.vocab.map(v => {
+                    const isMastered = masteredWords.includes(v.word.toLowerCase());
+                    return `
+                        <div class="vocab-card ${isMastered ? 'mastered' : ''}" id="vocab-${v.word.replace(/\s+/g, '-')}">
+                            <div style="display: flex; justify-content: space-between; align-items: start; width: 100%;">
+                                <span class="vocab-word">${v.word}</span>
+                                ${isMastered ? '<span class="badge mastered">✅ Learned</span>' : '<span class="badge new">🆕 New</span>'}
+                            </div>
+                            <span class="vocab-def">${v.meaning}</span>
+                            <button class="control-btn mini" 
+                                    style="margin-top: 0.5rem; font-size: 0.75rem; width: 100%;"
+                                    onclick="updateTsVocabStatus('${v.word}', '${isMastered ? 'learning' : 'mastered'}')">
+                                ${isMastered ? 'Mark for Review' : 'Mark as Learned'}
+                            </button>
+                        </div>
+                    `;
+                }).join('');
                 document.getElementById('ts-vocab-box').classList.remove('hidden');
             } else {
                 document.getElementById('ts-vocab-box').classList.add('hidden');
@@ -2300,3 +2366,82 @@ window.checkTsAnswer = function (btn, selected, correct) {
     // Disable siblings
     Array.from(btn.parentElement.children).forEach(b => b.disabled = true);
 };
+
+async function regenTinyStoryAssets(id) {
+    const btn = document.getElementById('ts-regen-assets-btn');
+    const ogHtml = btn.innerHTML;
+    try {
+        btn.innerHTML = '✨ Generating...';
+        btn.disabled = true;
+        const response = await fetch(`${API_BASE}/tinystories/assets/${id}`, { method: 'POST' });
+        const data = await response.json();
+        if (data.success) {
+            alert("Asset generation started! They will appear automatically in a few seconds.");
+            // Detail will auto-refresh due to polling in loadTinyStoryDetail
+        } else {
+            alert("Error: " + data.error);
+        }
+    } catch (e) {
+        console.error(e);
+        alert("Failed to start asset generation");
+    } finally {
+        btn.innerHTML = ogHtml;
+        btn.disabled = false;
+    }
+}
+
+function startTinyStorySync(audio, totalWords) {
+    const SILENCE_PADDING = 0.1;
+    const updateLoop = () => {
+        if (audio.paused || audio.ended) return;
+
+        const totalDuration = audio.duration;
+        if (!totalDuration) {
+            requestAnimationFrame(updateLoop);
+            return;
+        }
+
+        const effectiveTime = Math.max(0, audio.currentTime - SILENCE_PADDING);
+        const contentDuration = Math.max(0, totalDuration - SILENCE_PADDING);
+
+        // Simple proportional mapping
+        const wordIndex = Math.floor((effectiveTime / contentDuration) * totalWords);
+
+        // Highlight logic
+        const words = document.querySelectorAll('.story-word');
+        words.forEach((w, idx) => {
+            if (idx === wordIndex) {
+                w.classList.add('highlight');
+                // Scroll into view if needed
+                if (idx % 10 === 0) w.scrollIntoView({ behavior: 'smooth', block: 'center' });
+            } else {
+                w.classList.remove('highlight');
+            }
+        });
+
+        requestAnimationFrame(updateLoop);
+    };
+
+    requestAnimationFrame(updateLoop);
+}
+
+async function updateTsVocabStatus(word, status) {
+    try {
+        const response = await fetch(`${API_BASE}/tinystories/vocabulary/status`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ word, status })
+        });
+        const data = await response.json();
+        if (data.success) {
+            // Refresh current story detail to update UI badges
+            const id = document.getElementById('ts-reader').dataset.currentId;
+            if (id) loadTinyStoryDetail(id);
+        } else {
+            alert("Update failed: " + data.error);
+        }
+    } catch (e) {
+        console.error(e);
+        alert("Failed to update vocabulary status");
+    }
+}

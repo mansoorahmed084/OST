@@ -427,7 +427,32 @@ body::before {
 .story-card-icon {
     font-size: 2.5rem;
     margin-bottom: var(--spacing-sm);
+    text-align: center;
 }
+
+.story-card-img-container {
+    width: 100%;
+    height: 140px;
+    border-radius: var(--radius-md);
+    overflow: hidden;
+    margin-bottom: var(--spacing-md);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: rgba(255, 255, 255, 0.03);
+}
+
+.story-thumbnail {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    transition: transform var(--transition-normal);
+}
+
+.story-card:hover .story-thumbnail {
+    transform: scale(1.1);
+}
+
 
 .story-card h3 {
     font-size: 1.3rem;
@@ -779,6 +804,40 @@ body::before {
     transition: all var(--transition-normal);
 }
 
+/* Vocabulary Progress Styles */
+.badge {
+    padding: 2px 8px;
+    border-radius: 12px;
+    font-size: 0.7rem;
+    font-weight: 600;
+    text-transform: uppercase;
+}
+
+.badge.new {
+    background: rgba(99, 102, 241, 0.1);
+    color: var(--primary-color);
+    border: 1px solid rgba(99, 102, 241, 0.3);
+}
+
+.badge.mastered {
+    background: rgba(34, 197, 94, 0.1);
+    color: #22c55e;
+    border: 1px solid rgba(34, 197, 94, 0.3);
+}
+
+.vocab-card.mastered {
+    border-left: 4px solid #22c55e;
+}
+
+.vocab-card.mastered .vocab-word {
+    color: #22c55e;
+}
+
+.control-btn.mini {
+    padding: 4px 8px;
+    min-width: unset;
+}
+
 .story-word {
     display: inline;
     transition: all var(--transition-fast);
@@ -788,11 +847,33 @@ body::before {
 }
 
 .story-word.highlight {
-    background: rgba(99, 102, 241, 0.8);
+    background: rgba(99, 102, 241, 0.35);
+    /* Slightly increased from 0.25 but still very transparent */
     color: #ffffff;
     font-weight: 700;
-    transform: scale(1.05);
-    box-shadow: 0 0 20px rgba(99, 102, 241, 0.15);
+    transform: scale(1.15);
+    /* Slightly more prominent scaling */
+    box-shadow: 0 0 15px rgba(99, 102, 241, 0.4);
+    /* Stronger glow shadow */
+    text-shadow: 0 0 8px rgba(255, 255, 255, 0.5);
+    z-index: 10;
+    position: relative;
+    border-radius: 4px;
+    animation: pulse-highlight 1.5s infinite;
+}
+
+@keyframes pulse-highlight {
+    0% {
+        box-shadow: 0 0 10px rgba(99, 102, 241, 0.3);
+    }
+
+    50% {
+        box-shadow: 0 0 20px rgba(99, 102, 241, 0.6);
+    }
+
+    100% {
+        box-shadow: 0 0 10px rgba(99, 102, 241, 0.3);
+    }
 }
 
 .story-moral {

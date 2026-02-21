@@ -357,9 +357,22 @@
             <div class="tinystories-container">
                 <!-- Generator -->
                 <div class="story-generator" id="ts-generator-box">
-                    <div class="generator-row" style="justify-content: center;">
+                    <div class="generator-row" style="justify-content: center; flex-wrap: wrap;">
                         <input type="text" id="ts-topic" class="topic-input"
                             placeholder="Topic (e.g. a friendly dog, space adventure)...">
+
+                        <div class="settings-option" style="margin: 0 1rem; display: flex; align-items: center;">
+                            <span
+                                style="color: var(--text-secondary); margin-right: 0.5rem; white-space: nowrap;">Speed:</span>
+                            <select id="ts-gen-speed" class="form-select"
+                                style="background: var(--bg-card); color: var(--text-primary); border: 1px solid var(--border-color); padding: 5px; border-radius: 8px;">
+                                <option value="0.6">Slow (0.6x)</option>
+                                <option value="0.7">0.7x</option>
+                                <option value="0.8" selected>Normal (0.8x)</option>
+                                <option value="1.0">Fast (1.0x)</option>
+                            </select>
+                        </div>
+
                         <button id="ts-generate-btn" class="generate-btn">
                             <span>✨</span>
                             <span>Generate Story</span>
@@ -372,6 +385,20 @@
                 </div>
 
                 <!-- List -->
+                <div id="ts-progress-container" class="generator-row" style="margin-bottom: 2rem; display: none;">
+                    <div class="hero-card"
+                        style="width: 100%; cursor: default; padding: 1rem; flex-direction: row; gap: 2rem; justify-content: space-around;">
+                        <div style="text-align: center;">
+                            <h4 style="margin:0; font-size: 1.5rem; color: #22c55e;" id="ts-learned-count">0</h4>
+                            <p style="margin:0; font-size: 0.8rem; opacity: 0.8;">Words Learned</p>
+                        </div>
+                        <div style="text-align: center;">
+                            <h4 style="margin:0; font-size: 1.5rem; color: var(--primary);" id="ts-seen-count">0</h4>
+                            <p style="margin:0; font-size: 0.8rem; opacity: 0.8;">Total Words Seen</p>
+                        </div>
+                    </div>
+                </div>
+
                 <div id="ts-list" class="stories-grid">
                     <p class="text-center">Loading stories...</p>
                 </div>
@@ -380,6 +407,10 @@
                 <div id="ts-reader" class="story-reader hidden">
                     <div class="story-reader-header">
                         <button class="back-btn" id="ts-back-btn">← Back to List</button>
+                        <button class="control-btn" id="ts-regen-assets-btn" style="margin-bottom: var(--spacing-lg);">
+                            <span>✨</span>
+                            <span>Regenerate Assets</span>
+                        </button>
                     </div>
 
                     <div class="story-reader-layout">
