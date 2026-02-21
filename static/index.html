@@ -576,40 +576,34 @@
         <!-- Chat Page -->
         <section id="chat-page" class="page">
             <div class="page-header">
-                <h1>💬 Chat & Explore</h1>
-                <p>Ask to see animals, vehicles, and more!</p>
+                <h1>💬 Chat with Buddy</h1>
+                <p>Talk to your AI friend!</p>
             </div>
 
-            <div class="chat-container">
-                <div class="chat-image-area" id="chat-image-area">
-                    <div class="chat-placeholder">
-                        <span class="placeholder-icon">🖼️</span>
-                        <p>Ask me to show you something!</p>
-                        <p class="placeholder-hint">Try: "Show me a dog" or "Show me a car"</p>
+            <div class="buddy-chat-container">
+                <div id="buddy-messages" class="buddy-messages">
+                    <!-- Buddy's messages will appear here -->
+                    <div class="message buddy">
+                        <div class="message-content">
+                            Hi Omar! I'm Buddy. How are you today? 😊
+                        </div>
                     </div>
                 </div>
 
-                <div class="chat-explanation" id="chat-explanation">
-                    <!-- Explanation will appear here -->
-                </div>
-
-                <div class="chat-input-area">
-                    <input type="text" id="chat-input" class="chat-input" placeholder="Type what you want to see...">
-                    <button id="chat-send" class="chat-send-btn">
-                        <span>Show Me</span>
-                        <span class="btn-icon">✨</span>
+                <div class="chat-input-row">
+                    <input type="text" id="buddy-input" class="chat-input" placeholder="Type a message to Buddy...">
+                    <button id="buddy-send" class="chat-send-btn">
+                        <span>Send</span>
+                        <span class="btn-icon">🚀</span>
                     </button>
-                </div>
-
-                <div class="chat-suggestions">
-                    <p>Try these:</p>
-                    <button class="suggestion-chip" data-prompt="show me a dog">🐕 Dog</button>
-                    <button class="suggestion-chip" data-prompt="show me a car">🚗 Car</button>
-                    <button class="suggestion-chip" data-prompt="show me an apple">🍎 Apple</button>
-                    <button class="suggestion-chip" data-prompt="show me a tree">🌳 Tree</button>
+                    <button id="buddy-reset" class="control-btn mini" title="Start new conversation"
+                        style="width: auto; padding: 0.8rem;">
+                        <span>🔄 Reset</span>
+                    </button>
                 </div>
             </div>
         </section>
+
     </main>
 
     <!-- Loading Overlay -->

@@ -82,7 +82,7 @@ document.addEventListener('DOMContentLoaded', () => {
     initializePracticePage();
     initializeQuizPage();
 
-    initializeChatPage();
+    initializeBuddyChat();
     initializeRecallPage();
     initializeSettings();
     initializeTinyStoriesPage();
@@ -1632,122 +1632,101 @@ async function saveSettings() {
 window.checkQuizAnswer = checkQuizAnswer;
 
 // ===================================
-// Chat Page
+// Buddy AI Chat
 // ===================================
-function initializeChatPage() {
-    const chatInput = document.getElementById('chat-input');
-    const chatSendBtn = document.getElementById('chat-send');
+function initializeBuddyChat() {
+    const input = document.getElementById('buddy-input');
+    const sendBtn = document.getElementById('buddy-send');
+    const resetBtn = document.getElementById('buddy-reset');
 
-    chatSendBtn?.addEventListener('click', () => {
-        const prompt = chatInput.value.trim();
-        if (prompt) {
-            processChatRequest(prompt);
-        }
+    sendBtn?.addEventListener('click', () => sendBuddyMessage());
+    input?.addEventListener('keypress', (e) => {
+        if (e.key === 'Enter') sendBuddyMessage();
     });
+    resetBtn?.addEventListener('click', resetBuddyChat);
 
-    chatInput?.addEventListener('keypress', (e) => {
-        if (e.key === 'Enter') {
-            const prompt = chatInput.value.trim();
-            if (prompt) {
-                processChatRequest(prompt);
-            }
-        }
-    });
-
-    // Suggestion chips
-    document.querySelectorAll('.suggestion-chip').forEach(chip => {
-        chip.addEventListener('click', () => {
-            const prompt = chip.dataset.prompt;
-            chatInput.value = prompt;
-            processChatRequest(prompt);
-        });
-    });
+    // Initial Load
+    loadBuddyHistory();
 }
 
-async function processChatRequest(prompt) {
-    try {
-        showLoading();
+async function sendBuddyMessage() {
+    const input = document.getElementById('buddy-input');
+    const message = input.value.trim();
+    if (!message) return;
 
-        const response = await fetch(`${API_BASE}/chatmode/ask`, {
+    // Clear input
+    input.value = '';
+
+    // Add Omar's message to UI
+    appendChatMessage('omar', message);
+
+    try {
+        const response = await fetch(`${API_BASE}/chatbot/ask`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ prompt })
+            body: JSON.stringify({ message })
         });
-
         const data = await response.json();
 
         if (data.success) {
-            if (data.is_safe) {
-                displayChatResponse(data);
-            } else {
-                displayChatSuggestion(data);
-            }
+            appendChatMessage('buddy', data.response);
         } else {
-            showError('Failed to process request');
+            appendChatMessage('buddy', "Sorry, I'm having a little trouble thinking. Can you try again? 😊");
         }
-    } catch (error) {
-        console.error('Error processing chat request:', error);
-        showError('Failed to process request');
-    } finally {
-        hideLoading();
+    } catch (err) {
+        console.error(err);
+        appendChatMessage('buddy', "Oh no! My internet brain is sleepy. 😴");
     }
 }
 
-function displayChatResponse(data) {
-    const imageArea = document.getElementById('chat-image-area');
-    const explanationArea = document.getElementById('chat-explanation');
-
-    // Display image (placeholder for now - will add actual images in Phase 6)
-    const emoji = getCategoryEmoji(data.category);
-    imageArea.innerHTML = `
-        <div style="font-size: 10rem; text-align: center;">
-            ${emoji}
-        </div>
-    `;
-
-    // Display explanation
-    explanationArea.classList.remove('hidden');
-    explanationArea.innerHTML = data.explanation.map(text =>
-        `<p class="explanation-text">${text}</p>`
-    ).join('');
-
-    // Optionally speak the explanation
-    speakExplanation(data.explanation.join(' '));
+async function loadBuddyHistory() {
+    const container = document.getElementById('buddy-messages');
+    try {
+        const response = await fetch(`${API_BASE}/chatbot/history`);
+        const data = await response.json();
+        if (data.success && data.messages.length > 0) {
+            container.innerHTML = '';
+            data.messages.forEach(m => {
+                appendChatMessage(m.role === 'user' ? 'omar' : 'buddy', m.content);
+            });
+        }
+    } catch (err) {
+        console.error(err);
+    }
 }
 
-function displayChatSuggestion(data) {
-    const explanationArea = document.getElementById('chat-explanation');
-
-    explanationArea.classList.remove('hidden');
-    explanationArea.innerHTML = `
-        <p class="explanation-text">${data.message}</p>
-        <div style="margin-top: 1rem;">
-            ${data.suggestions.map(s =>
-        `<button class="suggestion-chip" onclick="document.getElementById('chat-input').value='show me a ${s}'; processChatRequest('show me a ${s}');">
-                    ${s}
-                </button>`
-    ).join('')}
-        </div>
-    `;
+async function resetBuddyChat() {
+    if (!confirm("Start a new chat with Buddy? This will clear our talk!")) return;
+    try {
+        await fetch(`${API_BASE}/chatbot/reset`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ session_id: 'omar_default' })
+        });
+        const container = document.getElementById('buddy-messages');
+        container.innerHTML = `
+            <div class="message buddy">
+                <div class="message-content">Hi Omar! Let's talk about something new! 😊</div>
+            </div>
+        `;
+    } catch (err) {
+        console.error(err);
+    }
 }
 
-function getCategoryEmoji(category) {
-    const emojis = {
-        'animals': '🐕',
-        'vehicles': '🚗',
-        'fruits': '🍎',
-        'objects': '⚽',
-        'nature': '🌳'
-    };
-    return emojis[category] || '📦';
+function appendChatMessage(role, content) {
+    const container = document.getElementById('buddy-messages');
+    if (!container) return;
+
+    const msgDiv = document.createElement('div');
+    msgDiv.className = `message ${role}`;
+    msgDiv.innerHTML = `<div class="message-content">${content}</div>`;
+    container.appendChild(msgDiv);
+
+    // Auto Scroll
+    container.scrollTop = container.scrollHeight;
 }
 
-function speakExplanation(text) {
-    const utterance = new SpeechSynthesisUtterance(text);
-    utterance.rate = 0.9;
-    utterance.lang = 'en-IN';
-    state.synthesis.speak(utterance);
-}
 
 // ===================================
 // Story Generator Functions

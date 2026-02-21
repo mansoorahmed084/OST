@@ -1401,7 +1401,82 @@ body::before {
     transform: translateY(-2px);
 }
 
+/* === Buddy Chatbot Styles === */
+.buddy-chat-container {
+    background: var(--bg-card);
+    border-radius: var(--radius-lg);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    height: 60vh;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+    position: relative;
+    box-shadow: var(--shadow-lg);
+    margin-bottom: var(--spacing-xl);
+}
+
+.buddy-messages {
+    flex: 1;
+    padding: var(--spacing-lg);
+    overflow-y: auto;
+    display: flex;
+    flex-direction: column;
+    gap: var(--spacing-md);
+    scroll-behavior: smooth;
+}
+
+.message {
+    max-width: 80%;
+    padding: 1rem 1.25rem;
+    border-radius: var(--radius-lg);
+    line-height: 1.5;
+    font-size: 1.1rem;
+    position: relative;
+    animation: fadeIn var(--transition-normal);
+}
+
+.message.buddy {
+    align-self: flex-start;
+    background: var(--bg-secondary);
+    border-bottom-left-radius: 4px;
+    color: var(--text-primary);
+    border-left: 4px solid var(--primary-color);
+}
+
+.message.omar {
+    align-self: flex-end;
+    background: var(--gradient-primary);
+    color: white;
+    border-bottom-right-radius: 4px;
+    box-shadow: var(--shadow-sm);
+}
+
+.chat-input-row {
+    padding: var(--spacing-md);
+    background: rgba(255, 255, 255, 0.05);
+    display: flex;
+    gap: var(--spacing-sm);
+    align-items: center;
+    border-top: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.chat-input-row .chat-input {
+    flex: 1;
+    background: var(--bg-card);
+    border: 1px solid rgba(255, 255, 255, 0.2);
+    color: white;
+    padding: 0.8rem 1.2rem;
+    border-radius: var(--radius-xl);
+    outline: none;
+    font-size: 1.1rem;
+}
+
+.chat-input-row .chat-input:focus {
+    border-color: var(--primary-color);
+}
+
 /* === Loading Overlay === */
+
 .loading-overlay {
     position: fixed;
     top: 0;

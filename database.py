@@ -97,7 +97,28 @@ def init_db():
             )
         ''')
         
+        # Chatbot messages table
+        cursor.execute('''
+            CREATE TABLE IF NOT EXISTS chatbot_messages (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                session_id TEXT DEFAULT 'omar_session',
+                role TEXT NOT NULL,
+                content TEXT NOT NULL,
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+            )
+        ''')
+
+        # Chatbot memory state (for summaries)
+        cursor.execute('''
+            CREATE TABLE IF NOT EXISTS chatbot_memory_state (
+                session_id TEXT PRIMARY KEY,
+                summary TEXT,
+                updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+            )
+        ''')
+
         # Insert sample stories if table is empty
+
         cursor.execute('SELECT COUNT(*) FROM stories')
         if cursor.fetchone()[0] == 0:
             insert_sample_stories(cursor)
