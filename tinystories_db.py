@@ -34,9 +34,23 @@ def init_ts_db():
                 fill_in_blanks_json TEXT,
                 mcq_json TEXT,
                 moral_questions_json TEXT,
+                image_url TEXT,
+                audio_url TEXT,
                 created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
             )
         ''')
+        
+        # Add columns if they missed the creation
+        try:
+            cursor.execute("ALTER TABLE tinystories ADD COLUMN image_url TEXT")
+        except sqlite3.OperationalError:
+            pass # Column exists
+            
+        try:
+            cursor.execute("ALTER TABLE tinystories ADD COLUMN audio_url TEXT")
+        except sqlite3.OperationalError:
+            pass # Column exists
+
         conn.commit()
 
 # Run this once on import or explicitly

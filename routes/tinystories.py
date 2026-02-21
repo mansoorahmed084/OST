@@ -1,7 +1,13 @@
 from flask import Blueprint, jsonify, request
 import json
+import threading
+import os
+import random
 from tinystories_db import get_ts_db_context
 from routes.llm import get_tinystories, extract_metadata_and_questions
+from routes.generator import RANDOM_TOPICS
+from routes.images import generate_image_hf, IMAGE_DIR
+from routes.speech import generate_audio_file
 
 bp = Blueprint('tinystories', __name__)
 
@@ -9,6 +15,9 @@ bp = Blueprint('tinystories', __name__)
 def generate():
     data = request.json or {}
     topic = data.get('topic', 'a friendly dog')
+    
+    if not topic or topic.lower() == 'random':
+        topic = random.choice(RANDOM_TOPICS)
 
     local_pipe = get_tinystories()
     if not local_pipe:
@@ -33,6 +42,7 @@ def generate():
         moral_questions = []
 
         if metadata:
+            content = metadata.get('corrected_story', content)
             moral = metadata.get('moral', '')
             vocab = metadata.get('vocab', [])
             mcqs = metadata.get('mcqs', [])
@@ -47,6 +57,30 @@ def generate():
                 VALUES (?, ?, ?, ?, ?, ?, ?)
             ''', (title, content, moral, json.dumps(vocab), json.dumps(fill_in_blanks), json.dumps(mcqs), json.dumps(moral_questions)))
             story_id = cursor.lastrowid
+            
+        def background_assets():
+            # Image
+            try:
+                filename = f"tinystory_{story_id}.png"
+                filepath = os.path.join(IMAGE_DIR, filename)
+                prompt = f"Children's story book illustration about: {topic}. Beautiful watercolor, simple, bright. Context: {content[:200]}"
+                generate_image_hf(prompt, filepath)
+                public_url = f"/images/stories/{filename}"
+                with get_ts_db_context() as conn:
+                    conn.execute("UPDATE tinystories SET image_url = ? WHERE id = ?", (public_url, story_id))
+            except Exception as e:
+                print(f"TS Image Gen Failed: {e}")
+                
+            # Audio
+            try:
+                success, result = generate_audio_file(f"ts_story_{story_id}", content, speed=1.0, language='en')
+                if success:
+                    with get_ts_db_context() as conn:
+                        conn.execute("UPDATE tinystories SET audio_url = ? WHERE id = ?", (result, story_id))
+            except Exception as e:
+                print(f"TS Audio Gen Failed: {e}")
+                
+        threading.Thread(target=background_assets).start()
             
         return jsonify({
             "success": True,

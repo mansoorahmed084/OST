@@ -364,6 +364,10 @@
                             <span>✨</span>
                             <span>Generate Story</span>
                         </button>
+                        <button id="ts-random-btn" class="generate-btn secondary"
+                            style="min-width: unset; padding: 10px 15px;">
+                            <span>🎲</span>
+                        </button>
                     </div>
                 </div>
 
@@ -381,6 +385,19 @@
                     <div class="story-reader-layout">
                         <div class="story-content" style="width: 100%;">
                             <h2 id="ts-title" class="story-title">...</h2>
+
+                            <!-- Story Image & Audio -->
+                            <div id="ts-featured-image-container" class="featured-image hidden"
+                                style="max-width: 400px; margin: 0 auto 2rem;">
+                                <img id="ts-featured-image" src="" alt="Story Illustration"
+                                    style="width: 100%; border-radius: 1rem; box-shadow: var(--shadow-lg);">
+                            </div>
+
+                            <div id="ts-audio-player-container" class="audio-player-card hidden"
+                                style="max-width: 400px; margin: 0 auto 2rem; padding: 1rem; background: var(--bg-secondary); border-radius: 1rem;">
+                                <audio id="ts-audio-player" controls style="width: 100%;"></audio>
+                            </div>
+
                             <div id="ts-text" class="story-text" style="margin-bottom: 2rem;"></div>
 
                             <button id="ts-start-test-btn" class="control-btn primary"

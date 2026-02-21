@@ -2096,7 +2096,8 @@ function initializeTinyStoriesPage() {
     loadTinyStories();
 
     // Event listeners
-    document.getElementById('ts-generate-btn')?.addEventListener('click', generateTinyStory);
+    document.getElementById('ts-generate-btn')?.addEventListener('click', () => generateTinyStory());
+    document.getElementById('ts-random-btn')?.addEventListener('click', () => generateTinyStory('random'));
     document.getElementById('ts-back-btn')?.addEventListener('click', () => {
         document.getElementById('ts-reader').classList.add('hidden');
         document.getElementById('ts-generator-box').classList.remove('hidden');
@@ -2137,18 +2138,20 @@ async function loadTinyStories() {
     }
 }
 
-async function generateTinyStory() {
-    const topic = document.getElementById('ts-topic').value.trim();
+async function generateTinyStory(forcedTopic = null) {
+    let topic = forcedTopic || document.getElementById('ts-topic').value.trim();
     if (!topic) {
         alert("Please enter a topic!");
         return;
     }
 
     const btn = document.getElementById('ts-generate-btn');
+    const randomBtn = document.getElementById('ts-random-btn');
     const ogHtml = btn.innerHTML;
     try {
         btn.innerHTML = 'Generating... (Takes ~10s)';
         btn.disabled = true;
+        if (randomBtn) randomBtn.disabled = true;
 
         const response = await fetch(`${API_BASE}/tinystories/generate`, {
             method: 'POST',
@@ -2170,6 +2173,7 @@ async function generateTinyStory() {
     } finally {
         btn.innerHTML = ogHtml;
         btn.disabled = false;
+        if (randomBtn) randomBtn.disabled = false;
     }
 }
 
@@ -2191,6 +2195,26 @@ async function loadTinyStoryDetail(id) {
             document.getElementById('ts-title').innerText = story.title;
             document.getElementById('ts-text').innerText = story.content;
             document.getElementById('ts-moral-text').innerText = story.moral || "Be kind and good.";
+
+            // Image
+            const imgContainer = document.getElementById('ts-featured-image-container');
+            const imgEl = document.getElementById('ts-featured-image');
+            if (story.image_url) {
+                imgEl.src = story.image_url;
+                imgContainer.classList.remove('hidden');
+            } else {
+                imgContainer.classList.add('hidden');
+            }
+
+            // Audio
+            const audioContainer = document.getElementById('ts-audio-player-container');
+            const audioEl = document.getElementById('ts-audio-player');
+            if (story.audio_url) {
+                audioEl.src = story.audio_url;
+                audioContainer.classList.remove('hidden');
+            } else {
+                audioContainer.classList.add('hidden');
+            }
 
             // Vocab
             const vocabContainer = document.getElementById('ts-vocab-list');
