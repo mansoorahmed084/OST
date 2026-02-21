@@ -2117,7 +2117,7 @@ async function loadTinyStories() {
 
         if (data.success) {
             if (data.stories.length === 0) {
-                container.innerHTML = '<p class="text-center">No TinyStories yet. Generate one!</p>';
+                container.innerHTML = '<p class="text-center">No stories yet. Generate one!</p>';
                 return;
             }
 

@@ -24,7 +24,7 @@ def generate():
         title = f"The Story of {topic.title()}"
         
         # Extract metadata via LLM
-        metadata = extract_metadata_and_questions(content)
+        metadata = extract_metadata_and_questions(content, provider='tinystories')
         
         moral = ""
         vocab = []

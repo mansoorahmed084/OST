@@ -4,9 +4,10 @@ Handles interaction with Gemini, OpenAI, etc.
 """
 
 import os
-import warnings
-warnings.filterwarnings("ignore", category=FutureWarning, module="google.generativeai")
-import google.generativeai as genai
+try:
+    from google import genai
+except ImportError:
+    genai = None
 from flask import current_app
 from database import get_db_context
 import logging
@@ -65,20 +66,30 @@ def get_story_tone():
         return 'default'
 
 def generate_with_gemini(system_prompt, user_prompt, api_key):
-    genai.configure(api_key=api_key)
+    if not genai:
+        print("DEBUG: google-genai is not installed.")
+        return None
+        
+    try:    
+        client = genai.Client(api_key=api_key)
+    except Exception as e:
+        print(f"DEBUG: Failed to initialize Gemini Client: {e}")
+        return None
     
     # List of models to try in order of preference (Faster/Cheaper -> More Advanced)
     models_to_try = [
         'gemini-2.5-flash', # New model available
         'gemini-2.0-flash',
-        'gemini-3-pro-preview'
+        'gemini-1.5-pro' # updated model name for testing
     ]
     
     for model_name in models_to_try:
         try:
             print(f"DEBUG: Attempting generation with model: {model_name}")
-            model = genai.GenerativeModel(model_name) 
-            response = model.generate_content(f"{system_prompt}\n\nTask: {user_prompt}")
+            response = client.models.generate_content(
+                model=model_name,
+                contents=f"{system_prompt}\n\nTask: {user_prompt}"
+            )
             return response.text
         except Exception as e:
             print(f"DEBUG: Failed with {model_name}: {e}")
