@@ -847,34 +847,23 @@ body::before {
 }
 
 .story-word.highlight {
-    background: rgba(99, 102, 241, 0.35);
-    /* Slightly increased from 0.25 but still very transparent */
-    color: #ffffff;
+    background: rgba(255, 255, 255, 0.2);
+    /* 80% transparent white */
+    color: #fcd34d !important;
+    /* Force visible yellow text */
+    -webkit-text-fill-color: #fcd34d !important;
+    /* Reset transparent fill */
+    background-clip: border-box;
+    /* Reset text clip */
+    -webkit-background-clip: border-box;
     font-weight: 700;
-    transform: scale(1.15);
-    /* Slightly more prominent scaling */
-    box-shadow: 0 0 15px rgba(99, 102, 241, 0.4);
-    /* Stronger glow shadow */
-    text-shadow: 0 0 8px rgba(255, 255, 255, 0.5);
+    transform: scale(1.1);
     z-index: 10;
     position: relative;
     border-radius: 4px;
-    animation: pulse-highlight 1.5s infinite;
 }
 
-@keyframes pulse-highlight {
-    0% {
-        box-shadow: 0 0 10px rgba(99, 102, 241, 0.3);
-    }
 
-    50% {
-        box-shadow: 0 0 20px rgba(99, 102, 241, 0.6);
-    }
-
-    100% {
-        box-shadow: 0 0 10px rgba(99, 102, 241, 0.3);
-    }
-}
 
 .story-moral {
     margin-top: var(--spacing-xl);
