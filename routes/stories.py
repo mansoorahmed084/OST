@@ -174,3 +174,43 @@ def delete_story(story_id):
             'success': False,
             'error': str(e)
         }), 500
+@bp.route('/random-sentence', methods=['GET'])
+def get_random_sentence():
+    """Get a random sentence for practice from story library"""
+    try:
+        with get_db_context() as conn:
+            cursor = conn.cursor()
+            
+            # Get a random sentence from story_sentences table
+            cursor.execute('''
+                SELECT sentence_text 
+                FROM story_sentences 
+                ORDER BY RANDOM() 
+                LIMIT 1
+            ''')
+            row = cursor.fetchone()
+            
+            if row:
+                return jsonify({
+                    'success': True,
+                    'sentence': row[0]
+                })
+            else:
+                # Fallback to hardcoded list if no stories exist
+                fallback_sentences = [
+                    "The dog is happy",
+                    "I like to play",
+                    "The sun is bright",
+                    "I love my family",
+                    "The car is red"
+                ]
+                import random
+                return jsonify({
+                    'success': True,
+                    'sentence': random.choice(fallback_sentences)
+                })
+    except Exception as e:
+        return jsonify({
+            'success': False,
+            'error': str(e)
+        }), 500

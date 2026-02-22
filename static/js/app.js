@@ -94,8 +94,9 @@ document.addEventListener('DOMContentLoaded', () => {
         const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
         state.recognition = new SpeechRecognition();
         state.recognition.continuous = false;
-        state.recognition.interimResults = false;
-        state.recognition.lang = 'en-IN'; // Indian English
+        state.recognition.interimResults = true; // Show results in real time
+        state.recognition.lang = 'en-IN'; // Indian accent focus
+        console.log('Speech Recognition initialized');
     }
 });
 
@@ -1175,42 +1176,48 @@ async function playSentenceAudio(text) {
 // Practice Page
 // ===================================
 function initializePracticePage() {
-    document.getElementById('start-practice')?.addEventListener('click', startPractice);
-    document.getElementById('listen-sentence')?.addEventListener('click', listenToSentence);
-    document.getElementById('record-speech')?.addEventListener('click', recordSpeech);
+    document.getElementById('start-practice')?.addEventListener('click', () => {
+        stopBuddy();
+        startPractice();
+    });
+    document.getElementById('listen-sentence')?.addEventListener('click', () => {
+        stopBuddy();
+        listenToSentence();
+    });
+    document.getElementById('record-speech')?.addEventListener('click', () => {
+        stopBuddy();
+        recordSpeech();
+    });
 }
 
-function startPractice() {
-    // For now, use a simple sentence
-    // In Phase 3, we'll integrate with stories
-    const sentences = [
-        "The dog is happy",
-        "I like to play",
-        "The sun is bright",
-        "I love my family",
-        "The car is red"
-    ];
+async function startPractice() {
+    try {
+        const response = await fetch(`${API_BASE}/stories/random-sentence`);
+        const data = await response.json();
+        const sentence = data.success ? data.sentence : "The dog is happy";
 
-    const randomSentence = sentences[Math.floor(Math.random() * sentences.length)];
+        // Create Word Bubbles UI
+        const container = document.getElementById('practice-sentence');
+        container.innerHTML = '';
 
-    // Create Word Bubbles UI
-    const container = document.getElementById('practice-sentence');
-    container.innerHTML = '';
+        const words = sentence.split(/\s+/);
+        words.forEach((word) => {
+            const bubble = document.createElement('span');
+            bubble.className = 'word-bubble';
+            bubble.textContent = word;
+            bubble.dataset.word = word.toLowerCase().replace(/[^a-z]/g, '');
+            container.appendChild(bubble);
+        });
 
-    const words = randomSentence.split(/\s+/);
-    words.forEach((word, index) => {
-        const bubble = document.createElement('span');
-        bubble.className = 'word-bubble';
-        bubble.textContent = word;
-        bubble.dataset.word = word.toLowerCase().replace(/[^a-z]/g, '');
-        container.appendChild(bubble);
-    });
+        // Hide feedback
+        document.getElementById('practice-feedback').classList.add('hidden');
 
-    // Hide feedback
-    document.getElementById('practice-feedback').classList.add('hidden');
-
-    // Store original string for evaluation
-    container.dataset.fullSentence = randomSentence;
+        // Store original string for evaluation
+        container.dataset.fullSentence = sentence;
+    } catch (e) {
+        console.error("Failed to load practice sentence", e);
+        showError("Could not load a new sentence. Please try again.");
+    }
 }
 
 async function listenToSentence() {
@@ -1257,9 +1264,41 @@ function recordSpeech() {
     recordBtn.classList.add('recording');
     recordBtn.querySelector('span:last-child').textContent = 'Listening...';
 
+    // Clear previous handlers to avoid leaks
+    state.recognition.onresult = null;
+    state.recognition.onerror = null;
+    state.recognition.onend = null;
+
     state.recognition.onresult = (event) => {
-        const transcript = event.results[0][0].transcript;
-        evaluateSpeech(sentence, transcript);
+        let interimTranscript = '';
+        let finalTranscript = '';
+
+        for (let i = event.resultIndex; i < event.results.length; ++i) {
+            if (event.results[i].isFinal) {
+                finalTranscript += event.results[i][0].transcript;
+            } else {
+                interimTranscript += event.results[i][0].transcript;
+            }
+        }
+
+        // Show live feedback
+        if (interimTranscript) {
+            recordBtn.querySelector('span:last-child').textContent = '...' + interimTranscript;
+        }
+
+        if (finalTranscript) {
+            console.log('Final Transcript:', finalTranscript);
+            evaluateSpeech(sentence, finalTranscript);
+        }
+    };
+
+    state.recognition.onsoundstart = () => {
+        console.log('Mic is receiving sound...');
+        recordBtn.style.boxShadow = '0 0 20px var(--primary-color)';
+    };
+
+    state.recognition.onsoundend = () => {
+        recordBtn.style.boxShadow = 'none';
     };
 
     state.recognition.onerror = (event) => {
@@ -1283,11 +1322,26 @@ function recordSpeech() {
     };
 
     state.recognition.onend = () => {
+        console.log('Speech recognition ended');
         recordBtn.classList.remove('recording');
         recordBtn.querySelector('span:last-child').textContent = 'Record Your Voice';
     };
 
-    state.recognition.start();
+    try {
+        state.recognition.stop(); // Stop any pending instance
+    } catch (e) { }
+
+    setTimeout(() => {
+        try {
+            state.recognition.start();
+            console.log('Speech recognition started');
+        } catch (e) {
+            console.error('Failed to start recognition:', e);
+            recordBtn.classList.remove('recording');
+            recordBtn.querySelector('span:last-child').textContent = 'Record Your Voice';
+            showError('Could not start microphone. Is another app using it?');
+        }
+    }, 100);
 }
 
 async function evaluateSpeech(expectedText, spokenText) {
@@ -1498,9 +1552,18 @@ async function loadQuizStories() {
     }
 }
 
+// Helper to stop Buddy's voice immediately
+function stopBuddy() {
+    if (state.currentBuddyAudio) {
+        state.currentBuddyAudio.pause();
+        state.currentBuddyAudio.currentTime = 0;
+    }
+}
+
 // Helper to speak text using Buddy's voice
 async function speakBuddy(text) {
     try {
+        stopBuddy();
         const response = await fetch(`${API_BASE}/speech/tts`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
