@@ -116,12 +116,20 @@ def get_writing_prompt(story_id):
             important_words = [w for w in content_words if len(w) > 3]
             keywords = random.sample(important_words, min(5, len(important_words)))
             
+            # Get sentences for scramble game
+            cursor.execute('SELECT sentence_text FROM story_sentences WHERE story_id = ? ORDER BY sentence_order', (story_id,))
+            sentences = [row[0] for row in cursor.fetchall()]
+            if not sentences:
+                # Fallback: split content by period
+                sentences = [s.strip() + '.' for s in story['content'].split('.') if s.strip()]
+
             return jsonify({
                 'success': True,
                 'prompt': prompt_text,
                 'story_title': story['title'],
                 'keywords': keywords,
-                'image_url': image_url
+                'image_url': image_url,
+                'sentences': sentences
             })
             
     except Exception as e:

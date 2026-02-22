@@ -162,6 +162,14 @@
                         </div>
                         <div class="mission-status">⏳</div>
                     </div>
+                    <div class="mission-card" id="mission-scramble" style="cursor:pointer;">
+                        <div class="mission-icon">🧩</div>
+                        <div class="mission-info">
+                            <h3>Story Builder</h3>
+                            <p>Unscramble sentences from a story</p>
+                        </div>
+                        <div class="mission-status">⏳</div>
+                    </div>
                 </div>
 
                 <div id="due-stories-list" class="stories-grid hidden">
@@ -172,38 +180,43 @@
                     <button class="back-btn" id="back-to-recall">← Back to List</button>
 
                     <div class="exercise-card">
-                        <h3>✍️ Writing Time by <span id="writing-story-title" class="highlight-text">...</span></h3>
-
-                        <div class="prompt-box">
-                            <span class="prompt-icon">💡</span>
-                            <div style="flex: 1; text-align: center;">
-                                <p id="writing-prompt">Loading prompt...</p>
-                                <img id="writing-image" src="" alt="Story visual"
-                                    style="display: none; max-height: 200px; max-width: 100%; border-radius: 8px; margin-top: 10px; box-shadow: 0 4px 6px rgba(0,0,0,0.1);">
-                            </div>
-                        </div>
-
-                        <div class="keywords-box">
-                            <p>Try to use these words:</p>
-                            <div id="writing-keywords" class="keywords-list">
-                                <!-- Keywords -->
-                            </div>
-                        </div>
+                        <h3>🧩 Story Scramble: <span id="writing-story-title" class="highlight-text">...</span></h3>
+                        <p style="text-align:center; color: var(--text-secondary); margin-bottom: 1rem;">Arrange the
+                            jumbled words to rebuild the story, one sentence at a time!</p>
                     </div>
 
-                    <textarea id="writing-input" class="writing-input" placeholder="Type your answer here..."
-                        rows="5"></textarea>
+                    <div id="scramble-game" class="scramble-game-container">
+                        <div class="scramble-progress"
+                            style="text-align:center; margin-bottom: 1rem; font-weight: bold; font-size: 1.1rem;">
+                            Sentence <span id="scramble-current">1</span> of <span id="scramble-total">?</span>
+                        </div>
 
-                    <div class="writing-controls">
-                        <button id="check-writing" class="control-btn primary">
-                            <span class="btn-icon">✨</span>
-                            <span>Check My Writing</span>
-                        </button>
+                        <div id="scramble-workspace" class="scramble-workspace">
+                            <div class="placeholder-text">Click the words below to build the sentence!</div>
+                        </div>
+
+                        <div id="scramble-words" class="scramble-words-pool">
+                            <!-- Shuffled words here -->
+                        </div>
+
+                        <div class="writing-controls" style="justify-content: center;">
+                            <button id="check-scramble" class="control-btn primary">
+                                <span class="btn-icon">✅</span>
+                                <span>Check Sentence</span>
+                            </button>
+                            <button id="reset-scramble" class="control-btn">
+                                <span class="btn-icon">🔄</span>
+                                <span>Reset</span>
+                            </button>
+                        </div>
                     </div>
 
                     <div id="writing-feedback" class="writing-feedback hidden">
                         <h3 id="feedback-title"></h3>
-                        <ul id="feedback-list"></ul>
+                        <div id="feedback-message" style="margin-bottom: 1rem;"></div>
+                        <button id="next-scramble" class="control-btn primary hidden" style="margin: 0 auto;">
+                            <span>Next Sentence ➡️</span>
+                        </button>
                     </div>
                 </div>
             </div>

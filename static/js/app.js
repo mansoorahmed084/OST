@@ -24,7 +24,11 @@ const state = {
     stepCurrentAudio: null,    // current playing Audio in step-by-step; stop before playing next
     playMode: 'manual',         // 'manual' | 'automated' - selectable at start story
     tsQuizScore: 0,
-    tsQuizTotal: 0
+    tsQuizTotal: 0,
+    // Scramble game state
+    scrambleSentences: [],
+    scrambleCurrentIndex: 0,
+    scrambleWorkspace: []
 };
 
 // ... (lines 20-186)
@@ -2124,16 +2128,16 @@ function initializeRecallPage() {
         document.getElementById('writing-exercise').classList.add('hidden');
     });
 
-    // Check Writing button
-    document.getElementById('check-writing')?.addEventListener('click', checkWriting);
+    // Scramble Controls
+    document.getElementById('check-scramble')?.addEventListener('click', checkScrambleSentence);
+    document.getElementById('reset-scramble')?.addEventListener('click', () => renderScrambleSentence(state.scrambleCurrentIndex));
+    document.getElementById('next-scramble')?.addEventListener('click', nextScrambleSentence);
+
+    // Story Builder mission card click
+    document.getElementById('mission-scramble')?.addEventListener('click', startRandomScramble);
 
     // Load due stories when tab is clicked
     document.querySelector('.nav-btn[data-page="recall"]')?.addEventListener('click', loadDueStories);
-    // Also from home page card
-    // Note: The click handler for .hero-card in initializeHomePage handles navigation to 'recall' page
-    // We just need to ensure loadDueStories is called when we enter the page.
-    // We can modify navigateToPage to trigger load if it's recall page, OR just call it here.
-    // For now, let's rely on the tab click or explicit call.
 }
 
 // Modify navigateToPage to load data
@@ -2197,93 +2201,164 @@ async function startWritingExercise(storyId) {
     try {
         showLoading();
 
-        // Load prompt
+        // Load prompt with sentences
         const response = await fetch(`${API_BASE}/recall/prompt/${storyId}`);
         const data = await response.json();
 
         if (data.success) {
             // Update UI
             document.getElementById('writing-story-title').textContent = data.story_title;
-            document.getElementById('writing-prompt').textContent = data.prompt;
 
-            const imageEl = document.getElementById('writing-image');
-            if (data.image_url) {
-                imageEl.src = data.image_url;
-                imageEl.style.display = 'inline-block';
-            } else {
-                imageEl.style.display = 'none';
+            // Start Scramble Game with the story's sentences
+            state.scrambleSentences = data.sentences || [];
+            state.scrambleCurrentIndex = 0;
+
+            if (state.scrambleSentences.length > 0) {
+                document.getElementById('scramble-total').textContent = state.scrambleSentences.length;
+                renderScrambleSentence(0);
             }
-
-            // Set keywords
-            const keywordsContainer = document.getElementById('writing-keywords');
-            keywordsContainer.innerHTML = data.keywords.map(k =>
-                `<span class="keyword-tag">${k}</span>`
-            ).join('');
-
-            // Reset input
-            const input = document.getElementById('writing-input');
-            input.value = '';
-            input.dataset.keywords = JSON.stringify(data.keywords); // Store for checking
-
-            // Reset feedback
-            document.getElementById('writing-feedback').classList.add('hidden');
-
 
             // Show exercise
             document.getElementById('due-stories-list').classList.add('hidden');
             document.getElementById('writing-exercise').classList.remove('hidden');
-
         } else {
-            showError('Failed to load writing exercise');
+            showError('Failed to load scramble challenge');
         }
     } catch (error) {
-        console.error('Error starting writing exercise:', error);
+        console.error('Error starting scramble exercise:', error);
         showError('Failed to load exercise');
     } finally {
         hideLoading();
     }
 }
 
-async function checkWriting() {
-    const input = document.getElementById('writing-input');
-    const text = input.value.trim();
-    const keywords = JSON.parse(input.dataset.keywords || '[]');
-
-    if (!text) {
-        showError('Please write something first!');
-        return;
-    }
-
+// Start a random scramble from any available story
+async function startRandomScramble() {
     try {
         showLoading();
-
-        const response = await fetch(`${API_BASE}/recall/check`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ text, keywords })
-        });
-
+        const response = await fetch(`${API_BASE}/recall/due`);
         const data = await response.json();
-
-        if (data.success) {
-            // Show feedback
-            const feedbackSection = document.getElementById('writing-feedback');
-            const feedbackTitle = document.getElementById('feedback-title');
-            const feedbackList = document.getElementById('feedback-list');
-
-            feedbackTitle.textContent = `${data.emoji} ${data.message} (Score: ${data.score}/100)`;
-            feedbackList.innerHTML = data.feedback.map(f => `<li>${f}</li>`).join('');
-
-            feedbackSection.classList.remove('hidden');
+        if (data.success && data.stories.length > 0) {
+            const randomStory = data.stories[Math.floor(Math.random() * data.stories.length)];
+            await startWritingExercise(randomStory.id);
         } else {
-            showError('Failed to check writing');
+            showError('No stories available for scramble. Read some stories first!');
         }
-    } catch (error) {
-        console.error('Error checking writing:', error);
-        showError('Failed to check writing');
+    } catch (e) {
+        console.error('Random scramble error:', e);
+        showError('Failed to start scramble game.');
     } finally {
         hideLoading();
     }
+}
+
+// === Scramble Game Engine ===
+function renderScrambleSentence(index) {
+    if (index >= state.scrambleSentences.length) {
+        finishScrambleGame();
+        return;
+    }
+
+    const sentence = state.scrambleSentences[index];
+    state.scrambleWorkspace = [];
+    state.scrambleCurrentIndex = index;
+
+    // Update Progress
+    document.getElementById('scramble-current').textContent = index + 1;
+    document.getElementById('writing-feedback').classList.add('hidden');
+    document.getElementById('next-scramble').classList.add('hidden');
+
+    // Prepare Workspace
+    const workspace = document.getElementById('scramble-workspace');
+    workspace.innerHTML = '<div class="placeholder-text">Click the words below to build the sentence!</div>';
+
+    // Prepare Words Pool
+    const pool = document.getElementById('scramble-words');
+    pool.innerHTML = '';
+
+    // Split into words and keep track of original indices
+    const words = sentence.trim().split(/\s+/);
+    // Create shuffled word list with unique IDs to handle duplicate words
+    const wordItems = words.map((word, idx) => ({ word, id: idx }));
+    const shuffled = [...wordItems].sort(() => Math.random() - 0.5);
+
+    shuffled.forEach((item) => {
+        const chip = document.createElement('div');
+        chip.className = 'scramble-chip';
+        chip.textContent = item.word;
+        chip.dataset.wordId = item.id;
+        chip.onclick = () => {
+            if (chip.classList.contains('used')) return;
+
+            // Remove placeholder if first word
+            if (state.scrambleWorkspace.length === 0) workspace.innerHTML = '';
+
+            state.scrambleWorkspace.push(item);
+            chip.classList.add('used');
+
+            const wsChip = document.createElement('div');
+            wsChip.className = 'scramble-chip';
+            wsChip.textContent = item.word;
+            wsChip.onclick = () => {
+                // Remove from workspace
+                state.scrambleWorkspace = state.scrambleWorkspace.filter(w => w.id !== item.id);
+                wsChip.remove();
+                chip.classList.remove('used');
+                if (state.scrambleWorkspace.length === 0) {
+                    workspace.innerHTML = '<div class="placeholder-text">Click the words below to build the sentence!</div>';
+                }
+            };
+            workspace.appendChild(wsChip);
+        };
+        pool.appendChild(chip);
+    });
+}
+
+function checkScrambleSentence() {
+    const original = state.scrambleSentences[state.scrambleCurrentIndex];
+    const built = state.scrambleWorkspace.map(w => w.word).join(' ');
+
+    // Normalize for comparison (ignore case, punctuation)
+    const normalize = (s) => s.toLowerCase().replace(/[.,!?;:'"-]/g, '').replace(/\s+/g, ' ').trim();
+    const isCorrect = normalize(original) === normalize(built);
+
+    const feedbackSection = document.getElementById('writing-feedback');
+    const feedbackTitle = document.getElementById('feedback-title');
+    const feedbackMsg = document.getElementById('feedback-message');
+    const nextBtn = document.getElementById('next-scramble');
+
+    feedbackSection.classList.remove('hidden');
+
+    if (isCorrect) {
+        feedbackTitle.textContent = '🌟 Perfect!';
+        feedbackMsg.innerHTML = `<div class="feedback-message success">"${built}" — That's exactly right!</div>`;
+        nextBtn.classList.remove('hidden');
+        if (typeof speakBuddy === 'function') speakBuddy('Amazing! You got it right!');
+    } else {
+        feedbackTitle.textContent = '💡 Not quite yet';
+        feedbackMsg.innerHTML = `<div class="feedback-message error">Keep trying! Check the word order.</div>`;
+        if (typeof speakBuddy === 'function') speakBuddy('Almost there! Try again.');
+    }
+}
+
+function nextScrambleSentence() {
+    state.scrambleCurrentIndex++;
+    renderScrambleSentence(state.scrambleCurrentIndex);
+}
+
+function finishScrambleGame() {
+    const feedbackSection = document.getElementById('writing-feedback');
+    feedbackSection.classList.remove('hidden');
+    feedbackSection.innerHTML = `
+        <div style="text-align: center; padding: 2rem;">
+            <div style="font-size: 4rem; margin-bottom: 1rem;">🏆</div>
+            <h2>Story Completed!</h2>
+            <p>You rebuilt the entire story sentence by sentence. Amazing job, Omar!</p>
+            <button class="control-btn primary" onclick="document.getElementById('back-to-recall').click()" style="margin-top: 1rem;">Finish Challenge</button>
+        </div>
+    `;
+    submitActivity('writing', null, 100);
+    checkAchievements('writing', 100);
 }
 
 // Utility Functions
