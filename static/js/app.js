@@ -142,6 +142,8 @@ function navigateToPage(pageName) {
             loadAchievements();
         } else if (pageName === 'tinystories') {
             loadTinyStories();
+        } else if (pageName === 'vocabulary') {
+            loadVocabularyPage();
         } else if (pageName === 'home') {
             updateAdventureProgress();
         }
