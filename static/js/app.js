@@ -92,6 +92,7 @@ document.addEventListener('DOMContentLoaded', () => {
     initializeRecallPage();
     initializeSettings();
     initializeTinyStoriesPage();
+    initializeVocabularyPage();
 
     // Initialize Speech Recognition if available
     if ('webkitSpeechRecognition' in window || 'SpeechRecognition' in window) {
@@ -2931,4 +2932,194 @@ function showAchievementUnlockedModal(ach) {
         modal.style.opacity = '0';
         setTimeout(() => modal.remove(), 500);
     }, 4000);
+}
+
+// ===================================
+// Vocabulary Gallery
+// ===================================
+let vocabList = [];
+let vocabFilteredList = [];
+let vocabCurrentIndex = 0;
+let vocabCurrentFilter = 'all';
+
+function initializeVocabularyPage() {
+    // Filter buttons
+    document.querySelectorAll('.vocab-filter').forEach(btn => {
+        btn.addEventListener('click', () => {
+            document.querySelectorAll('.vocab-filter').forEach(b => b.classList.remove('active'));
+            btn.classList.add('active');
+            vocabCurrentFilter = btn.dataset.filter;
+            renderVocabGrid();
+        });
+    });
+
+    // Flashcard controls
+    document.getElementById('close-flashcard')?.addEventListener('click', closeFlashcard);
+    document.getElementById('vocab-mark-mastered')?.addEventListener('click', () => updateVocabFromCard('mastered'));
+    document.getElementById('vocab-mark-learning')?.addEventListener('click', () => updateVocabFromCard('learning'));
+    document.getElementById('vocab-prev')?.addEventListener('click', () => navigateFlashcard(-1));
+    document.getElementById('vocab-next')?.addEventListener('click', () => navigateFlashcard(1));
+    document.getElementById('vocab-listen')?.addEventListener('click', listenToVocabWord);
+
+    // Load when tab is clicked
+    document.querySelector('.nav-btn[data-page="vocabulary"]')?.addEventListener('click', loadVocabularyPage);
+}
+
+async function loadVocabularyPage() {
+    try {
+        const response = await fetch(`${API_BASE}/tinystories/vocabulary`);
+        const data = await response.json();
+        if (data.success) {
+            vocabList = data.vocabulary || [];
+            updateVocabCounters();
+            renderVocabGrid();
+        }
+    } catch (e) {
+        console.error('Failed to load vocabulary', e);
+    }
+}
+
+function updateVocabCounters() {
+    const total = vocabList.length;
+    const mastered = vocabList.filter(v => v.status === 'mastered').length;
+    const learning = vocabList.filter(v => v.status === 'learning').length;
+
+    document.getElementById('vocab-total-count').textContent = total;
+    document.getElementById('vocab-mastered-count').textContent = mastered;
+    document.getElementById('vocab-learning-count').textContent = learning;
+}
+
+function renderVocabGrid() {
+    const grid = document.getElementById('vocab-grid');
+
+    vocabFilteredList = vocabCurrentFilter === 'all'
+        ? [...vocabList]
+        : vocabList.filter(v => v.status === vocabCurrentFilter);
+
+    if (vocabFilteredList.length === 0) {
+        grid.innerHTML = `
+            <div style="text-align: center; grid-column: 1/-1; padding: 2rem;">
+                <div style="font-size: 3rem; margin-bottom: 1rem;">📭</div>
+                <p style="color: var(--text-secondary);">No words here yet. Read some stories in Read & Learn to discover new words!</p>
+            </div>
+        `;
+        return;
+    }
+
+    grid.innerHTML = vocabFilteredList.map((v, idx) => {
+        const statusBadge = v.status === 'mastered' ? '✅'
+            : v.status === 'learning' ? '📖' : '🆕';
+        const borderColor = v.status === 'mastered' ? 'var(--success-color)'
+            : v.status === 'learning' ? 'var(--warning-color)' : 'var(--border-color)';
+
+        return `
+            <div class="vocab-card" data-idx="${idx}" style="
+                background: var(--bg-card);
+                border: 1px solid ${borderColor};
+                border-radius: var(--radius-lg);
+                padding: 1.2rem;
+                cursor: pointer;
+                transition: all 0.3s ease;
+                text-align: center;
+            ">
+                <div style="font-size: 0.75rem; margin-bottom: 0.5rem;">${statusBadge}</div>
+                <h3 style="margin: 0; font-size: 1.3rem; color: var(--primary-light); text-transform: capitalize;">${v.word}</h3>
+                <p style="margin: 0.4rem 0 0 0; font-size: 0.85rem; color: var(--text-secondary); overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">${v.meaning || 'Click to explore'}</p>
+                <div style="margin-top: 0.5rem; font-size: 0.75rem; opacity: 0.5;">Seen ${v.occurrence_count || 1}x</div>
+            </div>
+        `;
+    }).join('');
+
+    // Add click listeners
+    grid.querySelectorAll('.vocab-card').forEach(card => {
+        card.addEventListener('click', () => {
+            vocabCurrentIndex = parseInt(card.dataset.idx);
+            openFlashcard(vocabCurrentIndex);
+        });
+    });
+}
+
+function openFlashcard(idx) {
+    const word = vocabFilteredList[idx];
+    if (!word) return;
+
+    vocabCurrentIndex = idx;
+
+    document.getElementById('card-word').textContent = word.word;
+    document.getElementById('card-meaning').textContent = word.meaning || 'No meaning available yet.';
+    document.getElementById('card-seen-count').textContent = `Seen ${word.occurrence_count || 1} times`;
+
+    // Reset flip
+    document.getElementById('flashcard-inner').classList.remove('flipped');
+
+    document.getElementById('flashcard-modal').classList.remove('hidden');
+}
+
+function closeFlashcard() {
+    document.getElementById('flashcard-modal').classList.add('hidden');
+}
+
+window.flipFlashcard = function () {
+    document.getElementById('flashcard-inner').classList.toggle('flipped');
+};
+
+function navigateFlashcard(direction) {
+    vocabCurrentIndex += direction;
+    if (vocabCurrentIndex < 0) vocabCurrentIndex = vocabFilteredList.length - 1;
+    if (vocabCurrentIndex >= vocabFilteredList.length) vocabCurrentIndex = 0;
+    openFlashcard(vocabCurrentIndex);
+}
+
+async function listenToVocabWord() {
+    const word = vocabFilteredList[vocabCurrentIndex];
+    if (!word) return;
+    try {
+        const response = await fetch(`${API_BASE}/speech/tts`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ text: word.word, speed: 0.7 })
+        });
+        const data = await response.json();
+        if (data.success) {
+            const audio = new Audio(data.audio_url);
+            audio.play().catch(e => console.error('Audio play error', e));
+        }
+    } catch (e) {
+        console.error('Failed to play vocab word', e);
+    }
+}
+
+async function updateVocabFromCard(status) {
+    const word = vocabFilteredList[vocabCurrentIndex];
+    if (!word) return;
+
+    try {
+        const response = await fetch(`${API_BASE}/tinystories/vocabulary/status`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ word: word.word, status })
+        });
+        const data = await response.json();
+        if (data.success) {
+            // Update local data
+            word.status = status;
+            // Also update in the master list
+            const masterWord = vocabList.find(v => v.word === word.word);
+            if (masterWord) masterWord.status = status;
+
+            updateVocabCounters();
+            renderVocabGrid();
+
+            // Move to next card if available
+            if (vocabCurrentIndex < vocabFilteredList.length) {
+                openFlashcard(vocabCurrentIndex);
+            } else if (vocabFilteredList.length > 0) {
+                openFlashcard(0);
+            } else {
+                closeFlashcard();
+            }
+        }
+    } catch (e) {
+        console.error('Failed to update vocab status', e);
+    }
 }
