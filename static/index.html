@@ -55,6 +55,10 @@
                     <span class="nav-icon">📚</span>
                     <span>Words</span>
                 </button>
+                <button class="nav-btn" data-page="scramble">
+                    <span class="nav-icon">🧩</span>
+                    <span>Scramble</span>
+                </button>
                 <button class="nav-btn" data-page="achievements">
                     <span class="nav-icon">🏆</span>
                     <span>Badges</span>
@@ -124,6 +128,11 @@
                             <div class="card-icon">🏆</div>
                             <h3>My Badges</h3>
                             <p>See your unlocked rewards</p>
+                        </div>
+                        <div class="hero-card" data-navigate="scramble">
+                            <div class="card-icon">🧩</div>
+                            <h3>Story Builder</h3>
+                            <p>Unscramble story sentences</p>
                         </div>
                     </div>
                 </div>
@@ -224,6 +233,78 @@
                     </div>
                 </div>
             </div>
+            </div>
+        </section>
+
+        <!-- Stories Page -->
+
+        <!-- Scramble Page (Standalone) -->
+        <section id="scramble-page" class="page">
+            <div class="page-header">
+                <h1>🧩 Story Builder</h1>
+                <p>Unscramble sentences to rebuild stories word by word!</p>
+            </div>
+
+            <div class="recall-container">
+                <!-- Story Picker -->
+                <div id="scramble-story-picker">
+                    <p style="text-align: center; color: var(--text-secondary); margin-bottom: 1.5rem;">
+                        Choose a story to scramble, or let us pick a random one!
+                    </p>
+                    <div style="text-align: center; margin-bottom: 2rem;">
+                        <button id="scramble-random-btn" class="control-btn primary"
+                            style="font-size: 1.1rem; padding: 0.8rem 2rem;">
+                            <span>🎲 Random Story</span>
+                        </button>
+                    </div>
+                    <div id="scramble-stories-grid" class="stories-grid">
+                        <p style="text-align:center; color:var(--text-secondary); grid-column: 1/-1;">Loading stories...
+                        </p>
+                    </div>
+                </div>
+
+                <!-- Scramble Game Area (standalone page version) -->
+                <div id="scramble-game-area" class="hidden">
+                    <button class="back-btn" id="back-to-scramble-picker">← Pick Another Story</button>
+
+                    <div class="exercise-card">
+                        <h3>🧩 Story Scramble: <span id="scramble-page-title" class="highlight-text">...</span></h3>
+                        <p style="text-align:center; color: var(--text-secondary); margin-bottom: 1rem;">Arrange the
+                            jumbled words to rebuild the story, one sentence at a time!</p>
+                    </div>
+
+                    <div class="scramble-game-container">
+                        <div class="scramble-progress"
+                            style="text-align:center; margin-bottom: 1rem; font-weight: bold; font-size: 1.1rem;">
+                            Sentence <span id="sp-scramble-current">1</span> of <span id="sp-scramble-total">?</span>
+                        </div>
+
+                        <div id="sp-scramble-workspace" class="scramble-workspace">
+                            <div class="placeholder-text">Click the words below to build the sentence!</div>
+                        </div>
+
+                        <div id="sp-scramble-words" class="scramble-words-pool"></div>
+
+                        <div class="writing-controls" style="justify-content: center;">
+                            <button id="sp-check-scramble" class="control-btn primary">
+                                <span class="btn-icon">✅</span>
+                                <span>Check Sentence</span>
+                            </button>
+                            <button id="sp-reset-scramble" class="control-btn">
+                                <span class="btn-icon">🔄</span>
+                                <span>Reset</span>
+                            </button>
+                        </div>
+                    </div>
+
+                    <div id="sp-writing-feedback" class="writing-feedback hidden">
+                        <h3 id="sp-feedback-title"></h3>
+                        <div id="sp-feedback-message" style="margin-bottom: 1rem;"></div>
+                        <button id="sp-next-scramble" class="control-btn primary hidden" style="margin: 0 auto;">
+                            <span>Next Sentence ➡️</span>
+                        </button>
+                    </div>
+                </div>
             </div>
         </section>
 

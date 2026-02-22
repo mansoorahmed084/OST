@@ -93,6 +93,7 @@ document.addEventListener('DOMContentLoaded', () => {
     initializeSettings();
     initializeTinyStoriesPage();
     initializeVocabularyPage();
+    initializeScramblePage();
 
     // Initialize Speech Recognition if available
     if ('webkitSpeechRecognition' in window || 'SpeechRecognition' in window) {
@@ -144,6 +145,8 @@ function navigateToPage(pageName) {
             loadTinyStories();
         } else if (pageName === 'vocabulary') {
             loadVocabularyPage();
+        } else if (pageName === 'scramble') {
+            loadScrambleStoriesPicker();
         } else if (pageName === 'home') {
             updateAdventureProgress();
         }
@@ -2127,6 +2130,7 @@ async function generateTopicStory() {
 function initializeRecallPage() {
     // Back button
     document.getElementById('back-to-recall')?.addEventListener('click', () => {
+        document.getElementById('daily-missions-list').classList.remove('hidden');
         document.getElementById('due-stories-list').classList.remove('hidden');
         document.getElementById('writing-exercise').classList.add('hidden');
     });
@@ -2221,7 +2225,8 @@ async function startWritingExercise(storyId) {
                 renderScrambleSentence(0);
             }
 
-            // Show exercise
+            // Show exercise, hide missions & stories list
+            document.getElementById('daily-missions-list').classList.add('hidden');
             document.getElementById('due-stories-list').classList.add('hidden');
             document.getElementById('writing-exercise').classList.remove('hidden');
         } else {
@@ -2239,17 +2244,33 @@ async function startWritingExercise(storyId) {
 async function startRandomScramble() {
     try {
         showLoading();
-        const response = await fetch(`${API_BASE}/recall/due`);
-        const data = await response.json();
-        if (data.success && data.stories.length > 0) {
+        // First try recall/due stories
+        let response = await fetch(`${API_BASE}/recall/due`);
+        let data = await response.json();
+
+        if (data.success && data.stories && data.stories.length > 0) {
             const randomStory = data.stories[Math.floor(Math.random() * data.stories.length)];
             await startWritingExercise(randomStory.id);
-        } else {
-            showError('No stories available for scramble. Read some stories first!');
+            return;
         }
+
+        // Fallback: try any read story from the stories list
+        response = await fetch(`${API_BASE}/stories`);
+        data = await response.json();
+
+        if (data.success && data.stories && data.stories.length > 0) {
+            const readStories = data.stories.filter(s => s.last_read);
+            if (readStories.length > 0) {
+                const randomStory = readStories[Math.floor(Math.random() * readStories.length)];
+                await startWritingExercise(randomStory.id);
+                return;
+            }
+        }
+
+        showToast('Read some stories first to unlock Story Builder!', '📖');
     } catch (e) {
         console.error('Random scramble error:', e);
-        showError('Failed to start scramble game.');
+        showToast('Failed to start scramble game.', '❌');
     } finally {
         hideLoading();
     }
@@ -2362,6 +2383,234 @@ function finishScrambleGame() {
     `;
     submitActivity('writing', null, 100);
     checkAchievements('writing', 100);
+}
+
+// ===================================
+// Standalone Scramble Page
+// ===================================
+let spState = {
+    sentences: [],
+    currentIndex: 0,
+    workspace: []
+};
+
+function initializeScramblePage() {
+    document.getElementById('scramble-random-btn')?.addEventListener('click', spStartRandom);
+    document.getElementById('back-to-scramble-picker')?.addEventListener('click', () => {
+        document.getElementById('scramble-story-picker').classList.remove('hidden');
+        document.getElementById('scramble-game-area').classList.add('hidden');
+    });
+    document.getElementById('sp-check-scramble')?.addEventListener('click', spCheckSentence);
+    document.getElementById('sp-reset-scramble')?.addEventListener('click', () => spRenderSentence(spState.currentIndex));
+    document.getElementById('sp-next-scramble')?.addEventListener('click', spNextSentence);
+}
+
+async function loadScrambleStoriesPicker() {
+    const grid = document.getElementById('scramble-stories-grid');
+    if (!grid) return;
+
+    // Reset to picker view
+    document.getElementById('scramble-story-picker').classList.remove('hidden');
+    document.getElementById('scramble-game-area').classList.add('hidden');
+
+    grid.innerHTML = '<p style="text-align:center; color:var(--text-secondary); grid-column: 1/-1;">Loading stories...</p>';
+
+    try {
+        const response = await fetch(`${API_BASE}/stories`);
+        const data = await response.json();
+
+        if (data.success && data.stories && data.stories.length > 0) {
+            const readStories = data.stories.filter(s => s.last_read);
+            if (readStories.length === 0) {
+                grid.innerHTML = '<div style="text-align:center; grid-column:1/-1; padding:2rem;"><div style="font-size:3rem; margin-bottom:1rem;">📭</div><p style="color:var(--text-secondary)">No stories read yet! Read some stories first in the Stories page.</p></div>';
+                return;
+            }
+            grid.innerHTML = readStories.map(s => `
+                <div class="story-card scramble-pick-card" data-story-id="${s.id}" style="cursor:pointer;">
+                    <div class="story-card-icon">🧩</div>
+                    <h3>${s.title}</h3>
+                    <p style="font-size:0.85rem; color:var(--text-secondary);">${s.theme || 'Story'}</p>
+                </div>
+            `).join('');
+
+            grid.querySelectorAll('.scramble-pick-card').forEach(card => {
+                card.addEventListener('click', () => {
+                    const storyId = parseInt(card.dataset.storyId);
+                    spStartGame(storyId);
+                });
+            });
+        } else {
+            grid.innerHTML = '<div style="text-align:center; grid-column:1/-1; padding:2rem;"><p style="color:var(--text-secondary)">No stories available.</p></div>';
+        }
+    } catch (e) {
+        console.error('Failed to load scramble stories', e);
+        grid.innerHTML = '<p style="color:var(--error-color); text-align:center; grid-column:1/-1;">Failed to load stories.</p>';
+    }
+}
+
+async function spStartRandom() {
+    try {
+        showLoading();
+        const response = await fetch(`${API_BASE}/stories`);
+        const data = await response.json();
+        if (data.success && data.stories) {
+            const readStories = data.stories.filter(s => s.last_read);
+            if (readStories.length > 0) {
+                const pick = readStories[Math.floor(Math.random() * readStories.length)];
+                await spStartGame(pick.id);
+                return;
+            }
+        }
+        showToast('Read some stories first!', '📖');
+    } catch (e) {
+        showToast('Failed to start game.', '❌');
+    } finally {
+        hideLoading();
+    }
+}
+
+async function spStartGame(storyId) {
+    try {
+        showLoading();
+        const response = await fetch(`${API_BASE}/recall/prompt/${storyId}`);
+        const data = await response.json();
+
+        if (data.success) {
+            document.getElementById('scramble-page-title').textContent = data.story_title;
+            spState.sentences = data.sentences || [];
+            spState.currentIndex = 0;
+
+            if (spState.sentences.length > 0) {
+                document.getElementById('sp-scramble-total').textContent = spState.sentences.length;
+                spRenderSentence(0);
+            }
+
+            document.getElementById('scramble-story-picker').classList.add('hidden');
+            document.getElementById('scramble-game-area').classList.remove('hidden');
+        } else {
+            showToast('Failed to load story', '❌');
+        }
+    } catch (e) {
+        console.error('Scramble game start error:', e);
+        showToast('Error loading scramble game', '❌');
+    } finally {
+        hideLoading();
+    }
+}
+
+function spRenderSentence(index) {
+    if (index >= spState.sentences.length) {
+        spFinishGame();
+        return;
+    }
+
+    const sentence = spState.sentences[index];
+    spState.workspace = [];
+    spState.currentIndex = index;
+
+    document.getElementById('sp-scramble-current').textContent = index + 1;
+    document.getElementById('sp-writing-feedback').classList.add('hidden');
+    document.getElementById('sp-next-scramble').classList.add('hidden');
+
+    const workspace = document.getElementById('sp-scramble-workspace');
+    workspace.innerHTML = '<div class="placeholder-text">Click the words below to build the sentence!</div>';
+
+    const pool = document.getElementById('sp-scramble-words');
+    pool.innerHTML = '';
+
+    const words = sentence.trim().split(/\s+/);
+    const wordItems = words.map((word, idx) => ({ word, id: idx }));
+    const shuffled = [...wordItems].sort(() => Math.random() - 0.5);
+
+    shuffled.forEach((item) => {
+        const chip = document.createElement('div');
+        chip.className = 'scramble-chip';
+        chip.textContent = item.word;
+        chip.dataset.wordId = item.id;
+        chip.onclick = () => {
+            if (chip.classList.contains('used')) return;
+            if (spState.workspace.length === 0) workspace.innerHTML = '';
+            spState.workspace.push(item);
+            chip.classList.add('used');
+
+            const wsChip = document.createElement('div');
+            wsChip.className = 'scramble-chip';
+            wsChip.textContent = item.word;
+            wsChip.onclick = () => {
+                spState.workspace = spState.workspace.filter(w => w.id !== item.id);
+                wsChip.remove();
+                chip.classList.remove('used');
+                if (spState.workspace.length === 0) {
+                    workspace.innerHTML = '<div class="placeholder-text">Click the words below to build the sentence!</div>';
+                }
+            };
+            workspace.appendChild(wsChip);
+        };
+        pool.appendChild(chip);
+    });
+}
+
+function spCheckSentence() {
+    const original = spState.sentences[spState.currentIndex];
+    const built = spState.workspace.map(w => w.word).join(' ');
+    const normalize = (s) => s.toLowerCase().replace(/[.,!?;:'"-]/g, '').replace(/\s+/g, ' ').trim();
+    const isCorrect = normalize(original) === normalize(built);
+
+    const feedbackSection = document.getElementById('sp-writing-feedback');
+    const feedbackTitle = document.getElementById('sp-feedback-title');
+    const feedbackMsg = document.getElementById('sp-feedback-message');
+    const nextBtn = document.getElementById('sp-next-scramble');
+
+    feedbackSection.classList.remove('hidden');
+
+    if (isCorrect) {
+        feedbackTitle.textContent = '🌟 Perfect!';
+        feedbackMsg.innerHTML = `<div class="feedback-message success">"${built}" — That's exactly right!</div>`;
+        nextBtn.classList.remove('hidden');
+        if (typeof speakBuddy === 'function') speakBuddy('Amazing! You got it right!');
+    } else {
+        feedbackTitle.textContent = '💡 Not quite yet';
+        feedbackMsg.innerHTML = `<div class="feedback-message error">Keep trying! Check the word order.</div>`;
+        if (typeof speakBuddy === 'function') speakBuddy('Almost there! Try again.');
+    }
+}
+
+function spNextSentence() {
+    spState.currentIndex++;
+    spRenderSentence(spState.currentIndex);
+}
+
+function spFinishGame() {
+    const feedbackSection = document.getElementById('sp-writing-feedback');
+    feedbackSection.classList.remove('hidden');
+    feedbackSection.innerHTML = `
+        <div style="text-align: center; padding: 2rem;">
+            <div style="font-size: 4rem; margin-bottom: 1rem;">🏆</div>
+            <h2>Story Completed!</h2>
+            <p>You rebuilt the entire story sentence by sentence. Amazing job!</p>
+            <button class="control-btn primary" onclick="document.getElementById('back-to-scramble-picker').click()" style="margin-top: 1rem;">Play Another Story</button>
+        </div>
+    `;
+    submitActivity('writing', null, 100);
+    checkAchievements('writing', 100);
+}
+
+// === Toast System ===
+function showToast(message, icon = '✨') {
+    let toast = document.getElementById('app-toast');
+    if (!toast) {
+        toast = document.createElement('div');
+        toast.id = 'app-toast';
+        toast.className = 'toast';
+        document.body.appendChild(toast);
+    }
+
+    toast.innerHTML = `<span>${icon}</span> <span>${message}</span>`;
+    toast.classList.add('show');
+
+    setTimeout(() => {
+        toast.classList.remove('show');
+    }, 2500);
 }
 
 // Utility Functions
@@ -3119,25 +3368,40 @@ async function updateVocabFromCard(status) {
         });
         const data = await response.json();
         if (data.success) {
+            // Visual feedback on the card
+            const cardInner = document.getElementById('flashcard-inner');
+            if (cardInner) {
+                cardInner.classList.add('success-animate');
+                setTimeout(() => cardInner.classList.remove('success-animate'), 500);
+            }
+
+            // Toast feedback
+            if (status === 'mastered') {
+                showToast(`Mastered: ${word.word}!`, '✅');
+            } else {
+                showToast(`Still learning: ${word.word}`, '📖');
+            }
+
             // Update local data
             word.status = status;
-            // Also update in the master list
             const masterWord = vocabList.find(v => v.word === word.word);
             if (masterWord) masterWord.status = status;
 
             updateVocabCounters();
             renderVocabGrid();
 
-            // Move to next card if available
-            if (vocabCurrentIndex < vocabFilteredList.length) {
-                openFlashcard(vocabCurrentIndex);
-            } else if (vocabFilteredList.length > 0) {
-                openFlashcard(0);
-            } else {
-                closeFlashcard();
-            }
+            // Wait a tiny bit for the animation before moving
+            setTimeout(() => {
+                // Move to next card if we're not filtering or if it was the last one
+                if (vocabFilteredList.length > 1) {
+                    navigateFlashcard(1);
+                } else {
+                    closeFlashcard();
+                }
+            }, 400);
         }
     } catch (e) {
         console.error('Failed to update vocab status', e);
+        showToast('Operation failed', '❌');
     }
 }
