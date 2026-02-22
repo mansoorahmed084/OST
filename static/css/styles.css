@@ -2442,6 +2442,104 @@ body::before {
     text-shadow: 0 2px 8px rgba(139, 92, 246, 0.2);
 }
 
+/* Scramble difficulty buttons */
+.sp-diff-btn {
+    border: 2px solid transparent;
+    transition: all 0.2s ease;
+    opacity: 0.7;
+}
+
+.sp-diff-btn.active {
+    border-color: var(--primary-color);
+    opacity: 1;
+    background: var(--primary-color);
+    color: white;
+    transform: scale(1.05);
+    box-shadow: 0 3px 12px rgba(139, 92, 246, 0.3);
+}
+
+.sp-diff-btn:hover {
+    opacity: 1;
+}
+
+/* Story Writing Pad */
+.sp-story-pad {
+    background: var(--card-bg);
+    border-radius: 16px;
+    border: 2px solid var(--border-color);
+    overflow: hidden;
+    margin-bottom: 1.5rem;
+    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.15);
+}
+
+.sp-pad-header {
+    padding: 0.6rem 1.2rem;
+    background: linear-gradient(135deg, rgba(139, 92, 246, 0.15), rgba(59, 130, 246, 0.10));
+    border-bottom: 1px solid var(--border-color);
+    font-weight: 600;
+    font-size: 0.9rem;
+    color: var(--primary-color);
+}
+
+.sp-pad-content {
+    padding: 1rem 1.2rem;
+    min-height: 2.5rem;
+    max-height: 4.8em;
+    /* ~3 lines */
+    overflow-y: auto;
+    font-family: 'Georgia', 'Times New Roman', serif;
+    font-size: 1.05rem;
+    line-height: 1.6;
+    color: var(--text-primary);
+    scroll-behavior: smooth;
+    background-image: repeating-linear-gradient(transparent,
+            transparent 1.55em,
+            rgba(139, 92, 246, 0.06) 1.55em,
+            rgba(139, 92, 246, 0.06) 1.6em);
+}
+
+.sp-pad-content::-webkit-scrollbar {
+    width: 4px;
+}
+
+.sp-pad-content::-webkit-scrollbar-thumb {
+    background: var(--primary-color);
+    border-radius: 4px;
+}
+
+.sp-pad-placeholder {
+    color: var(--text-secondary);
+    font-style: italic;
+    font-family: inherit;
+}
+
+.sp-pad-content .sp-completed-text {
+    color: var(--text-primary);
+}
+
+.sp-pad-content .sp-current-chunk {
+    color: var(--primary-color);
+    font-weight: 600;
+    border-bottom: 2px dotted var(--primary-color);
+}
+
+/* Full story reveal at end */
+.sp-pad-content.sp-story-complete {
+    max-height: 300px;
+    background: linear-gradient(135deg, rgba(16, 185, 129, 0.05), rgba(59, 130, 246, 0.05));
+    animation: sp-reveal 0.5s ease;
+}
+
+@keyframes sp-reveal {
+    from {
+        max-height: 4.8em;
+    }
+
+    to {
+        max-height: 300px;
+    }
+}
+
 /* ===================================
    Trophy Room
    =================================== */

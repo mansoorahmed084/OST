@@ -727,12 +727,12 @@ function toggleSelectMode() {
 
     if (state.isSelectMode) {
         toggleBtn.classList.add('active');
-        toggleBtn.innerHTML = '<span class="btn-icon">✖️</span><span>Cancel Selection</span>';
+        toggleBtn.innerHTML = '<span class="btn-icon">âœ–ï¸</span><span>Cancel Selection</span>';
         cards.forEach(card => card.classList.add('select-mode'));
         document.getElementById('delete-selected').classList.remove('hidden');
     } else {
         toggleBtn.classList.remove('active');
-        toggleBtn.innerHTML = '<span class="btn-icon">☑️</span><span>Manage Stories</span>';
+        toggleBtn.innerHTML = '<span class="btn-icon">â˜‘ï¸</span><span>Manage Stories</span>';
         cards.forEach(card => {
             card.classList.remove('select-mode', 'selected');
             const checkbox = card.querySelector('.story-checkbox');
@@ -749,10 +749,10 @@ function updateDeleteButton() {
     const count = state.selectedStories.size;
 
     if (count > 0) {
-        deleteBtn.innerHTML = `<span class="btn-icon">🗑️</span><span>Delete Selected (${count})</span>`;
+        deleteBtn.innerHTML = `<span class="btn-icon">ðŸ—‘ï¸</span><span>Delete Selected (${count})</span>`;
         deleteBtn.disabled = false;
     } else {
-        deleteBtn.innerHTML = `<span class="btn-icon">🗑️</span><span>Delete Selected</span>`;
+        deleteBtn.innerHTML = `<span class="btn-icon">ðŸ—‘ï¸</span><span>Delete Selected</span>`;
         deleteBtn.disabled = true;
     }
 }
@@ -794,11 +794,11 @@ async function deleteSelectedStories() {
 
 function getThemeEmoji(theme) {
     const emojis = {
-        'animals': '🐕',
-        'vehicles': '🚌',
-        'family': '👨‍👩‍👦',
-        'nature': '🌳',
-        'food': '🍎'
+        'animals': 'ðŸ•',
+        'vehicles': 'ðŸšŒ',
+        'family': 'ðŸ‘¨â€ðŸ‘©â€ðŸ‘¦',
+        'nature': 'ðŸŒ³',
+        'food': 'ðŸŽ'
     };
     return emojis[theme] || '📖';
 }
@@ -1018,7 +1018,7 @@ function updateStepByStepView() {
 
     const imgEl = document.getElementById('step-sentence-image');
     const placeholderEl = document.getElementById('step-image-placeholder');
-    placeholderEl.textContent = '🖼️';
+    placeholderEl.textContent = 'ðŸ–¼ï¸';
     placeholderEl.style.display = 'block';
     imgEl.style.display = 'none';
     const imagePath = `/images/stories/story_${story.id}_sentence_${idx}.png`;
@@ -1526,7 +1526,7 @@ function updateMissionCard(id, isCompleted) {
         card.querySelector('.mission-status').textContent = '✅';
     } else {
         card.classList.remove('completed');
-        card.querySelector('.mission-status').textContent = '⏳';
+        card.querySelector('.mission-status').textContent = 'â³';
     }
 }
 
@@ -1651,7 +1651,7 @@ function showQuizQuestion(index) {
 }
 
 function showStickerReward() {
-    const stickers = ['🌟', '⭐', '🎈', '🎉', '🚀', '🌈', '🍦', '🦁', '🦖', '⚽'];
+    const stickers = ['ðŸŒŸ', 'â­', 'ðŸŽˆ', 'ðŸŽ‰', 'ðŸš€', 'ðŸŒˆ', 'ðŸ¦', 'ðŸ¦', '🦖', '⚽'];
     const sticker = stickers[Math.floor(Math.random() * stickers.length)];
 
     const div = document.createElement('div');
@@ -2185,7 +2185,7 @@ function displayDueStories(stories) {
     container.innerHTML = stories.map(story => `
         <div class="story-card" data-story-id="${story.id}">
             <div class="story-card-icon">
-                ${story.status === 'due' ? '⚡' : '📝'}
+                ${story.status === 'due' ? 'âš¡' : 'ðŸ“'}
             </div>
             <h3>${story.title}</h3>
             <span class="story-card-theme" style="background: ${story.status === 'due' ? 'var(--warning-color)' : 'var(--bg-secondary)'}">
@@ -2375,7 +2375,7 @@ function finishScrambleGame() {
     feedbackSection.classList.remove('hidden');
     feedbackSection.innerHTML = `
         <div style="text-align: center; padding: 2rem;">
-            <div style="font-size: 4rem; margin-bottom: 1rem;">🏆</div>
+            <div style="font-size: 4rem; margin-bottom: 1rem;">ðŸ†</div>
             <h2>Story Completed!</h2>
             <p>You rebuilt the entire story sentence by sentence. Amazing job, Omar!</p>
             <button class="control-btn primary" onclick="document.getElementById('back-to-recall').click()" style="margin-top: 1rem;">Finish Challenge</button>
@@ -2386,16 +2386,28 @@ function finishScrambleGame() {
 }
 
 // ===================================
-// Standalone Scramble Page
+// Standalone Scramble Page (TinyStories-based, Adaptive)
 // ===================================
 let spState = {
     sentences: [],
+    steps: [],
     currentIndex: 0,
-    workspace: []
+    workspace: [],
+    difficulty: 'easy',
+    correctCount: 0,
+    attemptCount: 0,
+    storyTitle: '',
+    completedText: []  // array of completed chunk strings
+};
+
+const DIFFICULTY_LABELS = {
+    easy: '🟢 Easy',
+    medium: '🟡 Medium',
+    hard: '🔴 Hard'
 };
 
 function initializeScramblePage() {
-    document.getElementById('scramble-random-btn')?.addEventListener('click', spStartRandom);
+    document.getElementById('scramble-random-btn')?.addEventListener('click', () => spStartAdaptive(spState.difficulty));
     document.getElementById('back-to-scramble-picker')?.addEventListener('click', () => {
         document.getElementById('scramble-story-picker').classList.remove('hidden');
         document.getElementById('scramble-game-area').classList.add('hidden');
@@ -2403,6 +2415,15 @@ function initializeScramblePage() {
     document.getElementById('sp-check-scramble')?.addEventListener('click', spCheckSentence);
     document.getElementById('sp-reset-scramble')?.addEventListener('click', () => spRenderSentence(spState.currentIndex));
     document.getElementById('sp-next-scramble')?.addEventListener('click', spNextSentence);
+
+    // Difficulty selector buttons
+    document.querySelectorAll('.sp-diff-btn').forEach(btn => {
+        btn.addEventListener('click', () => {
+            document.querySelectorAll('.sp-diff-btn').forEach(b => b.classList.remove('active'));
+            btn.classList.add('active');
+            spState.difficulty = btn.dataset.diff;
+        });
+    });
 }
 
 async function loadScrambleStoriesPicker() {
@@ -2413,23 +2434,19 @@ async function loadScrambleStoriesPicker() {
     document.getElementById('scramble-story-picker').classList.remove('hidden');
     document.getElementById('scramble-game-area').classList.add('hidden');
 
-    grid.innerHTML = '<p style="text-align:center; color:var(--text-secondary); grid-column: 1/-1;">Loading stories...</p>';
+    grid.innerHTML = '<p style="text-align:center; color:var(--text-secondary); grid-column: 1/-1;">Loading Read & Learn stories...</p>';
 
     try {
-        const response = await fetch(`${API_BASE}/stories`);
+        // Fetch from TinyStories
+        const response = await fetch(`${API_BASE}/tinystories/`);
         const data = await response.json();
 
         if (data.success && data.stories && data.stories.length > 0) {
-            const readStories = data.stories.filter(s => s.last_read);
-            if (readStories.length === 0) {
-                grid.innerHTML = '<div style="text-align:center; grid-column:1/-1; padding:2rem;"><div style="font-size:3rem; margin-bottom:1rem;">📭</div><p style="color:var(--text-secondary)">No stories read yet! Read some stories first in the Stories page.</p></div>';
-                return;
-            }
-            grid.innerHTML = readStories.map(s => `
+            grid.innerHTML = data.stories.map(s => `
                 <div class="story-card scramble-pick-card" data-story-id="${s.id}" style="cursor:pointer;">
                     <div class="story-card-icon">🧩</div>
                     <h3>${s.title}</h3>
-                    <p style="font-size:0.85rem; color:var(--text-secondary);">${s.theme || 'Story'}</p>
+                    <p style="font-size:0.85rem; color:var(--text-secondary);">Read & Learn Story</p>
                 </div>
             `).join('');
 
@@ -2440,7 +2457,7 @@ async function loadScrambleStoriesPicker() {
                 });
             });
         } else {
-            grid.innerHTML = '<div style="text-align:center; grid-column:1/-1; padding:2rem;"><p style="color:var(--text-secondary)">No stories available.</p></div>';
+            grid.innerHTML = '<div style="text-align:center; grid-column:1/-1; padding:2rem;"><div style="font-size:3rem; margin-bottom:1rem;">📭</div><p style="color:var(--text-secondary)">No Read & Learn stories yet! Generate some in the Read & Learn page first.</p></div>';
         }
     } catch (e) {
         console.error('Failed to load scramble stories', e);
@@ -2448,37 +2465,67 @@ async function loadScrambleStoriesPicker() {
     }
 }
 
-async function spStartRandom() {
+// Start adaptive mode
+async function spStartAdaptive(difficulty) {
     try {
         showLoading();
-        const response = await fetch(`${API_BASE}/stories`);
+        const response = await fetch(`${API_BASE}/tinystories/scramble/adaptive`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ difficulty })
+        });
         const data = await response.json();
-        if (data.success && data.stories) {
-            const readStories = data.stories.filter(s => s.last_read);
-            if (readStories.length > 0) {
-                const pick = readStories[Math.floor(Math.random() * readStories.length)];
-                await spStartGame(pick.id);
-                return;
+
+        if (data.success) {
+            spState.sentences = data.sentences || [];
+            spState.steps = data.steps || [];
+            spState.storyTitle = data.story_title || 'Mixed Stories';
+            spState.currentIndex = 0;
+            spState.correctCount = 0;
+            spState.attemptCount = 0;
+            spState.completedText = [];
+            spState.difficulty = difficulty;
+
+            document.getElementById('scramble-page-title').textContent =
+                `${DIFFICULTY_LABELS[difficulty]} - ${spState.storyTitle}`;
+
+            if (spState.sentences.length > 0) {
+                document.getElementById('sp-scramble-total').textContent = spState.sentences.length;
+                spRenderSentence(0);
             }
+
+            document.getElementById('scramble-story-picker').classList.add('hidden');
+            document.getElementById('scramble-game-area').classList.remove('hidden');
+        } else {
+            showToast(data.error || 'No sentences available. Generate more stories!', '📖');
         }
-        showToast('Read some stories first!', '📖');
     } catch (e) {
-        showToast('Failed to start game.', '❌');
+        console.error('Adaptive scramble error:', e);
+        showToast('Failed to start adaptive game.', '❌');
     } finally {
         hideLoading();
     }
 }
 
+// Start from a specific TinyStory
 async function spStartGame(storyId) {
     try {
         showLoading();
-        const response = await fetch(`${API_BASE}/recall/prompt/${storyId}`);
+        const diff = spState.difficulty || 'easy';
+        const response = await fetch(`${API_BASE}/tinystories/scramble/${storyId}?difficulty=${diff}`);
         const data = await response.json();
 
         if (data.success) {
-            document.getElementById('scramble-page-title').textContent = data.story_title;
             spState.sentences = data.sentences || [];
+            spState.steps = data.steps || [];
+            spState.storyTitle = data.story_title;
             spState.currentIndex = 0;
+            spState.correctCount = 0;
+            spState.attemptCount = 0;
+            spState.completedText = [];
+
+            document.getElementById('scramble-page-title').textContent =
+                `${DIFFICULTY_LABELS[diff]} - ${data.story_title}`;
 
             if (spState.sentences.length > 0) {
                 document.getElementById('sp-scramble-total').textContent = spState.sentences.length;
@@ -2505,15 +2552,26 @@ function spRenderSentence(index) {
     }
 
     const sentence = spState.sentences[index];
+    const step = spState.steps[index];
     spState.workspace = [];
     spState.currentIndex = index;
+
+    const wordCount = sentence.trim().split(/\s+/).length;
 
     document.getElementById('sp-scramble-current').textContent = index + 1;
     document.getElementById('sp-writing-feedback').classList.add('hidden');
     document.getElementById('sp-next-scramble').classList.add('hidden');
 
+    // Build context hint
+    let contextHint = '';
+    if (step && step.total_chunks_in_sentence > 1) {
+        contextHint = ` — Part ${step.chunk_index + 1} of sentence ${step.sentence_index + 1}`;
+    } else if (step) {
+        contextHint = ` — Sentence ${step.sentence_index + 1}`;
+    }
+
     const workspace = document.getElementById('sp-scramble-workspace');
-    workspace.innerHTML = '<div class="placeholder-text">Click the words below to build the sentence!</div>';
+    workspace.innerHTML = `<div class="placeholder-text">Arrange ${wordCount} words in order!${contextHint}</div>`;
 
     const pool = document.getElementById('sp-scramble-words');
     pool.innerHTML = '';
@@ -2541,7 +2599,7 @@ function spRenderSentence(index) {
                 wsChip.remove();
                 chip.classList.remove('used');
                 if (spState.workspace.length === 0) {
-                    workspace.innerHTML = '<div class="placeholder-text">Click the words below to build the sentence!</div>';
+                    workspace.innerHTML = `<div class="placeholder-text">Arrange ${wordCount} words in order!${contextHint}</div>`;
                 }
             };
             workspace.appendChild(wsChip);
@@ -2553,8 +2611,10 @@ function spRenderSentence(index) {
 function spCheckSentence() {
     const original = spState.sentences[spState.currentIndex];
     const built = spState.workspace.map(w => w.word).join(' ');
-    const normalize = (s) => s.toLowerCase().replace(/[.,!?;:'"-]/g, '').replace(/\s+/g, ' ').trim();
+    const normalize = (s) => s.toLowerCase().replace(/[.,!?;:'"\\-]/g, '').replace(/\s+/g, ' ').trim();
     const isCorrect = normalize(original) === normalize(built);
+
+    spState.attemptCount++;
 
     const feedbackSection = document.getElementById('sp-writing-feedback');
     const feedbackTitle = document.getElementById('sp-feedback-title');
@@ -2564,8 +2624,9 @@ function spCheckSentence() {
     feedbackSection.classList.remove('hidden');
 
     if (isCorrect) {
+        spState.correctCount++;
         feedbackTitle.textContent = '🌟 Perfect!';
-        feedbackMsg.innerHTML = `<div class="feedback-message success">"${built}" — That's exactly right!</div>`;
+        feedbackMsg.innerHTML = `<div class="feedback-message success">"${built}" — That's exactly right! (${spState.correctCount}/${spState.currentIndex + 1} correct)</div>`;
         nextBtn.classList.remove('hidden');
         if (typeof speakBuddy === 'function') speakBuddy('Amazing! You got it right!');
     } else {
@@ -2583,17 +2644,50 @@ function spNextSentence() {
 function spFinishGame() {
     const feedbackSection = document.getElementById('sp-writing-feedback');
     feedbackSection.classList.remove('hidden');
+
+    const total = spState.sentences.length;
+    const correct = spState.correctCount;
+    const pct = total > 0 ? Math.round((correct / total) * 100) : 0;
+
+    // Determine next difficulty suggestion
+    let nextDifficulty = spState.difficulty;
+    let suggestion = '';
+    if (pct >= 80 && spState.difficulty === 'easy') {
+        nextDifficulty = 'medium';
+        suggestion = "You're doing great! Ready for 🟡 Medium sentences?";
+    } else if (pct >= 80 && spState.difficulty === 'medium') {
+        nextDifficulty = 'hard';
+        suggestion = "Incredible! Let's try 🔴 Hard sentences!";
+    } else if (pct >= 80 && spState.difficulty === 'hard') {
+        suggestion = "You're a master! ðŸ† Keep up the amazing work!";
+    } else {
+        suggestion = `Keep practicing at ${DIFFICULTY_LABELS[spState.difficulty]} to improve!`;
+    }
+
+    const emoji = pct >= 80 ? '🏆' : pct >= 50 ? '⭐' : '💪';
+
     feedbackSection.innerHTML = `
         <div style="text-align: center; padding: 2rem;">
-            <div style="font-size: 4rem; margin-bottom: 1rem;">🏆</div>
-            <h2>Story Completed!</h2>
-            <p>You rebuilt the entire story sentence by sentence. Amazing job!</p>
-            <button class="control-btn primary" onclick="document.getElementById('back-to-scramble-picker').click()" style="margin-top: 1rem;">Play Another Story</button>
+            <div style="font-size: 4rem; margin-bottom: 1rem;">${emoji}</div>
+            <h2>Round Complete!</h2>
+            <p style="font-size: 1.2rem; margin: 0.5rem 0;"><strong>${correct}/${total}</strong> correct (${pct}%)</p>
+            <p style="color: var(--text-secondary); margin-bottom: 1.5rem;">${suggestion}</p>
+            <div style="display: flex; gap: 1rem; justify-content: center; flex-wrap: wrap;">
+                <button class="control-btn primary" onclick="spStartAdaptive('${nextDifficulty}')" style="margin: 0;">
+                    ➡️ Next Round (${DIFFICULTY_LABELS[nextDifficulty]})
+                </button>
+                <button class="control-btn" onclick="document.getElementById('back-to-scramble-picker').click()" style="margin: 0;">
+                    📚 Pick a Story
+                </button>
+            </div>
         </div>
     `;
-    submitActivity('writing', null, 100);
-    checkAchievements('writing', 100);
+    submitActivity('writing', null, pct);
+    checkAchievements('writing', pct);
 }
+
+
+
 
 // === Toast System ===
 function showToast(message, icon = '✨') {

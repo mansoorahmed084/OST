@@ -183,6 +183,122 @@ def generate_assets(story_id):
     except Exception as e:
         return jsonify({"success": False, "error": str(e)}), 500
 
+def _chunk_sentence(sentence, chunk_size):
+    """Break a sentence into sequential word chunks of approximately chunk_size words.
+    The last chunk gets any remaining words so we don't leave 1-2 word orphans."""
+    words = sentence.strip().split()
+    if len(words) <= chunk_size + 2:
+        # Short enough to be one chunk (don't split into tiny leftover)
+        return [sentence.strip()]
+    
+    chunks = []
+    i = 0
+    while i < len(words):
+        remaining = len(words) - i
+        if remaining <= chunk_size + 2:
+            # Last chunk: take everything remaining to avoid tiny orphan
+            chunks.append(' '.join(words[i:]))
+            break
+        else:
+            chunks.append(' '.join(words[i:i+chunk_size]))
+            i += chunk_size
+    return chunks
+
+def _build_scramble_steps(content, chunk_size):
+    """Split story content into sentences, then break each sentence into
+    sequential word chunks. Returns a list of dicts with chunk text and
+    which sentence it belongs to, preserving story reading order."""
+    import re
+    raw_sentences = re.split(r'(?<=[.!?])\s+', content.strip())
+    sentences = [s.strip() for s in raw_sentences if s.strip() and len(s.strip().split()) >= 2]
+    
+    steps = []
+    for sent_idx, sentence in enumerate(sentences):
+        chunks = _chunk_sentence(sentence, chunk_size)
+        for chunk_idx, chunk in enumerate(chunks):
+            steps.append({
+                'text': chunk,
+                'sentence_index': sent_idx,
+                'chunk_index': chunk_idx,
+                'total_chunks_in_sentence': len(chunks),
+                'full_sentence': sentence,
+                'word_count': len(chunk.split())
+            })
+    return steps
+
+
+@bp.route('/scramble/<int:story_id>', methods=['GET'])
+def get_scramble_sentences(story_id):
+    """Get sentences from a TinyStory for the scramble game.
+    Sentences are in story order. Long sentences are broken into chunks.
+    ?difficulty=easy|medium|hard controls chunk size."""
+    try:
+        difficulty = request.args.get('difficulty', 'easy')
+        chunk_sizes = {'easy': 4, 'medium': 6, 'hard': 100}  # 100 = full sentence
+        chunk_size = chunk_sizes.get(difficulty, 4)
+        
+        with get_ts_db_context() as conn:
+            cursor = conn.cursor()
+            cursor.execute('SELECT title, content FROM tinystories WHERE id = ?', (story_id,))
+            row = cursor.fetchone()
+            if not row:
+                return jsonify({"success": False, "error": "Story not found"}), 404
+            
+            content = row['content']
+            title = row['title']
+        
+        steps = _build_scramble_steps(content, chunk_size)
+        
+        return jsonify({
+            "success": True,
+            "story_title": title,
+            "difficulty": difficulty,
+            "steps": steps,
+            "sentences": [s['text'] for s in steps],  # backward compat
+            "total_steps": len(steps)
+        })
+    except Exception as e:
+        return jsonify({"success": False, "error": str(e)}), 500
+
+@bp.route('/scramble/adaptive', methods=['POST'])
+def get_adaptive_scramble():
+    """Build an adaptive scramble session from a random story.
+    Difficulty controls chunk size: easy=3-4 words, medium=5-7, hard=full sentences."""
+    try:
+        data = request.json or {}
+        difficulty = data.get('difficulty', 'easy')
+        
+        chunk_sizes = {'easy': 4, 'medium': 6, 'hard': 100}
+        chunk_size = chunk_sizes.get(difficulty, 4)
+        
+        with get_ts_db_context() as conn:
+            cursor = conn.cursor()
+            cursor.execute('SELECT id, title, content FROM tinystories ORDER BY RANDOM() LIMIT 1')
+            row = cursor.fetchone()
+        
+        if not row:
+            return jsonify({"success": False, "error": "No stories available. Generate some in Read & Learn!"}), 404
+        
+        story = dict(row)
+        steps = _build_scramble_steps(story['content'], chunk_size)
+        
+        if not steps:
+            return jsonify({"success": False, "error": "Story has no usable sentences."})
+        
+        return jsonify({
+            "success": True,
+            "difficulty": difficulty,
+            "story_title": story['title'],
+            "story_id": story['id'],
+            "steps": steps,
+            "sentences": [s['text'] for s in steps],
+            "total_steps": len(steps)
+        })
+    except Exception as e:
+        return jsonify({"success": False, "error": str(e)}), 500
+
+
+
 @bp.route('/vocabulary', methods=['GET'])
 def list_vocabulary():
     try:

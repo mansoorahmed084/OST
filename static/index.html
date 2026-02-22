@@ -248,15 +248,28 @@
             <div class="recall-container">
                 <!-- Story Picker -->
                 <div id="scramble-story-picker">
-                    <p style="text-align: center; color: var(--text-secondary); margin-bottom: 1.5rem;">
-                        Choose a story to scramble, or let us pick a random one!
+                    <p style="text-align: center; color: var(--text-secondary); margin-bottom: 1rem;">
+                        Rebuild stories word by word! Choose your level:
                     </p>
+                    <div
+                        style="display: flex; gap: 0.75rem; justify-content: center; flex-wrap: wrap; margin-bottom: 1.5rem;">
+                        <button class="control-btn sp-diff-btn active" data-diff="easy" style="font-size: 0.95rem;">
+                            🟢 Easy (3-4 words)
+                        </button>
+                        <button class="control-btn sp-diff-btn" data-diff="medium" style="font-size: 0.95rem;">
+                            🟡 Medium (5-6 words)
+                        </button>
+                        <button class="control-btn sp-diff-btn" data-diff="hard" style="font-size: 0.95rem;">
+                            🔴 Hard (full sentences)
+                        </button>
+                    </div>
                     <div style="text-align: center; margin-bottom: 2rem;">
                         <button id="scramble-random-btn" class="control-btn primary"
                             style="font-size: 1.1rem; padding: 0.8rem 2rem;">
                             <span>🎲 Random Story</span>
                         </button>
                     </div>
+                    <h3 style="margin-bottom: 1rem; color: var(--text-primary);">Or pick a story:</h3>
                     <div id="scramble-stories-grid" class="stories-grid">
                         <p style="text-align:center; color:var(--text-secondary); grid-column: 1/-1;">Loading stories...
                         </p>
@@ -267,10 +280,14 @@
                 <div id="scramble-game-area" class="hidden">
                     <button class="back-btn" id="back-to-scramble-picker">← Pick Another Story</button>
 
-                    <div class="exercise-card">
-                        <h3>🧩 Story Scramble: <span id="scramble-page-title" class="highlight-text">...</span></h3>
-                        <p style="text-align:center; color: var(--text-secondary); margin-bottom: 1rem;">Arrange the
-                            jumbled words to rebuild the story, one sentence at a time!</p>
+                    <div class="sp-story-pad">
+                        <div class="sp-pad-header">
+                            <span>🧩 <span id="scramble-page-title">...</span></span>
+                        </div>
+                        <div id="sp-story-text" class="sp-pad-content">
+                            <span class="sp-pad-placeholder">Your story will appear here as you build it, word by
+                                word...</span>
+                        </div>
                     </div>
 
                     <div class="scramble-game-container">
