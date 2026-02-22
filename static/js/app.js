@@ -22,7 +22,9 @@ const state = {
     stepByStepIndex: 0,
     stepByStepLanguage: 'en',  // 'en' | target_language (e.g. 'hi') for step-by-step narration
     stepCurrentAudio: null,    // current playing Audio in step-by-step; stop before playing next
-    playMode: 'manual'         // 'manual' | 'automated' - selectable at start story
+    playMode: 'manual',         // 'manual' | 'automated' - selectable at start story
+    tsQuizScore: 0,
+    tsQuizTotal: 0
 };
 
 // ... (lines 20-186)
@@ -126,6 +128,17 @@ function navigateToPage(pageName) {
     if (targetPage) {
         targetPage.classList.add('active');
         state.currentPage = pageName;
+
+        if (pageName === 'recall') {
+            updateAdventureProgress();
+            loadDueStories();
+        } else if (pageName === 'achievements') {
+            loadAchievements();
+        } else if (pageName === 'tinystories') {
+            loadTinyStories();
+        } else if (pageName === 'home') {
+            updateAdventureProgress();
+        }
     }
 }
 
@@ -143,6 +156,9 @@ function initializeHomePage() {
             }
         });
     });
+
+    // Refresh progress on load
+    updateAdventureProgress();
 }
 
 // ===================================
@@ -1289,6 +1305,9 @@ async function evaluateSpeech(expectedText, spokenText) {
 
         if (data.success) {
             displayPracticeFeedback(data);
+            if (data.accuracy >= 70) {
+                checkAchievements('practice', data.accuracy);
+            }
         }
     } catch (error) {
         console.error('Error evaluating speech:', error);
@@ -1397,6 +1416,7 @@ async function submitActivity(activityType, storyId = null, score = 0) {
             })
         });
         updateAdventureProgress();
+        checkAchievements(activityType, score);
     } catch (e) {
         console.error("Failed to submit activity", e);
     }
@@ -1651,9 +1671,15 @@ async function finishQuiz() {
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
                 story_id: state.currentQuizStoryId,
-                score: (score / total) * 100
             })
         });
+
+        let percentage = (score / total) * 100;
+        if (percentage === 100) {
+            checkAchievements('quiz_perfect', 100);
+        } else {
+            checkAchievements('quiz', percentage);
+        }
     } catch (e) {
         console.error("Failed to save quiz score", e);
     }
@@ -1847,6 +1873,7 @@ async function sendBuddyMessage() {
 
         if (data.success) {
             appendChatMessage('buddy', data.response);
+            checkAchievements('chat', 0);
         } else {
             appendChatMessage('buddy', "Sorry, I'm having a little trouble thinking. Can you try again? 😊");
         }
@@ -2196,7 +2223,6 @@ async function checkWriting() {
     }
 }
 
-// ===================================
 // Utility Functions
 // ===================================
 function showLoading() {
@@ -2210,9 +2236,6 @@ function hideLoading() {
 function showError(message) {
     alert(message); // Simple for now, can be enhanced with a toast notification
 }
-
-// Make processChatRequest available globally for inline onclick
-window.processChatRequest = processChatRequest;
 
 // ===================================
 // Image Generation Helper
@@ -2276,6 +2299,27 @@ function initializeTinyStoriesPage() {
     document.getElementById('ts-regen-assets-btn')?.addEventListener('click', () => {
         const id = document.getElementById('ts-reader').dataset.currentId;
         if (id) regenTinyStoryAssets(id);
+    });
+
+    document.getElementById('ts-submit-quiz-btn')?.addEventListener('click', () => {
+        const id = document.getElementById('ts-reader').dataset.currentId;
+        if (!id) return;
+
+        const score = state.tsQuizTotal > 0 ? (state.tsQuizScore / state.tsQuizTotal) * 100 : 0;
+        submitActivity('quiz', id, Math.round(score));
+        // Also ensure it counts as read if they finish the quiz
+        submitActivity('story_read', id, 100);
+
+        if (score === 100) {
+            checkAchievements('quiz_perfect', 100);
+            showStickerReward();
+            if (typeof speakBuddy === 'function') speakBuddy("Amazing! A perfect score on your test!");
+        } else {
+            if (typeof speakBuddy === 'function') speakBuddy("Well done! You completed the test!");
+        }
+
+        showError("Success! Your test result has been saved. 🌟");
+        navigateToPage('home');
     });
 }
 
@@ -2373,6 +2417,12 @@ async function loadTinyStoryDetail(id) {
             const story = data.story;
             document.getElementById('ts-reader').dataset.currentId = id;
 
+            // Initialize quiz progress
+            state.tsQuizScore = 0;
+            state.tsQuizTotal = (story.fill_in_blanks?.length || 0) +
+                (story.mcqs?.length || 0) +
+                (story.moral_questions?.length || 0);
+
             // UI toggles
             document.getElementById('ts-list').classList.add('hidden');
             document.getElementById('ts-generator-box').classList.add('hidden');
@@ -2414,6 +2464,7 @@ async function loadTinyStoryDetail(id) {
                 };
                 audioEl.onended = () => {
                     document.querySelectorAll('.story-word').forEach(w => w.classList.remove('highlight'));
+                    submitActivity('story_read', id, 100);
                 };
             } else {
                 audioContainer.classList.add('hidden');
@@ -2468,7 +2519,7 @@ async function loadTinyStoryDetail(id) {
                         <p><strong>${idx + 1}.</strong> ${q.sentence.replace('____', '<span style="border-bottom: 2px solid; padding: 0 10px; color: var(--primary);">____</span>')}</p>
                         <div style="display: flex; gap: 0.5rem; margin-top: 0.5rem; flex-wrap: wrap;">
                             ${q.options.map(o => `
-                                <button class="control-btn" style="font-size: 0.9rem;" onclick="checkTsAnswer(this, '${o}', '${q.answer}')">${o}</button>
+                                <button class="control-btn" style="font-size: 0.9rem;" onclick="checkTsAnswer(this, '${escapeAttr(o)}', '${escapeAttr(q.answer)}')">${o}</button>
                             `).join('')}
                         </div>
                     </div>
@@ -2485,7 +2536,7 @@ async function loadTinyStoryDetail(id) {
                         <p><strong>${idx + 1}.</strong> ${q.question}</p>
                         <div style="display: flex; flex-direction: column; gap: 0.5rem; margin-top: 0.5rem;">
                             ${q.options.map(o => `
-                                <button class="control-btn" style="text-align: left;" onclick="checkTsAnswer(this, '${o}', '${q.correct_answer}')">${o}</button>
+                                <button class="control-btn" style="text-align: left;" onclick="checkTsAnswer(this, '${escapeAttr(o)}', '${escapeAttr(q.correct_answer)}')">${o}</button>
                             `).join('')}
                         </div>
                     </div>
@@ -2502,7 +2553,7 @@ async function loadTinyStoryDetail(id) {
                         <p><strong>${idx + 1}.</strong> ${q.question}</p>
                         <div style="display: flex; flex-direction: column; gap: 0.5rem; margin-top: 0.5rem;">
                             ${q.options.map(o => `
-                                <button class="control-btn" style="text-align: left;" onclick="checkTsAnswer(this, '${o}', '${q.correct_answer}')">${o}</button>
+                                <button class="control-btn" style="text-align: left;" onclick="checkTsAnswer(this, '${escapeAttr(o)}', '${escapeAttr(q.correct_answer)}')">${o}</button>
                             `).join('')}
                         </div>
                     </div>
@@ -2517,15 +2568,40 @@ async function loadTinyStoryDetail(id) {
     }
 }
 
+// Helper to escape strings for HTML attributes
+function escapeAttr(str) {
+    if (!str) return "";
+    return str.toString()
+        .replace(/&/g, "&amp;")
+        .replace(/</g, "&lt;")
+        .replace(/>/g, "&gt;")
+        .replace(/"/g, "&quot;")
+        .replace(/'/g, "&#39;");
+}
+
 window.checkTsAnswer = function (btn, selected, correct) {
-    if (selected === correct) {
-        btn.style.backgroundColor = 'var(--success-color, #10b981)';
-        btn.style.color = 'white';
-        btn.innerText += ' ✅';
+    console.log("TS Quiz Check:", { selected, correct });
+
+    // Normalize strings for comparison (remove punctuation, lower case)
+    const normalize = (s) => s.toLowerCase().replace(/[.,!?;:]/g, "").trim();
+
+    const sNorm = normalize(selected);
+    const cNorm = normalize(correct);
+
+    // Standard match OR prefix match (e.g., "A. Option" starts with "A")
+    const isMatch = (sNorm === cNorm) || sNorm.startsWith(cNorm + " ");
+
+    if (isMatch) {
+        btn.classList.add('correct');
+        btn.innerHTML += ' ✅';
+        state.tsQuizScore++;
+        // Buddy praises
+        if (typeof speakBuddy === 'function') speakBuddy("Correct! Great job!");
     } else {
-        btn.style.backgroundColor = 'var(--danger-color, #ef4444)';
-        btn.style.color = 'white';
-        btn.innerText += ' ❌';
+        btn.classList.add('wrong');
+        btn.innerHTML += ' ❌';
+        // Buddy hints
+        if (typeof speakBuddy === 'function') speakBuddy("Not quite. Try again!");
     }
     // Disable siblings
     Array.from(btn.parentElement.children).forEach(b => b.disabled = true);
@@ -2601,6 +2677,8 @@ async function updateTsVocabStatus(word, status) {
             // Refresh current story detail to update UI badges
             const id = document.getElementById('ts-reader').dataset.currentId;
             if (id) loadTinyStoryDetail(id);
+            // Refresh list counters
+            loadTinyStories();
         } else {
             alert("Update failed: " + data.error);
         }
@@ -2608,4 +2686,111 @@ async function updateTsVocabStatus(word, status) {
         console.error(e);
         alert("Failed to update vocabulary status");
     }
+}
+
+// ===================================
+// Achievements
+// ===================================
+
+async function loadAchievements() {
+    const grid = document.getElementById('achievements-grid');
+    if (!grid) return;
+
+    grid.innerHTML = `
+        <div style="text-align: center; color: var(--text-secondary); grid-column: 1 / -1;">
+            <span class="fun-loader" style="margin: 0 auto; display: block;"></span>
+            <p style="margin-top: 15px;">Loading your amazing badges...</p>
+        </div>
+    `;
+
+    try {
+        const response = await fetch(`${API_BASE}/achievements/list`);
+        const data = await response.json();
+
+        if (data.success) {
+            let html = '';
+            data.achievements.forEach(ach => {
+                const unlocked = ach.is_unlocked === 1;
+                html += `
+                    <div class="mission-card" style="opacity: ${unlocked ? '1' : '0.5'}; filter: ${unlocked ? 'none' : 'grayscale(100%)'}; transition: all 0.3s;">
+                        <div class="mission-icon" style="font-size: 40px;">${ach.emoji}</div>
+                        <div class="mission-info" style="flex:1;">
+                            <h3 style="margin: 0 0 5px 0;">${ach.title}</h3>
+                            <p style="margin: 0; font-size: 0.9rem; color: var(--text-secondary);">${ach.description}</p>
+                            ${unlocked ? `<div style="font-size: 0.8rem; color: var(--success-color); margin-top: 8px;">Unlocked ✨</div>` : ''}
+                        </div>
+                    </div>
+                `;
+            });
+            grid.innerHTML = html;
+        } else {
+            grid.innerHTML = `<div style="color:var(--danger-color); text-align:center; grid-column: 1 / -1;">Failed to load badges.</div>`;
+        }
+    } catch (e) {
+        console.error(e);
+        grid.innerHTML = `<div style="color:var(--danger-color); text-align:center; grid-column: 1 / -1;">An error occurred.</div>`;
+    }
+}
+
+async function checkAchievements(activityType, score = 0) {
+    try {
+        const response = await fetch(`${API_BASE}/achievements/check`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ activity_type: activityType, score })
+        });
+        const data = await response.json();
+        if (data.success && data.newly_unlocked.length > 0) {
+            data.newly_unlocked.forEach((ach, index) => {
+                setTimeout(() => {
+                    showAchievementUnlockedModal(ach);
+                }, index * 4500); // Sequence if multiple
+            });
+        }
+    } catch (e) {
+        console.error("Failed to check achievements", e);
+    }
+}
+
+function showAchievementUnlockedModal(ach) {
+    const modal = document.createElement('div');
+    modal.style.position = 'fixed';
+    modal.style.bottom = '20px';
+    modal.style.right = '20px';
+    modal.style.background = 'white';
+    modal.style.padding = '20px';
+    modal.style.borderRadius = '15px';
+    modal.style.boxShadow = '0 10px 25px rgba(0,0,0,0.2)';
+    modal.style.display = 'flex';
+    modal.style.alignItems = 'center';
+    modal.style.gap = '15px';
+    modal.style.zIndex = '9999';
+    modal.style.transform = 'translateY(100px)';
+    modal.style.opacity = '0';
+    modal.style.transition = 'all 0.5s cubic-bezier(0.175, 0.885, 0.32, 1.275)';
+
+    modal.innerHTML = `
+        <div style="font-size: 45px;">${ach.emoji}</div>
+        <div>
+            <h4 style="margin: 0; color: var(--primary-color, #8b5cf6); font-size: 1.1rem;">Achievement Unlocked!</h4>
+            <p style="margin: 5px 0 0 0; font-weight: bold; font-size: 1.2rem; color: #1e293b;">${ach.title}</p>
+        </div>
+    `;
+
+    document.body.appendChild(modal);
+
+    // Animate in
+    requestAnimationFrame(() => {
+        setTimeout(() => {
+            modal.style.transform = 'translateY(0)';
+            modal.style.opacity = '1';
+        }, 50);
+    });
+
+    // Remove after 4 seconds
+    setTimeout(() => {
+        modal.style.transform = 'translateY(100px)';
+        modal.style.opacity = '0';
+        setTimeout(() => modal.remove(), 500);
+    }, 4000);
 }

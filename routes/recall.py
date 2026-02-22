@@ -189,7 +189,9 @@ def check_writing():
 def get_daily_progress():
     """Get completion status of daily missions"""
     try:
-        today_start = datetime.now().replace(hour=0, minute=0, second=0, microsecond=0).isoformat()
+        # Use UTC midnight to match SQLite's CURRENT_TIMESTAMP (which is UTC)
+        # Also use space instead of T for lexicographical comparison safety
+        today_start = datetime.utcnow().strftime('%Y-%m-%d 00:00:00')
         
         with get_db_context() as conn:
             cursor = conn.cursor()

@@ -51,6 +51,10 @@
                     <span class="nav-icon">🧸</span>
                     <span>Read & Learn</span>
                 </button>
+                <button class="nav-btn" data-page="achievements">
+                    <span class="nav-icon">🏆</span>
+                    <span>Badges</span>
+                </button>
                 <button class="nav-btn" id="settings-btn">
                     <span class="nav-icon">⚙️</span>
                 </button>
@@ -111,6 +115,11 @@
                             <div class="card-icon">🧸</div>
                             <h3>Read & Learn</h3>
                             <p>Generate & Learn</p>
+                        </div>
+                        <div class="hero-card" data-navigate="achievements">
+                            <div class="card-icon">🏆</div>
+                            <h3>My Badges</h3>
+                            <p>See your unlocked rewards</p>
                         </div>
                     </div>
                 </div>
@@ -514,6 +523,14 @@
                             <h3>🤔 Moral Understanding</h3>
                             <div id="ts-moral-q-list"></div>
                         </div>
+
+                        <!-- Finish Button -->
+                        <div class="text-center" style="margin-top: 2rem; margin-bottom: 3rem;">
+                            <button id="ts-submit-quiz-btn" class="control-btn primary"
+                                style="padding: 1rem 3rem; font-size: 1.2rem; margin: 0 auto;">
+                                <span>🎉 Finish & Submit</span>
+                            </button>
+                        </div>
                     </div>
                 </div>
             </div>
@@ -643,6 +660,24 @@
                         style="width: auto; padding: 0.8rem;">
                         <span>🔄 Reset</span>
                     </button>
+                </div>
+            </div>
+        </section>
+
+        <!-- Achievements Page -->
+        <section id="achievements-page" class="page">
+            <div class="page-header">
+                <h1>🏆 My Badges</h1>
+                <p>See all the cool badges you've earned!</p>
+            </div>
+
+            <div class="achievements-container" style="max-width: 800px; margin: 0 auto; padding: 20px;">
+                <div id="achievements-grid"
+                    style="display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 20px;">
+                    <div style="text-align: center; color: var(--text-secondary); grid-column: 1 / -1;">
+                        <span class="fun-loader" style="margin: 0 auto; display: block;"></span>
+                        <p style="margin-top: 15px;">Loading your amazing badges...</p>
+                    </div>
                 </div>
             </div>
         </section>

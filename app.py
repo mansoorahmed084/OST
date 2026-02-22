@@ -60,6 +60,8 @@ app.register_blueprint(settings.bp, url_prefix='/api/settings')
 app.register_blueprint(images.bp, url_prefix='/api/images')
 app.register_blueprint(tinystories.bp, url_prefix='/api/tinystories')
 app.register_blueprint(chatbot.bp, url_prefix='/api/chatbot')
+from routes import achievements
+app.register_blueprint(achievements.bp, url_prefix='/api/achievements')
 
 
 # Serve frontend

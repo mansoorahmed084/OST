@@ -117,13 +117,56 @@ def init_db():
             )
         ''')
 
-        # Insert sample stories if table is empty
+        # Achievements Definitions
+        cursor.execute('''
+            CREATE TABLE IF NOT EXISTS achievements (
+                id TEXT PRIMARY KEY,
+                title TEXT NOT NULL,
+                description TEXT NOT NULL,
+                icon_url TEXT,
+                emoji TEXT NOT NULL,
+                condition_type TEXT NOT NULL,
+                condition_threshold INTEGER NOT NULL DEFAULT 1
+            )
+        ''')
+        
+        # User Unlocked Achievements
+        cursor.execute('''
+            CREATE TABLE IF NOT EXISTS user_achievements (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                achievement_id TEXT NOT NULL,
+                unlocked_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                FOREIGN KEY (achievement_id) REFERENCES achievements (id),
+                UNIQUE(achievement_id)
+            )
+        ''')
 
+        # Insert sample stories if table is empty
         cursor.execute('SELECT COUNT(*) FROM stories')
         if cursor.fetchone()[0] == 0:
             insert_sample_stories(cursor)
+            
+        cursor.execute('SELECT COUNT(*) FROM achievements')
+        if cursor.fetchone()[0] == 0:
+            insert_default_achievements(cursor)
         
         conn.commit()
+
+def insert_default_achievements(cursor):
+    """Insert default achievements"""
+    achievements = [
+        ('first_story', 'First Story!', 'You read your very first story!', '📚', 'story_read', 1),
+        ('story_reader_5', 'Bookworm', 'You have read 5 stories.', '🐛', 'story_read', 5),
+        ('first_practice', 'First Words', 'You practiced speaking out loud.', '🎤', 'practice', 1),
+        ('practice_pro_5', 'Super Speaker', 'You completed 5 speaking practices.', '🗣️', 'practice', 5),
+        ('first_chat', 'Say Hello', 'You talked to Buddy for the first time.', '👋', 'chat', 1),
+        ('chat_buddy_5', 'Best Friends', 'You chatted with Buddy 5 times.', '🤖', 'chat', 5),
+        ('perfect_quiz', 'Quiz Master', 'You got a perfect score on a quiz!', '🧠', 'quiz_perfect', 1)
+    ]
+    cursor.executemany('''
+        INSERT INTO achievements (id, title, description, emoji, condition_type, condition_threshold)
+        VALUES (?, ?, ?, ?, ?, ?)
+    ''', achievements)
 
 def insert_sample_stories(cursor):
     """Insert sample stories for testing"""

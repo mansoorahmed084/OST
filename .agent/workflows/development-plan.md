@@ -31,7 +31,7 @@ A web application designed to help Omar improve his speech, reading comprehensio
 
 ---
 
-## Phase 12 – Magic Quiz & Daily Adventure 🚧 IN PROGRESS
+## Phase 12 – Magic Quiz & Daily Adventure ✅ COMPLETE
 
 ### Objectives
 - Gamify learning with AI-generated comprehension quizzes.
@@ -54,6 +54,19 @@ A web application designed to help Omar improve his speech, reading comprehensio
 
 ---
 
-## Phase 13 – Visual Writing & Progress Badges 📅 PLANNED
-- Describe images to practice writing.
+## Phase 13 – Visual Writing & Progress Badges 🚧 IN PROGRESS
+
+### Objectives
+- Encourage expressive typing through AI context-aware writing prompts.
+- Implement a badge/achievements system to celebrate learning milestones.
+
+### Tasks
+1. **Achievement Badges Backend**:
+   - Create an `achievements` table in the database to store standard badges (e.g. "First Story", "Chatterbox", "Perfect Pronunciation").
+   - Create a `user_achievements` table mapping unlocks.
+2. **Badge Unlock Logic**:
+   - Wire badge validation safely across `/speech`, `/quiz`, `/recall`, and `/chatbot` endpoints.
+3. **Trophy Room UI**:
+   - Build a sleek 'Trophy Room' or 'My Badges' overlay modally accessible from the home page.
+   - Display gleaming locked/unlocked visuals for badges.
 - Unlockable badges for achievement milestones.
