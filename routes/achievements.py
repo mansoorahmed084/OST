@@ -70,12 +70,12 @@ def list_achievements():
             cursor = conn.cursor()
             
             cursor.execute('''
-                SELECT a.id, a.title, a.description, a.emoji, 
+                SELECT a.id, a.title, a.description, a.emoji, a.category,
                        CASE WHEN ua.id IS NOT NULL THEN 1 ELSE 0 END as is_unlocked,
                        ua.unlocked_at
                 FROM achievements a
                 LEFT JOIN user_achievements ua ON a.id = ua.achievement_id
-                ORDER BY a.condition_threshold ASC, a.title ASC
+                ORDER BY a.category ASC, a.condition_threshold ASC, a.title ASC
             ''')
             
             achievements = [dict(row) for row in cursor.fetchall()]

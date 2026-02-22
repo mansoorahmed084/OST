@@ -768,17 +768,52 @@
         <!-- Achievements Page -->
         <section id="achievements-page" class="page">
             <div class="page-header">
-                <h1>🏆 My Badges</h1>
-                <p>See all the cool badges you've earned!</p>
+                <h1>🏆 Trophy Room</h1>
+                <p>Your collection of earned badges and milestones!</p>
             </div>
 
-            <div class="achievements-container" style="max-width: 800px; margin: 0 auto; padding: 20px;">
-                <div id="achievements-grid"
-                    style="display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 20px;">
-                    <div style="text-align: center; color: var(--text-secondary); grid-column: 1 / -1;">
-                        <span class="fun-loader" style="margin: 0 auto; display: block;"></span>
-                        <p style="margin-top: 15px;">Loading your amazing badges...</p>
-                    </div>
+            <!-- Progress Stats -->
+            <div style="display: flex; gap: 1rem; justify-content: center; margin-bottom: 2rem; flex-wrap: wrap;">
+                <div class="hero-card mini" style="padding: 1rem 1.5rem; cursor: default;">
+                    <div style="font-size: 2rem;">🏅</div>
+                    <div id="badge-unlocked-count"
+                        style="font-size: 1.5rem; font-weight: bold; color: var(--success-color);">0</div>
+                    <div style="font-size: 0.85rem; opacity: 0.7;">Unlocked</div>
+                </div>
+                <div class="hero-card mini" style="padding: 1rem 1.5rem; cursor: default;">
+                    <div style="font-size: 2rem;">🎯</div>
+                    <div id="badge-total-count"
+                        style="font-size: 1.5rem; font-weight: bold; color: var(--primary-light);">0</div>
+                    <div style="font-size: 0.85rem; opacity: 0.7;">Total</div>
+                </div>
+                <div class="hero-card mini" style="padding: 1rem 1.5rem; cursor: default;">
+                    <div style="font-size: 2rem;">📊</div>
+                    <div id="badge-progress-pct"
+                        style="font-size: 1.5rem; font-weight: bold; color: var(--warning-color);">0%</div>
+                    <div style="font-size: 0.85rem; opacity: 0.7;">Complete</div>
+                </div>
+            </div>
+
+            <div class="achievements-container" style="max-width: 900px; margin: 0 auto; padding: 0 20px;">
+                <!-- Short-Term -->
+                <div class="trophy-tier" id="tier-short">
+                    <h2 class="tier-heading">⭐ Quick Wins</h2>
+                    <p class="tier-desc">Get started on your learning journey!</p>
+                    <div class="trophy-grid" id="grid-short"></div>
+                </div>
+
+                <!-- Medium-Term -->
+                <div class="trophy-tier" id="tier-medium">
+                    <h2 class="tier-heading">🔥 Dedication</h2>
+                    <p class="tier-desc">Show your commitment through regular practice!</p>
+                    <div class="trophy-grid" id="grid-medium"></div>
+                </div>
+
+                <!-- Long-Term -->
+                <div class="trophy-tier" id="tier-long">
+                    <h2 class="tier-heading">💎 Mastery</h2>
+                    <p class="tier-desc">The ultimate achievements for true champions!</p>
+                    <div class="trophy-grid" id="grid-long"></div>
                 </div>
             </div>
         </section>

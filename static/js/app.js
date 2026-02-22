@@ -2832,42 +2832,58 @@ async function updateTsVocabStatus(word, status) {
 // ===================================
 
 async function loadAchievements() {
-    const grid = document.getElementById('achievements-grid');
-    if (!grid) return;
+    const gridShort = document.getElementById('grid-short');
+    const gridMedium = document.getElementById('grid-medium');
+    const gridLong = document.getElementById('grid-long');
+    if (!gridShort) return;
 
-    grid.innerHTML = `
-        <div style="text-align: center; color: var(--text-secondary); grid-column: 1 / -1;">
-            <span class="fun-loader" style="margin: 0 auto; display: block;"></span>
-            <p style="margin-top: 15px;">Loading your amazing badges...</p>
-        </div>
-    `;
+    // Clear
+    [gridShort, gridMedium, gridLong].forEach(g => g.innerHTML = '<p style="color:var(--text-secondary);">Loading...</p>');
 
     try {
         const response = await fetch(`${API_BASE}/achievements/list`);
         const data = await response.json();
 
         if (data.success) {
-            let html = '';
-            data.achievements.forEach(ach => {
-                const unlocked = ach.is_unlocked === 1;
-                html += `
-                    <div class="mission-card" style="opacity: ${unlocked ? '1' : '0.5'}; filter: ${unlocked ? 'none' : 'grayscale(100%)'}; transition: all 0.3s;">
-                        <div class="mission-icon" style="font-size: 40px;">${ach.emoji}</div>
-                        <div class="mission-info" style="flex:1;">
-                            <h3 style="margin: 0 0 5px 0;">${ach.title}</h3>
-                            <p style="margin: 0; font-size: 0.9rem; color: var(--text-secondary);">${ach.description}</p>
-                            ${unlocked ? `<div style="font-size: 0.8rem; color: var(--success-color); margin-top: 8px;">Unlocked ✨</div>` : ''}
-                        </div>
+            const achievements = data.achievements;
+            const unlocked = achievements.filter(a => a.is_unlocked === 1).length;
+            const total = achievements.length;
+            const pct = total > 0 ? Math.round((unlocked / total) * 100) : 0;
+
+            document.getElementById('badge-unlocked-count').textContent = unlocked;
+            document.getElementById('badge-total-count').textContent = total;
+            document.getElementById('badge-progress-pct').textContent = pct + '%';
+
+            // Group by category
+            const groups = { short: [], medium: [], long: [] };
+            achievements.forEach(ach => {
+                const cat = ach.category || 'short';
+                if (groups[cat]) groups[cat].push(ach);
+                else groups.short.push(ach);
+            });
+
+            // Render each tier
+            const renderBadge = (ach) => {
+                const isUnlocked = ach.is_unlocked === 1;
+                return `
+                    <div class="trophy-badge ${isUnlocked ? 'unlocked' : 'locked'}">
+                        <div class="trophy-emoji">${ach.emoji}</div>
+                        <h4 class="trophy-title">${ach.title}</h4>
+                        <p class="trophy-desc">${ach.description}</p>
+                        ${isUnlocked ? '<div class="trophy-status">✨ Unlocked</div>' : '<div class="trophy-status locked-status">🔒 Locked</div>'}
                     </div>
                 `;
-            });
-            grid.innerHTML = html;
-        } else {
-            grid.innerHTML = `<div style="color:var(--danger-color); text-align:center; grid-column: 1 / -1;">Failed to load badges.</div>`;
+            };
+
+            gridShort.innerHTML = groups.short.map(renderBadge).join('') || '<p>No badges in this tier.</p>';
+            gridMedium.innerHTML = groups.medium.map(renderBadge).join('') || '<p>No badges in this tier.</p>';
+            gridLong.innerHTML = groups.long.map(renderBadge).join('') || '<p>No badges in this tier.</p>';
         }
     } catch (e) {
         console.error(e);
-        grid.innerHTML = `<div style="color:var(--danger-color); text-align:center; grid-column: 1 / -1;">An error occurred.</div>`;
+        gridShort.innerHTML = '<p style="color:var(--error-color);">Failed to load badges.</p>';
+        gridMedium.innerHTML = '';
+        gridLong.innerHTML = '';
     }
 }
 
