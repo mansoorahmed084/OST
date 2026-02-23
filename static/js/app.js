@@ -758,9 +758,60 @@ function updateDeleteButton() {
 }
 
 async function deleteSelectedStories() {
-    if (state.selectedStories.size === 0) return;
+    console.log("deleteSelectedStories clicked!", state.selectedStories);
+    if (state.selectedStories.size === 0) {
+        console.log("No stories selected, returning");
+        return;
+    }
 
-    if (!confirm(`Are you sure you want to delete ${state.selectedStories.size} stories?`)) {
+    const isConfirmed = await new Promise((resolve) => {
+        const overlay = document.createElement('div');
+        overlay.style.position = 'fixed';
+        overlay.style.top = '0';
+        overlay.style.left = '0';
+        overlay.style.width = '100vw';
+        overlay.style.height = '100vh';
+        overlay.style.backgroundColor = 'rgba(0,0,0,0.7)';
+        overlay.style.display = 'flex';
+        overlay.style.alignItems = 'center';
+        overlay.style.justifyContent = 'center';
+        overlay.style.zIndex = '9999';
+        overlay.style.backdropFilter = 'blur(3px)';
+
+        const modal = document.createElement('div');
+        modal.style.backgroundColor = 'var(--bg-card)';
+        modal.style.padding = '2rem';
+        modal.style.borderRadius = '12px';
+        modal.style.textAlign = 'center';
+        modal.style.minWidth = '300px';
+        modal.style.boxShadow = '0 10px 25px rgba(0,0,0,0.5)';
+
+        modal.innerHTML = `
+            <div style="font-size: 2.5rem; margin-bottom: 1rem;">🗑️</div>
+            <h3 style="margin-top:0; font-size: 1.5rem;">Delete Stories</h3>
+            <p style="color: var(--text-secondary); margin-bottom: 2rem;">Are you sure you want to delete ${state.selectedStories.size} stories?</p>
+            <div style="display: flex; gap: 1rem; justify-content: center;">
+                <button id="btn-cancel-delete" class="control-btn" style="flex: 1;">Cancel</button>
+                <button id="btn-confirm-delete" class="control-btn" style="flex: 1; background: var(--error-color); color: white;">Delete</button>
+            </div>
+        `;
+
+        overlay.appendChild(modal);
+        document.body.appendChild(overlay);
+
+        document.getElementById('btn-cancel-delete').onclick = () => {
+            document.body.removeChild(overlay);
+            resolve(false);
+        };
+
+        document.getElementById('btn-confirm-delete').onclick = () => {
+            document.body.removeChild(overlay);
+            resolve(true);
+        };
+    });
+
+    if (!isConfirmed) {
+        console.log("User cancelled deletion");
         return;
     }
 
