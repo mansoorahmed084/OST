@@ -1555,6 +1555,7 @@ async function updateAdventureProgress() {
             updateMissionCard('mission-read', missions.read);
             updateMissionCard('mission-practice', missions.practice);
             updateMissionCard('mission-chat', missions.chat);
+            updateMissionCard('mission-scramble', missions.scramble);
 
             // If all done, maybe a special celebration?
             if (data.completed === data.total && !state.dailyCelebrated) {

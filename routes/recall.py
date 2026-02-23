@@ -225,18 +225,31 @@ def get_daily_progress():
             ''', (today_start,))
             chat_done = cursor.fetchone()[0] > 0
             
-            completion_count = sum([story_read, practice_done, chat_done])
+            # 4. Story Builder (Writing)
+            cursor.execute('''
+                SELECT COUNT(*) FROM user_progress 
+                WHERE activity_type = 'writing' AND created_at >= ?
+            ''', (today_start,))
+            writing_done = cursor.fetchone()[0] > 0
+            
+            # Count the total number of dynamic activities we are tracking
+            # We can now easily add or remove tracked activities
+            missions_tracked = {
+                'read': story_read,
+                'practice': practice_done,
+                'chat': chat_done,
+                'scramble': writing_done
+            }
+            
+            total_missions = len(missions_tracked)
+            completion_count = sum(missions_tracked.values())
             
             return jsonify({
                 'success': True,
-                'missions': {
-                    'read': story_read,
-                    'practice': practice_done,
-                    'chat': chat_done
-                },
-                'total': 3,
+                'missions': missions_tracked,
+                'total': total_missions,
                 'completed': completion_count,
-                'percentage': (completion_count / 3) * 100
+                'percentage': (completion_count / total_missions) * 100 if total_missions > 0 else 0
             })
     except Exception as e:
         return jsonify({
