@@ -122,6 +122,30 @@ def delete_stories_batch():
             # Delete stories
             cursor.execute(f'DELETE FROM stories WHERE id IN ({placeholders})', story_ids)
             
+            # Delete Audio and Image Files
+            try:
+                import os
+                import glob
+                audio_dir = 'static/audio'
+                img_dir = 'static/images/stories'
+                
+                for sid in story_ids:
+                    # Audio patterns: story_{id}_*.mp3
+                    audio_pattern = os.path.join(audio_dir, f"story_{sid}_*.mp3")
+                    for f in glob.glob(audio_pattern):
+                        os.remove(f)
+                        
+                    # Image patterns: story_{id}.png AND story_{id}_sentence_*.png
+                    main_img = os.path.join(img_dir, f"story_{sid}.png")
+                    if os.path.exists(main_img):
+                        os.remove(main_img)
+                        
+                    sentence_img_pattern = os.path.join(img_dir, f"story_{sid}_sentence_*.png")
+                    for f in glob.glob(sentence_img_pattern):
+                        os.remove(f)
+            except Exception as e:
+                print(f"Error purging files for batch delete: {e}")
+            
             return jsonify({
                 'success': True,
                 'message': f'{cursor.rowcount} stories deleted successfully'
@@ -151,19 +175,31 @@ def delete_story(story_id):
                     'error': 'Story not found'
                 }), 404
             
-            # Delete Audio Files
+            # Delete Audio and Image Files
             try:
                 import os
                 import glob
                 audio_dir = 'static/audio'
-                # Pattern: story_{id}_*.mp3
-                pattern = os.path.join(audio_dir, f"story_{story_id}_*.mp3")
-                files = glob.glob(pattern)
-                for f in files:
+                img_dir = 'static/images/stories'
+                
+                # Audio patterns: story_{id}_*.mp3
+                audio_pattern = os.path.join(audio_dir, f"story_{story_id}_*.mp3")
+                for f in glob.glob(audio_pattern):
                     os.remove(f)
                     print(f"Deleted audio file: {f}")
+                    
+                # Image patterns: story_{id}.png AND story_{id}_sentence_*.png
+                main_img = os.path.join(img_dir, f"story_{story_id}.png")
+                if os.path.exists(main_img):
+                    os.remove(main_img)
+                    print(f"Deleted main image: {main_img}")
+                    
+                sentence_img_pattern = os.path.join(img_dir, f"story_{story_id}_sentence_*.png")
+                for f in glob.glob(sentence_img_pattern):
+                    os.remove(f)
+                    print(f"Deleted sentence image: {f}")
             except Exception as e:
-                print(f"Error deleting audio files: {e}")
+                print(f"Error purging files for story {story_id}: {e}")
             
             return jsonify({
                 'success': True,

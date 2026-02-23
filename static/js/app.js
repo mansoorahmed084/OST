@@ -138,7 +138,6 @@ function navigateToPage(pageName) {
 
         if (pageName === 'recall') {
             updateAdventureProgress();
-            loadDueStories();
         } else if (pageName === 'achievements') {
             loadAchievements();
         } else if (pageName === 'tinystories') {
@@ -2182,7 +2181,6 @@ function initializeRecallPage() {
     // Back button
     document.getElementById('back-to-recall')?.addEventListener('click', () => {
         document.getElementById('daily-missions-list').classList.remove('hidden');
-        document.getElementById('due-stories-list').classList.remove('hidden');
         document.getElementById('writing-exercise').classList.add('hidden');
     });
 
@@ -2198,67 +2196,11 @@ function initializeRecallPage() {
     document.getElementById('mission-read')?.addEventListener('click', () => navigateToPage('stories'));
     document.getElementById('mission-practice')?.addEventListener('click', () => navigateToPage('practice'));
     document.getElementById('mission-chat')?.addEventListener('click', () => navigateToPage('chat'));
-
-    // Load due stories when tab is clicked
-    document.querySelector('.nav-btn[data-page="recall"]')?.addEventListener('click', loadDueStories);
 }
 
 // Modify navigateToPage to load data
 // (This needs a separate hook or simple check in navigateToPage, but let's just make sure we call it)
 
-async function loadDueStories() {
-    try {
-        showLoading();
-        const response = await fetch(`${API_BASE}/recall/due`);
-        const data = await response.json();
-
-        if (data.success) {
-            displayDueStories(data.stories);
-        } else {
-            showError('Failed to load daily challenges');
-        }
-    } catch (error) {
-        console.error('Error loading due stories:', error);
-        showError('Failed to load challenges');
-    } finally {
-        hideLoading();
-    }
-}
-
-function displayDueStories(stories) {
-    const container = document.getElementById('due-stories-list');
-
-    if (stories.length === 0) {
-        container.innerHTML = `
-            <div class="text-center" style="grid-column: 1/-1;">
-                <h3>🎉 All caught up!</h3>
-                <p>You've reviewed everything. Check back tomorrow!</p>
-            </div>
-        `;
-        return;
-    }
-
-    container.innerHTML = stories.map(story => `
-        <div class="story-card" data-story-id="${story.id}">
-            <div class="story-card-icon">
-                ${story.status === 'due' ? '⚡' : '📝'}
-            </div>
-            <h3>${story.title}</h3>
-            <span class="story-card-theme" style="background: ${story.status === 'due' ? 'var(--warning-color)' : 'var(--bg-secondary)'}">
-                ${story.message}
-            </span>
-        </div>
-    `).join('');
-
-    // Add listeners
-    container.querySelectorAll('.story-card').forEach(card => {
-        card.addEventListener('click', () => startWritingExercise(card.dataset.storyId));
-    });
-
-    // Ensure visibility
-    container.classList.remove('hidden');
-    document.getElementById('writing-exercise').classList.add('hidden');
-}
 
 async function startWritingExercise(storyId) {
     try {
@@ -2283,7 +2225,6 @@ async function startWritingExercise(storyId) {
 
             // Show exercise, hide missions & stories list
             document.getElementById('daily-missions-list').classList.add('hidden');
-            document.getElementById('due-stories-list').classList.add('hidden');
             document.getElementById('writing-exercise').classList.remove('hidden');
         } else {
             showError('Failed to load scramble challenge');
