@@ -727,12 +727,12 @@ function toggleSelectMode() {
 
     if (state.isSelectMode) {
         toggleBtn.classList.add('active');
-        toggleBtn.innerHTML = '<span class="btn-icon">âœ–ï¸</span><span>Cancel Selection</span>';
+        toggleBtn.innerHTML = '<span class="btn-icon">✖️</span><span>Cancel Selection</span>';
         cards.forEach(card => card.classList.add('select-mode'));
         document.getElementById('delete-selected').classList.remove('hidden');
     } else {
         toggleBtn.classList.remove('active');
-        toggleBtn.innerHTML = '<span class="btn-icon">â˜‘ï¸</span><span>Manage Stories</span>';
+        toggleBtn.innerHTML = '<span class="btn-icon">☑️</span><span>Manage Stories</span>';
         cards.forEach(card => {
             card.classList.remove('select-mode', 'selected');
             const checkbox = card.querySelector('.story-checkbox');
@@ -749,10 +749,10 @@ function updateDeleteButton() {
     const count = state.selectedStories.size;
 
     if (count > 0) {
-        deleteBtn.innerHTML = `<span class="btn-icon">ðŸ—‘ï¸</span><span>Delete Selected (${count})</span>`;
+        deleteBtn.innerHTML = `<span class="btn-icon">🗑️</span><span>Delete Selected (${count})</span>`;
         deleteBtn.disabled = false;
     } else {
-        deleteBtn.innerHTML = `<span class="btn-icon">ðŸ—‘ï¸</span><span>Delete Selected</span>`;
+        deleteBtn.innerHTML = `<span class="btn-icon">🗑️</span><span>Delete Selected</span>`;
         deleteBtn.disabled = true;
     }
 }
@@ -794,11 +794,11 @@ async function deleteSelectedStories() {
 
 function getThemeEmoji(theme) {
     const emojis = {
-        'animals': 'ðŸ•',
-        'vehicles': 'ðŸšŒ',
-        'family': 'ðŸ‘¨â€ðŸ‘©â€ðŸ‘¦',
-        'nature': 'ðŸŒ³',
-        'food': 'ðŸŽ'
+        'animals': '🐕',
+        'vehicles': '🚌',
+        'family': '👨‍👩‍👦',
+        'nature': '🌳',
+        'food': '🍎'
     };
     return emojis[theme] || '📖';
 }
@@ -1018,7 +1018,7 @@ function updateStepByStepView() {
 
     const imgEl = document.getElementById('step-sentence-image');
     const placeholderEl = document.getElementById('step-image-placeholder');
-    placeholderEl.textContent = 'ðŸ–¼ï¸';
+    placeholderEl.textContent = '🖼️';
     placeholderEl.style.display = 'block';
     imgEl.style.display = 'none';
     const imagePath = `/images/stories/story_${story.id}_sentence_${idx}.png`;
@@ -1526,7 +1526,7 @@ function updateMissionCard(id, isCompleted) {
         card.querySelector('.mission-status').textContent = '✅';
     } else {
         card.classList.remove('completed');
-        card.querySelector('.mission-status').textContent = 'â³';
+        card.querySelector('.mission-status').textContent = '⏳';
     }
 }
 
@@ -1651,7 +1651,7 @@ function showQuizQuestion(index) {
 }
 
 function showStickerReward() {
-    const stickers = ['ðŸŒŸ', 'â­', 'ðŸŽˆ', 'ðŸŽ‰', 'ðŸš€', 'ðŸŒˆ', 'ðŸ¦', 'ðŸ¦', '🦖', '⚽'];
+    const stickers = ['🌟', '⭐', '🎈', '🎉', '🚀', '🌈', '🍦', '🦁', '🦖', '⚽'];
     const sticker = stickers[Math.floor(Math.random() * stickers.length)];
 
     const div = document.createElement('div');
@@ -2143,6 +2143,11 @@ function initializeRecallPage() {
     // Story Builder mission card click
     document.getElementById('mission-scramble')?.addEventListener('click', startRandomScramble);
 
+    // Other mission card clicks - navigate to their respective pages
+    document.getElementById('mission-read')?.addEventListener('click', () => navigateToPage('stories'));
+    document.getElementById('mission-practice')?.addEventListener('click', () => navigateToPage('practice'));
+    document.getElementById('mission-chat')?.addEventListener('click', () => navigateToPage('chat'));
+
     // Load due stories when tab is clicked
     document.querySelector('.nav-btn[data-page="recall"]')?.addEventListener('click', loadDueStories);
 }
@@ -2185,7 +2190,7 @@ function displayDueStories(stories) {
     container.innerHTML = stories.map(story => `
         <div class="story-card" data-story-id="${story.id}">
             <div class="story-card-icon">
-                ${story.status === 'due' ? 'âš¡' : 'ðŸ“'}
+                ${story.status === 'due' ? '⚡' : '📝'}
             </div>
             <h3>${story.title}</h3>
             <span class="story-card-theme" style="background: ${story.status === 'due' ? 'var(--warning-color)' : 'var(--bg-secondary)'}">
