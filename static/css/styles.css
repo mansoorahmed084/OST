@@ -2465,11 +2465,46 @@ body::before {
 /* Story Writing Pad */
 .sp-story-pad {
     background: var(--card-bg);
-    border-radius: 16px;
-    border: 2px solid var(--border-color);
+    border-radius: 12px;
+    border: 1px solid var(--border-color);
     overflow: hidden;
-    margin-bottom: 1.5rem;
-    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.15);
+    box-shadow: 0 2px 12px rgba(0, 0, 0, 0.12);
+}
+
+/* Compact game viewport — everything fits in one screen */
+.sp-game-viewport {
+    display: flex;
+    flex-direction: column;
+    height: calc(100vh - 80px);
+    /* full viewport minus nav */
+    max-width: 800px;
+    margin: 0 auto;
+    padding: 0.5rem 0;
+    gap: 0.6rem;
+    overflow: hidden;
+}
+
+.sp-top-row {
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+}
+
+.sp-back-btn {
+    background: var(--card-bg);
+    border: 1px solid var(--border-color);
+    color: var(--text-secondary);
+    padding: 0.3rem 0.8rem;
+    border-radius: 8px;
+    cursor: pointer;
+    font-size: 0.85rem;
+    transition: all 0.2s;
+    white-space: nowrap;
+}
+
+.sp-back-btn:hover {
+    color: var(--primary-color);
+    border-color: var(--primary-color);
 }
 
 .sp-pad-header {
@@ -2520,7 +2555,13 @@ body::before {
 .sp-pad-content .sp-current-chunk {
     color: var(--primary-color);
     font-weight: 600;
-    border-bottom: 2px dotted var(--primary-color);
+    animation: sp-blink 1s step-end infinite;
+}
+
+@keyframes sp-blink {
+    50% {
+        opacity: 0;
+    }
 }
 
 /* Full story reveal at end */
@@ -2538,6 +2579,90 @@ body::before {
     to {
         max-height: 300px;
     }
+}
+
+/* Progress badge */
+.sp-progress-badge {
+    font-weight: 700;
+    font-size: 0.9rem;
+    color: var(--primary-color);
+    background: rgba(139, 92, 246, 0.1);
+    padding: 0.25rem 0.8rem;
+    border-radius: 20px;
+}
+
+/* Compact workspace and pool */
+.sp-compact-workspace {
+    min-height: 50px;
+    max-height: 70px;
+    padding: 0.5rem 0.8rem;
+    margin: 0;
+    overflow-y: auto;
+}
+
+.sp-compact-pool {
+    padding: 0.4rem;
+    gap: 0.4rem;
+    justify-content: center;
+}
+
+.sp-compact-pool .scramble-chip,
+.sp-compact-workspace .scramble-chip {
+    padding: 0.35rem 0.7rem;
+    font-size: 0.95rem;
+}
+
+/* Controls row — inline with feedback */
+.sp-controls-row {
+    display: flex;
+    align-items: center;
+    gap: 0.6rem;
+    flex-wrap: wrap;
+    padding: 0.3rem 0;
+}
+
+.sp-compact-btn {
+    padding: 0.45rem 1rem;
+    font-size: 0.9rem;
+    white-space: nowrap;
+}
+
+/* Inline feedback */
+.sp-inline-feedback {
+    display: flex;
+    align-items: center;
+    gap: 0.4rem;
+    flex: 1;
+    min-width: 0;
+    font-size: 0.9rem;
+}
+
+.sp-inline-feedback #sp-feedback-title {
+    font-weight: 700;
+    white-space: nowrap;
+}
+
+.sp-inline-feedback #sp-feedback-message {
+    color: var(--text-secondary);
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.sp-inline-feedback .feedback-message {
+    display: inline;
+    padding: 0;
+    border-radius: 0;
+    background: none;
+    font-size: inherit;
+}
+
+.sp-inline-feedback .feedback-message.success {
+    color: var(--success-color, #10b981);
+}
+
+.sp-inline-feedback .feedback-message.error {
+    color: var(--error-color, #ef4444);
 }
 
 /* ===================================

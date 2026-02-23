@@ -2375,7 +2375,7 @@ function finishScrambleGame() {
     feedbackSection.classList.remove('hidden');
     feedbackSection.innerHTML = `
         <div style="text-align: center; padding: 2rem;">
-            <div style="font-size: 4rem; margin-bottom: 1rem;">ðŸ†</div>
+            <div style="font-size: 4rem; margin-bottom: 1rem;">🏆</div>
             <h2>Story Completed!</h2>
             <p>You rebuilt the entire story sentence by sentence. Amazing job, Omar!</p>
             <button class="control-btn primary" onclick="document.getElementById('back-to-recall').click()" style="margin-top: 1rem;">Finish Challenge</button>
@@ -2494,6 +2494,7 @@ async function spStartAdaptive(difficulty) {
                 spRenderSentence(0);
             }
 
+            spResetPad();
             document.getElementById('scramble-story-picker').classList.add('hidden');
             document.getElementById('scramble-game-area').classList.remove('hidden');
         } else {
@@ -2532,6 +2533,7 @@ async function spStartGame(storyId) {
                 spRenderSentence(0);
             }
 
+            spResetPad();
             document.getElementById('scramble-story-picker').classList.add('hidden');
             document.getElementById('scramble-game-area').classList.remove('hidden');
         } else {
@@ -2543,6 +2545,63 @@ async function spStartGame(storyId) {
     } finally {
         hideLoading();
     }
+}
+
+// Story pad helpers
+function spResetPad() {
+    const pad = document.getElementById('sp-story-text');
+    if (pad) {
+        pad.classList.remove('sp-story-complete');
+        pad.innerHTML = '<span class="sp-pad-placeholder">Your story will appear here as you build it, word by word...</span>';
+    }
+}
+
+function spUpdatePad() {
+    const pad = document.getElementById('sp-story-text');
+    if (!pad) return;
+
+    // Keep placeholder until first chunk is completed
+    if (spState.completedText.length === 0) return;
+
+    // Build the visible text from completed chunks
+    let html = '<span class="sp-completed-text">' + spState.completedText.join(' ') + '</span>';
+
+    // Add a blinking cursor to show we're still writing
+    if (spState.currentIndex < spState.sentences.length) {
+        html += '<span class="sp-current-chunk"> ▋</span>';
+    }
+
+    pad.innerHTML = html;
+
+    // Auto-scroll to bottom
+    pad.scrollTop = pad.scrollHeight;
+}
+
+function spShowFullStory() {
+    const pad = document.getElementById('sp-story-text');
+    if (!pad) return;
+
+    // Reconstruct the full story from steps metadata
+    let fullStory = '';
+    if (spState.steps && spState.steps.length > 0) {
+        let lastSentIdx = -1;
+        for (const step of spState.steps) {
+            if (step.sentence_index !== lastSentIdx && lastSentIdx !== -1) {
+                fullStory += ' '; // space between sentences
+            }
+            if (step.chunk_index === 0 && lastSentIdx !== -1) {
+                // nothing extra needed
+            }
+            fullStory += (fullStory ? ' ' : '') + step.text;
+            lastSentIdx = step.sentence_index;
+        }
+    } else {
+        fullStory = spState.completedText.join(' ');
+    }
+
+    pad.classList.add('sp-story-complete');
+    pad.innerHTML = '<span class="sp-completed-text">' + fullStory + '</span>';
+    pad.scrollTop = 0;
 }
 
 function spRenderSentence(index) {
@@ -2561,6 +2620,10 @@ function spRenderSentence(index) {
     document.getElementById('sp-scramble-current').textContent = index + 1;
     document.getElementById('sp-writing-feedback').classList.add('hidden');
     document.getElementById('sp-next-scramble').classList.add('hidden');
+    document.getElementById('sp-scramble-workspace').classList.remove('hidden');
+    document.getElementById('sp-scramble-words').classList.remove('hidden');
+    const checkBtn = document.getElementById('sp-check-scramble');
+    if (checkBtn) checkBtn.disabled = false;
 
     // Build context hint
     let contextHint = '';
@@ -2609,6 +2672,10 @@ function spRenderSentence(index) {
 }
 
 function spCheckSentence() {
+    // Prevent re-checking after already correct
+    const checkBtn = document.getElementById('sp-check-scramble');
+    if (checkBtn && checkBtn.disabled) return;
+
     const original = spState.sentences[spState.currentIndex];
     const built = spState.workspace.map(w => w.word).join(' ');
     const normalize = (s) => s.toLowerCase().replace(/[.,!?;:'"\\-]/g, '').replace(/\s+/g, ' ').trim();
@@ -2625,13 +2692,18 @@ function spCheckSentence() {
 
     if (isCorrect) {
         spState.correctCount++;
+        // Add completed chunk to story pad
+        spState.completedText.push(built);
+        spUpdatePad();
+        // Disable check button to prevent duplicates
+        if (checkBtn) checkBtn.disabled = true;
         feedbackTitle.textContent = '🌟 Perfect!';
-        feedbackMsg.innerHTML = `<div class="feedback-message success">"${built}" — That's exactly right! (${spState.correctCount}/${spState.currentIndex + 1} correct)</div>`;
+        feedbackMsg.textContent = `${spState.correctCount}/${spState.currentIndex + 1} correct`;
         nextBtn.classList.remove('hidden');
         if (typeof speakBuddy === 'function') speakBuddy('Amazing! You got it right!');
     } else {
-        feedbackTitle.textContent = '💡 Not quite yet';
-        feedbackMsg.innerHTML = `<div class="feedback-message error">Keep trying! Check the word order.</div>`;
+        feedbackTitle.textContent = '💡 Not quite';
+        feedbackMsg.textContent = 'Check the word order.';
         if (typeof speakBuddy === 'function') speakBuddy('Almost there! Try again.');
     }
 }
@@ -2642,46 +2714,42 @@ function spNextSentence() {
 }
 
 function spFinishGame() {
-    const feedbackSection = document.getElementById('sp-writing-feedback');
-    feedbackSection.classList.remove('hidden');
-
     const total = spState.sentences.length;
     const correct = spState.correctCount;
     const pct = total > 0 ? Math.round((correct / total) * 100) : 0;
 
     // Determine next difficulty suggestion
     let nextDifficulty = spState.difficulty;
-    let suggestion = '';
-    if (pct >= 80 && spState.difficulty === 'easy') {
-        nextDifficulty = 'medium';
-        suggestion = "You're doing great! Ready for 🟡 Medium sentences?";
-    } else if (pct >= 80 && spState.difficulty === 'medium') {
-        nextDifficulty = 'hard';
-        suggestion = "Incredible! Let's try 🔴 Hard sentences!";
-    } else if (pct >= 80 && spState.difficulty === 'hard') {
-        suggestion = "You're a master! ðŸ† Keep up the amazing work!";
-    } else {
-        suggestion = `Keep practicing at ${DIFFICULTY_LABELS[spState.difficulty]} to improve!`;
-    }
+    if (pct >= 80 && spState.difficulty === 'easy') nextDifficulty = 'medium';
+    else if (pct >= 80 && spState.difficulty === 'medium') nextDifficulty = 'hard';
 
     const emoji = pct >= 80 ? '🏆' : pct >= 50 ? '⭐' : '💪';
 
-    feedbackSection.innerHTML = `
-        <div style="text-align: center; padding: 2rem;">
-            <div style="font-size: 4rem; margin-bottom: 1rem;">${emoji}</div>
-            <h2>Round Complete!</h2>
-            <p style="font-size: 1.2rem; margin: 0.5rem 0;"><strong>${correct}/${total}</strong> correct (${pct}%)</p>
-            <p style="color: var(--text-secondary); margin-bottom: 1.5rem;">${suggestion}</p>
-            <div style="display: flex; gap: 1rem; justify-content: center; flex-wrap: wrap;">
-                <button class="control-btn primary" onclick="spStartAdaptive('${nextDifficulty}')" style="margin: 0;">
-                    ➡️ Next Round (${DIFFICULTY_LABELS[nextDifficulty]})
-                </button>
-                <button class="control-btn" onclick="document.getElementById('back-to-scramble-picker').click()" style="margin: 0;">
-                    📚 Pick a Story
-                </button>
+    // Hide game elements
+    document.getElementById('sp-scramble-workspace').classList.add('hidden');
+    document.getElementById('sp-scramble-words').classList.add('hidden');
+
+    // Replace controls row with finish content
+    const controlsRow = document.querySelector('.sp-controls-row');
+    if (controlsRow) {
+        controlsRow.innerHTML = `
+            <div style="display:flex; align-items:center; gap:0.8rem; flex-wrap:wrap; width:100%;">
+                <span style="font-size:1.5rem;">${emoji}</span>
+                <span style="font-weight:700;">Done! ${correct}/${total} correct (${pct}%)</span>
+                <div style="display:flex; gap:0.5rem; margin-left:auto;">
+                    <button class="control-btn primary sp-compact-btn" onclick="spStartAdaptive('${nextDifficulty}')">
+                        ➡️ Next (${DIFFICULTY_LABELS[nextDifficulty]})
+                    </button>
+                    <button class="control-btn sp-compact-btn" onclick="document.getElementById('back-to-scramble-picker').click()">
+                        📚 Stories
+                    </button>
+                </div>
             </div>
-        </div>
-    `;
+        `;
+    }
+
+    // Show the full story in the pad
+    spShowFullStory();
     submitActivity('writing', null, pct);
     checkAchievements('writing', pct);
 }

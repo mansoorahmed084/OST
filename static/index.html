@@ -277,9 +277,17 @@
                 </div>
 
                 <!-- Scramble Game Area (standalone page version) -->
-                <div id="scramble-game-area" class="hidden">
-                    <button class="back-btn" id="back-to-scramble-picker">← Pick Another Story</button>
+                <div id="scramble-game-area" class="hidden sp-game-viewport">
+                    <!-- Compact header row: back + title -->
+                    <div class="sp-top-row">
+                        <button class="sp-back-btn" id="back-to-scramble-picker" title="Pick Another Story">←
+                            Back</button>
+                        <div class="sp-progress-badge">
+                            Sentence <span id="sp-scramble-current">1</span> of <span id="sp-scramble-total">?</span>
+                        </div>
+                    </div>
 
+                    <!-- Story writing pad -->
                     <div class="sp-story-pad">
                         <div class="sp-pad-header">
                             <span>🧩 <span id="scramble-page-title">...</span></span>
@@ -290,35 +298,28 @@
                         </div>
                     </div>
 
-                    <div class="scramble-game-container">
-                        <div class="scramble-progress"
-                            style="text-align:center; margin-bottom: 1rem; font-weight: bold; font-size: 1.1rem;">
-                            Sentence <span id="sp-scramble-current">1</span> of <span id="sp-scramble-total">?</span>
-                        </div>
-
-                        <div id="sp-scramble-workspace" class="scramble-workspace">
-                            <div class="placeholder-text">Click the words below to build the sentence!</div>
-                        </div>
-
-                        <div id="sp-scramble-words" class="scramble-words-pool"></div>
-
-                        <div class="writing-controls" style="justify-content: center;">
-                            <button id="sp-check-scramble" class="control-btn primary">
-                                <span class="btn-icon">✅</span>
-                                <span>Check Sentence</span>
-                            </button>
-                            <button id="sp-reset-scramble" class="control-btn">
-                                <span class="btn-icon">🔄</span>
-                                <span>Reset</span>
-                            </button>
-                        </div>
+                    <!-- Workspace: where user builds the sentence -->
+                    <div id="sp-scramble-workspace" class="scramble-workspace sp-compact-workspace">
+                        <div class="placeholder-text">Click the words below to build the sentence!</div>
                     </div>
 
-                    <div id="sp-writing-feedback" class="writing-feedback hidden">
-                        <h3 id="sp-feedback-title"></h3>
-                        <div id="sp-feedback-message" style="margin-bottom: 1rem;"></div>
-                        <button id="sp-next-scramble" class="control-btn primary hidden" style="margin: 0 auto;">
-                            <span>Next Sentence ➡️</span>
+                    <!-- Word pool -->
+                    <div id="sp-scramble-words" class="scramble-words-pool sp-compact-pool"></div>
+
+                    <!-- Controls row: Check, Reset, feedback, Next — all inline -->
+                    <div class="sp-controls-row">
+                        <button id="sp-check-scramble" class="control-btn primary sp-compact-btn">
+                            <span class="btn-icon">✅</span> Check
+                        </button>
+                        <button id="sp-reset-scramble" class="control-btn sp-compact-btn">
+                            <span class="btn-icon">🔄</span> Reset
+                        </button>
+                        <div id="sp-writing-feedback" class="sp-inline-feedback hidden">
+                            <span id="sp-feedback-title"></span>
+                            <span id="sp-feedback-message"></span>
+                        </div>
+                        <button id="sp-next-scramble" class="control-btn primary sp-compact-btn hidden">
+                            Next ➡️
                         </button>
                     </div>
                 </div>
