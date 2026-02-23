@@ -133,15 +133,22 @@ def submit_quiz():
         story_id = data.get('story_id')
         score = data.get('score', 0)
         activity_type = data.get('activity_type', 'quiz')
+        details = data.get('details')
         
+        # Serialize dict to JSON string if it exists
+        details_str = None
+        if details:
+            import json
+            details_str = json.dumps(details)
+            
         with get_db_context() as conn:
             cursor = conn.cursor()
             
             # Save progress
             cursor.execute('''
-                INSERT INTO user_progress (story_id, activity_type, score)
-                VALUES (?, ?, ?)
-            ''', (story_id, activity_type, score))
+                INSERT INTO user_progress (story_id, activity_type, score, details)
+                VALUES (?, ?, ?, ?)
+            ''', (story_id, activity_type, score, details_str))
             
             return jsonify({
                 'success': True,

@@ -1518,7 +1518,7 @@ function resetQuizUI() {
 }
 
 // === Daily Adventure / Recall Management ===
-async function submitActivity(activityType, storyId = null, score = 0) {
+async function submitActivity(activityType, storyId = null, score = 0, details = null) {
     try {
         await fetch(`${API_BASE}/quiz/submit`, { // Re-using existing progress save route for generic activities
             method: 'POST',
@@ -1526,7 +1526,8 @@ async function submitActivity(activityType, storyId = null, score = 0) {
             body: JSON.stringify({
                 story_id: storyId || 0,
                 activity_type: activityType,
-                score: score
+                score: score,
+                details: details
             })
         });
         updateAdventureProgress();
@@ -2482,6 +2483,7 @@ async function spStartAdaptive(difficulty) {
             spState.correctCount = 0;
             spState.attemptCount = 0;
             spState.completedText = [];
+            spState.struggledSentences = []; // Analytics array
             spState.difficulty = difficulty;
 
             document.getElementById('scramble-page-title').textContent =
@@ -2522,6 +2524,7 @@ async function spStartGame(storyId) {
             spState.correctCount = 0;
             spState.attemptCount = 0;
             spState.completedText = [];
+            spState.struggledSentences = [];
 
             document.getElementById('scramble-page-title').textContent =
                 `${DIFFICULTY_LABELS[diff]} - ${data.story_title}`;
@@ -2700,6 +2703,11 @@ function spCheckSentence() {
         nextBtn.classList.remove('hidden');
         if (typeof speakBuddy === 'function') speakBuddy('Amazing! You got it right!');
     } else {
+        // Record sentence struggled with
+        if (!spState.struggledSentences.includes(original)) {
+            spState.struggledSentences.push(original);
+        }
+
         feedbackTitle.textContent = '💡 Not quite';
         feedbackMsg.textContent = 'Check the word order.';
         if (typeof speakBuddy === 'function') speakBuddy('Almost there! Try again.');
@@ -2748,7 +2756,12 @@ function spFinishGame() {
 
     // Show the full story in the pad
     spShowFullStory();
-    submitActivity('writing', null, pct);
+
+    // Submit activity with detailed JSON body
+    submitActivity('writing', null, pct, {
+        "struggled_sentences": spState.struggledSentences,
+        "total_sentences": total
+    });
     checkAchievements('writing', pct);
 }
 

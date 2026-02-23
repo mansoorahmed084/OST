@@ -80,6 +80,7 @@ def init_db():
                 activity_type TEXT NOT NULL,
                 score REAL,
                 notes TEXT,
+                details TEXT,
                 created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
                 FOREIGN KEY (story_id) REFERENCES stories (id)
             )
@@ -145,6 +146,12 @@ def init_db():
         # Safely add category column if missing
         try:
             cursor.execute("ALTER TABLE achievements ADD COLUMN category TEXT DEFAULT 'short'")
+        except Exception:
+            pass  # Column already exists
+            
+        # Safely add details column if missing
+        try:
+            cursor.execute("ALTER TABLE user_progress ADD COLUMN details TEXT")
         except Exception:
             pass  # Column already exists
 

@@ -494,15 +494,21 @@ def evaluate_speech():
         # Save to progress if successful
         if accuracy >= 70:
             try:
+                import json
+                details = json.dumps({
+                    "expected": expected_text,
+                    "spoken": spoken_text,
+                    "missed_words": missing_words
+                })
                 with get_db_context() as conn:
                     cursor = conn.cursor()
                     cursor.execute('''
-                        INSERT INTO user_progress (story_id, activity_type, score)
-                        VALUES (?, ?, ?)
-                    ''', (0, 'practice', accuracy))
-            except:
-                pass
-        
+                        INSERT INTO user_progress (story_id, activity_type, score, details)
+                        VALUES (?, ?, ?, ?)
+                    ''', (0, 'practice', accuracy, details))
+            except Exception as ex:
+                print(f"Failed to log practice progress: {ex}")
+                
         return jsonify({
             'success': True,
             'accuracy': round(accuracy, 2),
