@@ -307,15 +307,32 @@ def evaluate_speech():
         accuracy = (correct_count / total_words * 100) if total_words > 0 else 0
         
         feedback = "Excellent! 🌟" if accuracy >= 90 else "Good job! 👍" if accuracy >= 70 else "Nice try! 😊"
-        
+        encouragement = ""
+        if accuracy >= 90:
+            encouragement = "You sounded just like a pro! 🌟"
+        elif accuracy >= 70:
+            encouragement = "So close to perfection! Keep it up! 💪"
+        else:
+            encouragement = "Don't worry, practice makes perfect! Try again? 😊"
+            
+        words_to_practice = [w for w in expected_words if w not in spoken_words]
+
         if accuracy >= 70:
             try:
                 import json
+                from database import get_db_context
                 details = json.dumps({"expected": expected_text, "spoken": spoken_text})
                 with get_db_context() as conn:
                     conn.execute('INSERT INTO user_progress (story_id, activity_type, score, details) VALUES (?, ?, ?, ?)', (0, 'practice', accuracy, details))
             except: pass
-                
-        return jsonify({'success': True, 'accuracy': round(accuracy, 2), 'feedback': feedback})
+        
+        return jsonify({
+            'success': True, 
+            'accuracy': round(accuracy, 2), 
+            'feedback': feedback,
+            'encouragement': encouragement,
+            'words_to_practice': words_to_practice,
+            'spoken_text': spoken_text
+        })
     except Exception as e:
         return jsonify({'success': False, 'error': str(e)}), 500
