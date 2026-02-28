@@ -99,7 +99,7 @@ document.addEventListener('DOMContentLoaded', () => {
     if ('webkitSpeechRecognition' in window || 'SpeechRecognition' in window) {
         const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
         state.recognition = new SpeechRecognition();
-        state.recognition.continuous = false;
+        state.recognition.continuous = true;
         state.recognition.interimResults = true; // Show results in real time
         state.recognition.lang = 'en-IN'; // Indian accent focus
         console.log('Speech Recognition initialized');
@@ -1321,6 +1321,13 @@ function recordSpeech() {
     }
 
     const recordBtn = document.getElementById('record-speech');
+
+    // Toggle STOP if already recording
+    if (recordBtn.classList.contains('recording')) {
+        state.recognition.stop();
+        return;
+    }
+
     recordBtn.classList.add('recording');
     recordBtn.querySelector('span:last-child').textContent = 'Listening...';
 
@@ -1329,27 +1336,35 @@ function recordSpeech() {
     state.recognition.onerror = null;
     state.recognition.onend = null;
 
+    let finalTranscript = '';
+    let silenceTimer;
+
     state.recognition.onresult = (event) => {
+        if (silenceTimer) clearTimeout(silenceTimer);
         let interimTranscript = '';
-        let finalTranscript = '';
+        let currentFinal = '';
 
         for (let i = event.resultIndex; i < event.results.length; ++i) {
             if (event.results[i].isFinal) {
-                finalTranscript += event.results[i][0].transcript;
+                currentFinal += event.results[i][0].transcript + ' ';
             } else {
                 interimTranscript += event.results[i][0].transcript;
             }
         }
 
+        finalTranscript += currentFinal;
+
         // Show live feedback
-        if (interimTranscript) {
-            recordBtn.querySelector('span:last-child').textContent = '...' + interimTranscript;
+        const liveText = (finalTranscript + interimTranscript).trim();
+        if (liveText) {
+            recordBtn.querySelector('span:last-child').textContent = liveText;
         }
 
-        if (finalTranscript) {
-            console.log('Final Transcript:', finalTranscript);
-            evaluateSpeech(sentence, finalTranscript);
-        }
+        // Auto-stop after 3 seconds of silence
+        silenceTimer = setTimeout(() => {
+            console.log('Stopping due to silence...');
+            state.recognition.stop();
+        }, 3000);
     };
 
     state.recognition.onsoundstart = () => {
@@ -1363,6 +1378,7 @@ function recordSpeech() {
 
     state.recognition.onerror = (event) => {
         console.error('Speech recognition error:', event.error);
+        if (silenceTimer) clearTimeout(silenceTimer);
         recordBtn.classList.remove('recording');
         recordBtn.querySelector('span:last-child').textContent = 'Record Your Voice';
 
@@ -1378,13 +1394,22 @@ function recordSpeech() {
         } else {
             msg = `Speech recognition error: ${event.error}. Please try again.`;
         }
-        showError(msg);
+        // Only show error if it's not a simple 'no-speech' which might happen on manual stop
+        if (event.error !== 'no-speech' || !finalTranscript) {
+            showError(msg);
+        }
     };
 
     state.recognition.onend = () => {
+        if (silenceTimer) clearTimeout(silenceTimer);
         console.log('Speech recognition ended');
         recordBtn.classList.remove('recording');
         recordBtn.querySelector('span:last-child').textContent = 'Record Your Voice';
+
+        if (finalTranscript.trim()) {
+            console.log('Evaluating final accumulated transcript:', finalTranscript.trim());
+            evaluateSpeech(sentence, finalTranscript.trim());
+        }
     };
 
     try {
@@ -1394,7 +1419,7 @@ function recordSpeech() {
     setTimeout(() => {
         try {
             state.recognition.start();
-            console.log('Speech recognition started');
+            console.log('Speech recognition started (continuous mode)');
         } catch (e) {
             console.error('Failed to start recognition:', e);
             recordBtn.classList.remove('recording');
@@ -2195,7 +2220,7 @@ function initializeRecallPage() {
     document.getElementById('mission-scramble')?.addEventListener('click', startRandomScramble);
 
     // Other mission card clicks - navigate to their respective pages
-    document.getElementById('mission-read')?.addEventListener('click', () => navigateToPage('stories'));
+    document.getElementById('mission-read')?.addEventListener('click', () => navigateToPage('tinystories'));
     document.getElementById('mission-practice')?.addEventListener('click', () => navigateToPage('practice'));
     document.getElementById('mission-chat')?.addEventListener('click', () => navigateToPage('chat'));
 }
