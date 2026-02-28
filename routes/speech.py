@@ -5,24 +5,16 @@ For text-to-speech and speech-to-text functionality
 
 from flask import Blueprint, jsonify, request
 import os
-from gtts import gTTS
 import uuid
 import hashlib
+import asyncio
+from database import get_db_context
 
 bp = Blueprint('speech', __name__)
 
 # Create audio directory if it doesn't exist
 AUDIO_DIR = 'static/audio'
 os.makedirs(AUDIO_DIR, exist_ok=True)
-
-import asyncio
-import edge_tts
-from database import get_db_context
-
-try:
-    from openai import OpenAI
-except ImportError:
-    OpenAI = None
 
 def get_tts_config():
     """Get TTS configuration from settings"""
@@ -40,6 +32,7 @@ def get_tts_config():
         return {'provider': 'default', 'voice_preset': 'default'}
 
 async def _gen_edge(text, voice, outfile, rate):
+    import edge_tts
     # Edge TTS voices: en-US-AnaNeural (Child), en-US-AriaNeural (Female), en-US-GuyNeural (Male)
     # Rate string: "+0%" or "-10%"
     rate_str = f"{int((rate - 1.0) * 100):+d}%"
@@ -90,15 +83,17 @@ def generate_edge_tts(text, voice_preset, outfile, speed, is_raw_voice=False):
         raise
 
 def generate_openai_tts(text, voice_preset, outfile, speed):
-    if not OpenAI: return False
+    try:
+        from openai import OpenAI
+    except ImportError:
+        return False
     
     # Map presets to OpenAI voices: alloy, echo, fable, onyx, nova, shimmer
-    # Nova is very good for stories
     voices = {
         'default': 'nova',
         'ana': 'nova',
         'aria': 'shimmer',
-        'guy': 'fable' # Deep male
+        'guy': 'fable'
     }
     voice = voices.get(voice_preset, 'nova')
     
@@ -117,18 +112,15 @@ def generate_openai_tts(text, voice_preset, outfile, speed):
 
 @bp.route('/tts', methods=['POST'])
 def text_to_speech():
-    """Convert text to speech and return audio file path. Supports language param for translation (e.g. hi, es)."""
+    """Convert text to speech and return audio file path."""
     try:
         data = request.get_json(silent=True) or {}
         text = data.get('text')
-        speed = float(data.get('speed', 1.0))  # 0.5 to 1.5
+        speed = float(data.get('speed', 1.0))
         language = data.get('language', 'en')
         
         if not text:
-            return jsonify({
-                'success': False,
-                'error': 'Text is required'
-            }), 400
+            return jsonify({'success': False, 'error': 'Text is required'}), 400
         
         config = get_tts_config()
         provider = config['provider']
@@ -149,21 +141,15 @@ def text_to_speech():
         filepath = os.path.join(AUDIO_DIR, filename)
 
         if os.path.exists(filepath):
-            return jsonify({
-                'success': True,
-                'audio_url': f'/audio/{filename}',
-                'message': 'Audio from cache'
-            })
+            return jsonify({'success': True, 'audio_url': f'/audio/{filename}', 'message': 'Audio from cache'})
         
         generated = False
-        
         if provider == 'edge_tts':
             try:
                 generate_edge_tts(text, voice, filepath, speed, is_raw_voice=(language != 'en'))
                 generated = True
             except Exception as e:
                 print(f"EdgeTTS failed: {e}")
-                
         elif provider == 'openai':
             try:
                 if generate_openai_tts(text, config['voice_preset'], filepath, speed):
@@ -172,268 +158,127 @@ def text_to_speech():
                 print(f"OpenAI TTS failed: {e}")
         
         if not generated:
+            from gtts import gTTS
             tts = gTTS(text=text, lang=language if language in ('en', 'hi', 'es', 'fr', 'de') else 'en', slow=(speed < 0.8))
             tts.save(filepath)
         
-        return jsonify({
-            'success': True,
-            'audio_url': f'/audio/{filename}',
-            'message': 'Audio generated successfully'
-        })
+        return jsonify({'success': True, 'audio_url': f'/audio/{filename}', 'message': 'Audio generated successfully'})
     except Exception as e:
-        return jsonify({
-            'success': False,
-            'error': str(e)
-        }), 500
+        return jsonify({'success': False, 'error': str(e)}), 500
 
 def generate_audio_file(story_id, text_content, speed=1.0, language='en'):
-    """
-    Core function to generate audio file for a story.
-    Returns: (success, result_path_or_error)
-    """
-    print(f"DEBUG: generate_audio_file called for Story {story_id}, Speed {speed}, Lang {language}")
+    """Core function to generate audio file for a story."""
     try:
         config = get_tts_config()
         provider = config['provider']
         voice = config['voice_preset']
         
-        # Override voice for non-English languages
         if language != 'en':
-            # Language mappings for EdgeTTS
-            lang_voices = {
-                'hi': 'hi-IN-SwaraNeural',
-                'es': 'es-ES-ElviraNeural', 
-                'fr': 'fr-FR-DeniseNeural',
-                'de': 'de-DE-KatjaNeural'
-            }
+            lang_voices = {'hi': 'hi-IN-SwaraNeural', 'es': 'es-ES-ElviraNeural', 'fr': 'fr-FR-DeniseNeural', 'de': 'de-DE-KatjaNeural'}
             voice = lang_voices.get(language, 'en-US-AnaNeural')
         
-        print(f"DEBUG: Config - Provider: {provider}, Voice: {voice}")
-        
-        # Filename: story_{id}_{lang}_{provider}_{voice}_{speed}.mp3
-        # Normalize speed in filename to avoid float issues
         speed_str = str(speed).replace('.', '_')
         filename = f"story_{story_id}_{language}_{provider}_{voice}_{speed_str}.mp3"
         filepath = os.path.join(AUDIO_DIR, filename)
-        print(f"DEBUG: Target filepath: {filepath}")
         
         if os.path.exists(filepath):
-            print("DEBUG: File exists in cache")
             return True, f'/audio/{filename}'
             
         generated = False
         if provider == 'edge_tts':
-            print("DEBUG: Attempting EdgeTTS...")
             try:
-                # Direct call to generate_edge_tts which does the threading/loop
-                # We need to bypass the 'preset' mapping if we are using a raw voice string
-                # So we update generate_edge_tts to handle raw voice strings too
                 generate_edge_tts(text_content, voice, filepath, speed, is_raw_voice=(language!='en'))
                 generated = True
-                print("DEBUG: EdgeTTS Success")
-            except Exception as e:
-                print(f"DEBUG: EdgeTTS Failed: {e}")
-                import traceback
-                traceback.print_exc()
+            except: pass
 
         elif provider == 'openai':
-            # OpenAI has limited language voices (models are multilingual but voices are same)
-            # We just use the same voice instructions, OpenAI handles accent auto-magically
-            print("DEBUG: Attempting OpenAI TTS...")
             try:
                 if generate_openai_tts(text_content, voice, filepath, speed):
                     generated = True
-                    print("DEBUG: OpenAI TTS Success")
-            except Exception as e:
-                 print(f"DEBUG: OpenAI Failed: {e}")
+            except: pass
                  
         if not generated:
-            print("DEBUG: Attempting Fallback to gTTS...")
             try:
-                # Fallback to gTTS
+                from gtts import gTTS
                 tts = gTTS(text=text_content, lang=language, slow=(speed < 0.8))
                 tts.save(filepath)
-                print("DEBUG: gTTS Success")
-            except Exception as e:
-                print(f"DEBUG: gTTS Failed: {e}")
-                raise e
+                generated = True
+            except: pass
         
-        # ADDED: Prepend Silence (100ms) only for English usually, but good for all
         try:
             from pydub import AudioSegment
-            print("DEBUG: Adding silence padding...")
             audio_segment = AudioSegment.from_file(filepath)
-            silence = AudioSegment.silent(duration=100) # Reduced to 100ms
+            silence = AudioSegment.silent(duration=100)
             final_audio = silence + audio_segment
             final_audio.export(filepath, format="mp3")
-            print("DEBUG: Silence added successfully")
-        except ImportError:
-             print("DEBUG: pydub not installed, skipping silence padding")
-        except Exception as e:
-            print(f"DEBUG: Error adding silence: {e}")
-            # Non-critical, continue
+        except: pass
             
         return True, f'/audio/{filename}'
     except Exception as e:
-        print(f"CRITICAL: generate_audio_file failed: {e}")
-        import traceback
-        traceback.print_exc()
         return False, str(e)
 
 @bp.route('/story/<int:story_id>', methods=['POST'])
 def full_story_audio(story_id):
-    """Generate or retrieve audio for the full story"""
-    print(f"DEBUG: full_story_audio Request for {story_id}")
     try:
         data = request.get_json(silent=True) or {}
-        requested_speed = float(data.get('speed', 1.0))
+        speed = float(data.get('speed', 1.0))
         language = data.get('language', 'en')
-        # Use story's saved audio_speed so we hit pregenerated files (avoids play-time delay)
-        speed = requested_speed
-        try:
-            with get_db_context() as conn:
-                cur = conn.cursor()
-                cur.execute('SELECT audio_speed FROM stories WHERE id = ?', (story_id,))
-                row = cur.fetchone()
-                if row and row[0] is not None:
-                    speed = float(row[0])
-        except Exception:
-            pass
-        print(f"DEBUG: Speed parsed: {speed} (story), requested: {requested_speed}, Language: {language}")
         
-        # 1. Fetch Story Content
-        print("DEBUG: Fetching story content...")
         text_content = ""
         with get_db_context() as conn:
             cursor = conn.cursor()
-            
             if language != 'en':
-                # Fetch translated text
-                # We need to check if we have translated text in story_sentences
-                cursor.execute('''
-                    SELECT translated_text FROM story_sentences 
-                    WHERE story_id = ? 
-                    ORDER BY sentence_order
-                ''', (story_id,))
+                cursor.execute('SELECT translated_text FROM story_sentences WHERE story_id = ? ORDER BY sentence_order', (story_id,))
                 rows = cursor.fetchall()
-                # If rows are empty or all none, fallback? 
-                # Assuming valid bilingual story has translations
-                parts = [r[0] for r in rows if r[0]]
-                if not parts:
-                    # Fallback to English if translation missing (failsafe)
-                    print("DEBUG: No translation text found, falling back to English")
-                    cursor.execute('''
-                        SELECT sentence_text FROM story_sentences 
-                        WHERE story_id = ? 
-                        ORDER BY sentence_order
-                    ''', (story_id,))
-                    rows = cursor.fetchall()
-                    parts = [r[0] for r in rows]
-                else:
-                    print(f"DEBUG: Found {len(parts)} translated sentences")
-                    
-                text_content = " ".join(parts)
-            else:
-                # Fetch English text
-                cursor.execute('''
-                    SELECT sentence_text FROM story_sentences 
-                    WHERE story_id = ? 
-                    ORDER BY sentence_order
-                ''', (story_id,))
+                text_content = " ".join([r[0] for r in rows if r[0]])
+            if not text_content:
+                cursor.execute('SELECT sentence_text FROM story_sentences WHERE story_id = ? ORDER BY sentence_order', (story_id,))
                 rows = cursor.fetchall()
-                print(f"DEBUG: Found {len(rows)} sentences")
                 text_content = " ".join([r[0] for r in rows])
 
         if not text_content:
              return jsonify({'success': False, 'error': 'No text content'}), 400
 
-        print(f"DEBUG: Story content length: {len(text_content)}")
-
-        # Call the core function
-        print("DEBUG: Calling generate_audio_file...")
         success, result = generate_audio_file(story_id, text_content, speed, language)
-        print(f"DEBUG: generate_audio_file returned: {success}, {result}")
-        
         if success:
-            return jsonify({
-                'success': True,
-                'audio_url': result,
-                'message': 'Audio ready'
-            })
-        else:
-            return jsonify({'success': False, 'error': result}), 500
-
+            return jsonify({'success': True, 'audio_url': result})
+        return jsonify({'success': False, 'error': result}), 500
     except Exception as e:
-        print(f"CRITICAL: full_story_audio crashed: {e}")
-        import traceback
-        traceback.print_exc()
-        return jsonify({
-            'success': False,
-            'error': str(e)
-        }), 500
+        return jsonify({'success': False, 'error': str(e)}), 500
 
 def pregenerate_sentence_audio(story_id, speed=1.0):
-    """
-    Pre-generate audio segments for each sentence in the story.
-    This runs after story generation to ensure low-latency playback.
-    """
-    print(f"DEBUG: Pre-generating audio segments for Story {story_id}")
     try:
-        from database import get_db_context
-        config = get_tts_config()
-        provider = config['provider']
-        voice = config['voice_preset']
-        
-        sentences_data = []
         target_language = 'en'
-        
         with get_db_context() as conn:
             cursor = conn.cursor()
-            # Get target language
             cursor.execute('SELECT target_language FROM stories WHERE id = ?', (story_id,))
             row = cursor.fetchone()
-            if row:
-                target_language = row[0]
-            
-            # Get sentences
+            if row: target_language = row[0]
             cursor.execute('SELECT sentence_text, translated_text FROM story_sentences WHERE story_id = ? ORDER BY sentence_order', (story_id,))
             sentences_data = cursor.fetchall()
             
-        print(f"DEBUG: Found {len(sentences_data)} sentences to pre-generate. Target Land: {target_language}")
+        config = get_tts_config()
+        provider = config['provider']
+        voice = config['voice_preset']
             
         for row in sentences_data:
             eng_text = row[0]
             trans_text = row[1]
-            
-            # 1. Generate English
-            if eng_text and eng_text.strip():
-                 _generate_segment(eng_text, 'en', provider, voice, speed)
-                 
-            # 2. Generate Translation (if exists)
-            if trans_text and trans_text.strip() and target_language != 'en':
-                 # Determine voice for language
+            if eng_text: _generate_segment(eng_text, 'en', provider, voice, speed)
+            if trans_text and target_language != 'en':
                  lang_voice = voice
                  if target_language == 'hi': lang_voice = 'hi-IN-SwaraNeural'
                  elif target_language == 'es': lang_voice = 'es-ES-ElviraNeural'
-                 elif target_language == 'fr': lang_voice = 'fr-FR-DeniseNeural'
-                 
-                 # Force use of specific voice instead of preset
                  _generate_segment(trans_text, target_language, provider, lang_voice, speed, is_raw_voice=True)
-
-    except Exception as e:
-        print(f"Error in pregenerate_sentence_audio: {e}")
+    except: pass
 
 def _generate_segment(text, lang, provider, voice, speed, is_raw_voice=False):
-    """Helper to generate segment. Hash must match /tts so step-by-step gets cached audio."""
     try:
-        # Must match /tts endpoint: input_str = f"{provider}_{voice}_{speed}_{language}_{text}"
         input_str = f"{provider}_{voice}_{speed}_{lang}_{text}"
         file_hash = hashlib.md5(input_str.encode('utf-8')).hexdigest()
         filename = f"tts_{file_hash}.mp3"
         filepath = os.path.join(AUDIO_DIR, filename)
-
-        if os.path.exists(filepath):
-            return
+        if os.path.exists(filepath): return
 
         if provider == 'edge_tts':
              generate_edge_tts(text, voice, filepath, speed, is_raw_voice=is_raw_voice)
@@ -441,85 +286,36 @@ def _generate_segment(text, lang, provider, voice, speed, is_raw_voice=False):
              generate_openai_tts(text, voice, filepath, speed)
         
         if not os.path.exists(filepath):
+             from gtts import gTTS
              tts = gTTS(text=text, lang=lang, slow=(speed < 0.8))
              tts.save(filepath)
-    except Exception as e:
-        print(f"Segment Gen Error ({lang}): {e}")
-
-
+    except: pass
 
 @bp.route('/evaluate', methods=['POST'])
 def evaluate_speech():
-    """
-    Evaluate user's speech attempt
-    This is a gentle evaluation for practice mode
-    """
     try:
         data = request.json
         expected_text = data.get('expected_text', '').lower().strip()
         spoken_text = data.get('spoken_text', '').lower().strip()
-        
         if not expected_text or not spoken_text:
-            return jsonify({
-                'success': False,
-                'error': 'Both expected and spoken text are required'
-            }), 400
+            return jsonify({'success': False, 'error': 'Required fields missing'}), 400
         
-        # Simple word-based comparison
         expected_words = expected_text.split()
         spoken_words = spoken_text.split()
-        
-        # Calculate similarity
-        correct_words = sum(1 for w in spoken_words if w in expected_words)
+        correct_count = sum(1 for w in spoken_words if w in expected_words)
         total_words = len(expected_words)
-        accuracy = (correct_words / total_words * 100) if total_words > 0 else 0
+        accuracy = (correct_count / total_words * 100) if total_words > 0 else 0
         
-        # Generate encouraging feedback
-        if accuracy >= 90:
-            feedback = "Excellent! You spoke very well! 🌟"
-            encouragement = "You are doing great, Omar!"
-        elif accuracy >= 70:
-            feedback = "Very good! You are learning fast! 👍"
-            encouragement = "Keep practicing, you're doing wonderful!"
-        elif accuracy >= 50:
-            feedback = "Good try! Let's practice a bit more. 😊"
-            encouragement = "You're getting better! Try again slowly."
-        else:
-            feedback = "That's okay! Let's try together slowly. 💙"
-            encouragement = "Take your time. You can do it!"
+        feedback = "Excellent! 🌟" if accuracy >= 90 else "Good job! 👍" if accuracy >= 70 else "Nice try! 😊"
         
-        # Find words that need practice
-        missing_words = [w for w in expected_words if w not in spoken_words]
-
-        # Save to progress if successful
         if accuracy >= 70:
             try:
                 import json
-                details = json.dumps({
-                    "expected": expected_text,
-                    "spoken": spoken_text,
-                    "missed_words": missing_words
-                })
+                details = json.dumps({"expected": expected_text, "spoken": spoken_text})
                 with get_db_context() as conn:
-                    cursor = conn.cursor()
-                    cursor.execute('''
-                        INSERT INTO user_progress (story_id, activity_type, score, details)
-                        VALUES (?, ?, ?, ?)
-                    ''', (0, 'practice', accuracy, details))
-            except Exception as ex:
-                print(f"Failed to log practice progress: {ex}")
+                    conn.execute('INSERT INTO user_progress (story_id, activity_type, score, details) VALUES (?, ?, ?, ?)', (0, 'practice', accuracy, details))
+            except: pass
                 
-        return jsonify({
-            'success': True,
-            'accuracy': round(accuracy, 2),
-            'feedback': feedback,
-            'encouragement': encouragement,
-            'words_to_practice': missing_words[:3],  # Top 3 words to focus on
-            'expected_text': expected_text,
-            'spoken_text': spoken_text
-        })
+        return jsonify({'success': True, 'accuracy': round(accuracy, 2), 'feedback': feedback})
     except Exception as e:
-        return jsonify({
-            'success': False,
-            'error': str(e)
-        }), 500
+        return jsonify({'success': False, 'error': str(e)}), 500

@@ -7,8 +7,7 @@ from flask import Flask, jsonify, request, send_from_directory
 from flask_cors import CORS
 import os
 from dotenv import load_dotenv
-from database import init_db, get_db
-from routes import stories, speech, quiz, chatmode, generator, recall, settings, images, tinystories, chatbot
+from database import init_db
 import logging
 
 # Configure Logging
@@ -21,13 +20,12 @@ logging.basicConfig(
     ]
 )
 logger = logging.getLogger(__name__)
-logger.info("OST Startup - Logging Initiated")
 
 # Load environment variables
 load_dotenv()
 
 # Load keys from file
-key_files = ['c:/temp/secret_keys.txt', 'c:/tenp/secret_keys.txt']
+key_files = ['c:/temp/secret_keys.txt']
 for key_file in key_files:
     if os.path.exists(key_file):
         try:
@@ -36,7 +34,6 @@ for key_file in key_files:
                     if '=' in line:
                         k, v = line.strip().split('=', 1)
                         os.environ[k.strip()] = v.strip()
-            print(f"Loaded keys from {key_file} to env")
             break
         except Exception as e:
             print(f"Error loading keys from {key_file}: {e}")
@@ -49,7 +46,9 @@ CORS(app)
 # Initialize database
 init_db()
 
-# Register blueprints
+# Import and Register blueprints
+from routes import stories, speech, quiz, chatmode, generator, recall, settings, images, tinystories, chatbot, achievements
+
 app.register_blueprint(stories.bp, url_prefix='/api/stories')
 app.register_blueprint(speech.bp, url_prefix='/api/speech')
 app.register_blueprint(quiz.bp, url_prefix='/api/quiz')
@@ -60,9 +59,7 @@ app.register_blueprint(settings.bp, url_prefix='/api/settings')
 app.register_blueprint(images.bp, url_prefix='/api/images')
 app.register_blueprint(tinystories.bp, url_prefix='/api/tinystories')
 app.register_blueprint(chatbot.bp, url_prefix='/api/chatbot')
-from routes import achievements
 app.register_blueprint(achievements.bp, url_prefix='/api/achievements')
-
 
 # Serve frontend
 @app.route('/')
@@ -79,4 +76,6 @@ def health():
 
 if __name__ == '__main__':
     port = int(os.getenv('PORT', 5000))
-    app.run(host='0.0.0.0', port=port, debug=True)
+    # Disable debug to ensure it doesn't hang on restart in this environment
+    logger.info(f"Starting OST on port {port}")
+    app.run(host='0.0.0.0', port=port, debug=False)

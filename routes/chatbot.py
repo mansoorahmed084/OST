@@ -8,18 +8,7 @@ from database import get_db_context
 import os
 import json
 import logging
-from langchain_openai import ChatOpenAI
-from langchain_google_genai import ChatGoogleGenerativeAI
-
-try:
-    from langchain.memory import ConversationSummaryBufferMemory
-    from langchain.chains import ConversationChain
-    from langchain.prompts import PromptTemplate
-except (ImportError, ModuleNotFoundError):
-    # Support for newer LangChain split where these moved to classic/core
-    from langchain_classic.memory import ConversationSummaryBufferMemory
-    from langchain_classic.chains import ConversationChain
-    from langchain_core.prompts import PromptTemplate
+# LangChain imports handled inside functions
 
 logger = logging.getLogger(__name__)
 bp = Blueprint('chatbot', __name__)
@@ -57,6 +46,7 @@ def get_llm():
 
     # If Gemini is requested and we have the key, use it
     if provider == 'gemini' and os.environ.get('GOOGLE_API_KEY'):
+        from langchain_google_genai import ChatGoogleGenerativeAI
         return ChatGoogleGenerativeAI(
             model="gemini-2.0-flash",
             google_api_key=os.environ.get('GOOGLE_API_KEY'),
@@ -65,6 +55,7 @@ def get_llm():
     
     # If OpenAI is requested or fallback
     if os.environ.get('OPENAI_API_KEY'):
+        from langchain_openai import ChatOpenAI
         return ChatOpenAI(
             model="gpt-4o-mini",
             openai_api_key=os.environ.get('OPENAI_API_KEY'),
@@ -73,6 +64,7 @@ def get_llm():
     
     # Final fallback to Gemini if OpenAI key missing but Gemini key exists
     if os.environ.get('GOOGLE_API_KEY'):
+         from langchain_google_genai import ChatGoogleGenerativeAI
          return ChatGoogleGenerativeAI(
             model="gemini-1.5-flash",
             google_api_key=os.environ.get('GOOGLE_API_KEY'),
@@ -84,6 +76,11 @@ def get_llm():
 def get_buddy_memory(session_id, llm):
     """Get or create memory for a session"""
     if session_id not in _memory_cache:
+        try:
+            from langchain.memory import ConversationSummaryBufferMemory
+        except ImportError:
+            from langchain_classic.memory import ConversationSummaryBufferMemory
+            
         # max_token_limit=1024 as requested for summarization threshold
         memory = ConversationSummaryBufferMemory(
             llm=llm,
@@ -131,6 +128,13 @@ def ask():
         llm = get_llm()
         memory = get_buddy_memory(session_id, llm)
         
+        try:
+            from langchain.chains import ConversationChain
+            from langchain.prompts import PromptTemplate
+        except ImportError:
+            from langchain_classic.chains import ConversationChain
+            from langchain_core.prompts import PromptTemplate
+            
         prompt = PromptTemplate(
             input_variables=["history", "input"],
             template=BUDDY_TEMPLATE
@@ -150,6 +154,7 @@ def ask():
             # Automatic fallback to Gemini if OpenAI fails (likely quota)
             if "insufficient_quota" in str(e) or "429" in str(e):
                 logger.warning("OpenAI quota hit, falling back to Gemini for this message...")
+                from langchain_google_genai import ChatGoogleGenerativeAI
                 fallback_llm = ChatGoogleGenerativeAI(
                     model="gemini-2.0-flash",
                     google_api_key=os.environ.get('GOOGLE_API_KEY'),

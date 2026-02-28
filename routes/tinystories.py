@@ -49,6 +49,14 @@ def generate():
             mcqs = metadata.get('mcqs', [])
             fill_in_blanks = metadata.get('fill_in_blanks', [])
             moral_questions = metadata.get('moral_questions', [])
+            
+        # Defensive check for empty arrays - ensure we ALWAYS have questions
+        if not mcqs:
+            mcqs = [{"question": "Did you enjoy this story?", "options": ["Yes", "No", "Maybe", "A little"], "correct_answer": "Yes"}]
+        if not fill_in_blanks:
+            fill_in_blanks = [{"sentence": "The story was very ____.", "answer": "good", "options": ["good", "bad", "boring"]}]
+        if not moral_questions:
+            moral_questions = [{"question": "What is the best thing to do?", "options": ["Be kind", "Be mean"], "correct_answer": "Be kind"}]
 
         # Save to DB
         with get_ts_db_context() as conn:

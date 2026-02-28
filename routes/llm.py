@@ -4,43 +4,60 @@ Handles interaction with Gemini, OpenAI, etc.
 """
 
 import os
-try:
-    from google import genai
-except ImportError:
-    genai = None
 from flask import current_app
 from database import get_db_context
 import logging
 
 logger = logging.getLogger(__name__)
 
-# Transformers import for Local TinyStories
-try:
-    from transformers import pipeline
-except ImportError:
-    pipeline = None
-
 # Global variable to cache the local model in memory
 tinystories_pipe = None
 
 def get_tinystories():
     global tinystories_pipe
-    if tinystories_pipe is None and pipeline is not None:
+    if tinystories_pipe is None:
+        # Check if we should use Cloud Fallback (recommended for Python 3.14 stability)
+        if os.environ.get('USE_CLOUD_TINYSTORIES', 'true').lower() == 'true':
+            print("Using Cloud TinyStories (Gemini/OpenAI) for better stability.")
+            tinystories_pipe = CloudTinyStories()
+            return tinystories_pipe
+
         try:
+            # ONLY attempt local import if Cloud Fallback is disabled
+            from transformers import pipeline
             print("Loading TinyStories-33M locally...")
             tinystories_pipe = pipeline("text-generation", model="roneneldan/TinyStories-33M", device="cpu")
             print("TinyStories-33M loaded successfully.")
         except Exception as e:
-            print(f"Failed to load TinyStories: {e}")
-            tinystories_pipe = None
+            print(f"Failed to load local TinyStories: {e}. Falling back to Cloud version.")
+            tinystories_pipe = CloudTinyStories()
     return tinystories_pipe
 
+class CloudTinyStories:
+    """Mock pipe that uses Cloud LLM but mimics the TinyStories API"""
+    def __call__(self, prompt, max_new_tokens=400, **kwargs):
+        print(f"CloudTinyStories generating for prompt: {prompt}")
+        system_prompt = "You are a TinyStories model. Generate a very simple, short story for a 3-5 year old child. Keep it extremely simple, like the TinyStories dataset (basic vocabulary, simple sentences). Output only the story text, starting with the prompt provided."
+        
+        # Use existing cloud generation
+        story_text = ""
+        key = os.environ.get('GOOGLE_API_KEY')
+        if key:
+            story_text = generate_with_gemini(system_prompt, prompt, key)
+        
+        if not story_text:
+            key = os.environ.get('OPENAI_API_KEY')
+            if key:
+                story_text = generate_with_openai(system_prompt, prompt, key)
+                
+        if not story_text:
+            story_text = prompt + " The cat was happy. The end."
+            
+        # Format to match transformers pipeline output
+        return [{"generated_text": story_text}]
 
-# OpenAI import handled conditionally to avoid errors if not installed (though we installed it)
-try:
-    from openai import OpenAI
-except ImportError:
-    OpenAI = None
+
+# OpenAI import handled inside functions
 
 def get_llm_provider():
     """Get current LLM provider from settings"""
@@ -66,7 +83,9 @@ def get_story_tone():
         return 'default'
 
 def generate_with_gemini(system_prompt, user_prompt, api_key):
-    if not genai:
+    try:
+        from google import genai
+    except ImportError:
         print("DEBUG: google-genai is not installed.")
         return None
         
@@ -86,9 +105,18 @@ def generate_with_gemini(system_prompt, user_prompt, api_key):
     for model_name in models_to_try:
         try:
             print(f"DEBUG: Attempting generation with model: {model_name}")
+            
+            # Check if JSON generation is requested based on system prompt content
+            config = None
+            if "VALID JSON" in system_prompt or "JSON Schema" in system_prompt:
+                config = genai.types.GenerateContentConfig(
+                    response_mime_type="application/json"
+                )
+                
             response = client.models.generate_content(
                 model=model_name,
-                contents=f"{system_prompt}\n\nTask: {user_prompt}"
+                contents=f"{system_prompt}\n\nTask: {user_prompt}",
+                config=config
             )
             return response.text
         except Exception as e:
@@ -100,7 +128,7 @@ def generate_with_gemini(system_prompt, user_prompt, api_key):
 
 def generate_with_openai(system_prompt, user_prompt, api_key):
     try:
-        if not OpenAI: return None
+        from openai import OpenAI
         client = OpenAI(api_key=api_key)
         completion = client.chat.completions.create(
             model="gpt-4o-mini",
@@ -110,6 +138,8 @@ def generate_with_openai(system_prompt, user_prompt, api_key):
             ]
         )
         return completion.choices[0].message.content
+    except ImportError:
+        return None
     except Exception as e:
         print(f"OpenAI Error: {e}")
         return None
@@ -443,9 +473,12 @@ def extract_metadata_and_questions(story_text, provider=None):
     1. "corrected_story": Read the story, fix any illogical or lost context, ensure the grammar is perfect, and output the polished version of the story. Keep it the same length.
     2. A single sentence explaining the "moral" of the story.
     3. "vocab": An array of 3-5 important words and their simple dictionary meanings formatted like {"word": "...", "meaning": "..."}.
-    4. "mcqs": An array of 3 multiple-choice questions formatted like {"question": "...", "options": ["A", "B", "C", "D"], "correct_answer": "A"}.
-    5. "fill_in_blanks": An array of 2-3 fill-in-the-blank questions formatted like {"sentence": "The dog was very ____.", "answer": "happy", "options": ["sad", "happy", "angry"]}.
-    6. "moral_questions": An array of 1-2 questions testing the moral understanding formatted like {"question": "...", "options": ["A", "B"], "correct_answer": "A"}.
+    
+    CRITICAL INSTRUCTION - DO NOT RETURN EMPTY ARRAYS:
+    Even if the story is extremely short (e.g. 2 sentences), you MUST generate the following questions. If the text lacks details, creatively invent reasonable questions or use general reading-comprehension context derived from the nouns.
+    4. "mcqs": MUST returning an array of AT LEAST 2 multiple-choice questions formatted like {"question": "...", "options": ["A", "B", "C", "D"], "correct_answer": "A"}.
+    5. "fill_in_blanks": MUST return an array of AT LEAST 2 fill-in-the-blank questions formatted like {"sentence": "The dog was very ____.", "answer": "happy", "options": ["sad", "happy", "angry"]}.
+    6. "moral_questions": MUST return an array of AT LEAST 1 question testing the moral understanding formatted like {"question": "...", "options": ["A", "B"], "correct_answer": "A"}.
 
     JSON Schema exactly like this:
     {
