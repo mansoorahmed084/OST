@@ -476,9 +476,9 @@ def extract_metadata_and_questions(story_text, provider=None):
     
     CRITICAL INSTRUCTION - DO NOT RETURN EMPTY ARRAYS:
     Even if the story is extremely short (e.g. 2 sentences), you MUST generate the following questions. If the text lacks details, creatively invent reasonable questions or use general reading-comprehension context derived from the nouns.
-    4. "mcqs": MUST returning an array of AT LEAST 2 multiple-choice questions formatted like {"question": "...", "options": ["A", "B", "C", "D"], "correct_answer": "A"}.
+    4. "mcqs": MUST returning an array of AT LEAST 2 multiple-choice questions formatted like {"question": "...", "options": ["Choice 1", "Choice 2", "Choice 3", "Choice 4"], "correct_answer": "Choice 1"}.
     5. "fill_in_blanks": MUST return an array of AT LEAST 2 fill-in-the-blank questions formatted like {"sentence": "The dog was very ____.", "answer": "happy", "options": ["sad", "happy", "angry"]}.
-    6. "moral_questions": MUST return an array of AT LEAST 1 question testing the moral understanding formatted like {"question": "...", "options": ["A", "B"], "correct_answer": "A"}.
+    6. "moral_questions": MUST return an array of AT LEAST 1 question testing the moral understanding formatted like {"question": "...", "options": ["Option 1", "Option 2"], "correct_answer": "Option 1"}.
 
     JSON Schema exactly like this:
     {

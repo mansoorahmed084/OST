@@ -1320,6 +1320,11 @@ function recordSpeech() {
         return;
     }
 
+    // Clear previous highlights
+    container.querySelectorAll('.word-bubble').forEach(bubble => {
+        bubble.classList.remove('popped', 'missed');
+    });
+
     const recordBtn = document.getElementById('record-speech');
 
     // Toggle STOP if already recording
@@ -3176,10 +3181,20 @@ window.checkTsAnswer = function (btn, selected, correct) {
     const sNorm = normalize(selected);
     const cNorm = normalize(correct);
 
-    // Standard match OR prefix match (e.g., "A. Option" starts with "A")
-    const isMatch = (sNorm === cNorm) || sNorm.startsWith(cNorm + " ");
+    // Get all options in this group to check position
+    const options = Array.from(btn.parentElement.children);
+    const selectedIndex = options.indexOf(btn);
 
-    if (isMatch) {
+    // Map common markers to their indices
+    const letterToIdx = { 'a': 0, 'b': 1, 'c': 2, 'd': 3, '1': 0, '2': 1, '3': 2, '4': 3 };
+
+    // 1. Text match (e.g. "Cat" === "Cat")
+    const isTextMatch = (sNorm === cNorm) || sNorm.startsWith(cNorm + " ");
+
+    // 2. Letter match (e.g. LLM says "B" and user clicks 2nd button)
+    const isLetterIdxMatch = (letterToIdx[cNorm] !== undefined && selectedIndex === letterToIdx[cNorm]);
+
+    if (isTextMatch || isLetterIdxMatch) {
         btn.classList.add('correct');
         btn.innerHTML += ' ✅';
         state.tsQuizScore++;
@@ -3191,8 +3206,8 @@ window.checkTsAnswer = function (btn, selected, correct) {
         // Buddy hints
         if (typeof speakBuddy === 'function') speakBuddy("Not quite. Try again!");
     }
-    // Disable siblings
-    Array.from(btn.parentElement.children).forEach(b => b.disabled = true);
+    // Disable all options in this question group
+    options.forEach(b => b.disabled = true);
 };
 
 async function regenTinyStoryAssets(id) {
