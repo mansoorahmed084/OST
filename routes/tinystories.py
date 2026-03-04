@@ -6,7 +6,7 @@ import random
 from tinystories_db import get_ts_db_context
 from routes.llm import get_tinystories, extract_metadata_and_questions
 from routes.generator import RANDOM_TOPICS
-from routes.images import generate_image_hf, IMAGE_DIR
+from routes.images import generate_image_hf, generate_image_openai, generate_image_google, IMAGE_DIR
 from routes.speech import generate_audio_file
 
 bp = Blueprint('tinystories', __name__)
@@ -81,32 +81,46 @@ def generate():
                                 occurrence_count = occurrence_count + 1
                         ''', (word, meaning))
 
-        # Audio and image generation should only be triggered if metadata (correction) succeeded
-        if metadata:
-            def background_assets(sid, t, c, spd):
-                # Image
+        def background_assets(sid, t, c, spd):
+            # Image
+            filename = f"tinystory_{sid}.png"
+            filepath = os.path.join(IMAGE_DIR, filename)
+            prompt = f"Children's story book illustration about: {t}. Beautiful watercolor, simple, bright. Context: {c[:200]}"
+            public_url = f"/images/stories/{filename}"
+            image_success = False
+
+            try:
+                if generate_image_hf(prompt, filepath): image_success = True
+            except Exception as e: print(f"TS Image HF Gen Failed: {e}")
+
+            if not image_success and os.environ.get('OPENAI_API_KEY'):
                 try:
-                    filename = f"tinystory_{sid}.png"
-                    filepath = os.path.join(IMAGE_DIR, filename)
-                    prompt = f"Children's story book illustration about: {t}. Beautiful watercolor, simple, bright. Context: {c[:200]}"
-                    if generate_image_hf(prompt, filepath):
-                        public_url = f"/images/stories/{filename}"
-                        with get_ts_db_context() as conn:
-                            conn.execute("UPDATE tinystories SET image_url = ? WHERE id = ?", (public_url, sid))
-                except Exception as e:
-                    print(f"TS Image Gen Failed: {e}")
-                    
-                # Audio
+                    if generate_image_openai(prompt, filepath): image_success = True
+                except Exception as e: print(f"TS Image OpenAI Gen Failed: {e}")
+                
+            if not image_success and os.environ.get('GOOGLE_API_KEY'):
                 try:
-                    # Use a unique prefix to avoid ID collisions in global audio cache
-                    success, result = generate_audio_file(f"ts_story_{sid}", c, speed=spd, language='en')
-                    if success:
-                        with get_ts_db_context() as conn:
-                            conn.execute("UPDATE tinystories SET audio_url = ? WHERE id = ?", (result, sid))
+                    if generate_image_google(prompt, filepath): image_success = True
+                except Exception as e: print(f"TS Image Google Gen Failed: {e}")
+
+            if image_success:
+                try:
+                    with get_ts_db_context() as conn:
+                        conn.execute("UPDATE tinystories SET image_url = ? WHERE id = ?", (public_url, sid))
                 except Exception as e:
-                    print(f"TS Audio Gen Failed: {e}")
-            
-            threading.Thread(target=background_assets, args=(story_id, topic, content, speed)).start()
+                    print(f"TS Image DB Update Failed: {e}")
+                
+            # Audio
+            try:
+                # Use a unique prefix to avoid ID collisions in global audio cache
+                success, result = generate_audio_file(f"ts_story_{sid}", c, speed=spd, language='en')
+                if success:
+                    with get_ts_db_context() as conn:
+                        conn.execute("UPDATE tinystories SET audio_url = ? WHERE id = ?", (result, sid))
+            except Exception as e:
+                print(f"TS Audio Gen Failed: {e}")
+        
+        threading.Thread(target=background_assets, args=(story_id, topic, content, speed)).start()
             
         return jsonify({
             "success": True,
@@ -166,16 +180,32 @@ def generate_assets(story_id):
             
         def background_assets(sid, t, c, spd):
             # Image
+            filename = f"tinystory_{sid}.png"
+            filepath = os.path.join(IMAGE_DIR, filename)
+            prompt = f"Children's story book illustration about: {t}. Beautiful watercolor, simple, bright. Context: {c[:200]}"
+            public_url = f"/images/stories/{filename}"
+            image_success = False
+
             try:
-                filename = f"tinystory_{sid}.png"
-                filepath = os.path.join(IMAGE_DIR, filename)
-                prompt = f"Children's story book illustration about: {t}. Beautiful watercolor, simple, bright. Context: {c[:200]}"
-                if generate_image_hf(prompt, filepath):
-                    public_url = f"/images/stories/{filename}"
+                if generate_image_hf(prompt, filepath): image_success = True
+            except Exception as e: print(f"TS Image HF Gen Failed: {e}")
+
+            if not image_success and os.environ.get('OPENAI_API_KEY'):
+                try:
+                    if generate_image_openai(prompt, filepath): image_success = True
+                except Exception as e: print(f"TS Image OpenAI Gen Failed: {e}")
+                
+            if not image_success and os.environ.get('GOOGLE_API_KEY'):
+                try:
+                    if generate_image_google(prompt, filepath): image_success = True
+                except Exception as e: print(f"TS Image Google Gen Failed: {e}")
+
+            if image_success:
+                try:
                     with get_ts_db_context() as conn:
                         conn.execute("UPDATE tinystories SET image_url = ? WHERE id = ?", (public_url, sid))
-            except Exception as e:
-                print(f"TS Image Gen Failed: {e}")
+                except Exception as e:
+                    print(f"TS Image DB Update Failed: {e}")
                 
             # Audio
             try:

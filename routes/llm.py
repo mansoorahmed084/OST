@@ -495,21 +495,33 @@ def extract_metadata_and_questions(story_text, provider=None):
 
     response_text = None
 
-    # Fallback to a cloud LLM for metadata extraction if local is selected
-    if provider in ['tinystories', 'default']:
-        if os.environ.get('GOOGLE_API_KEY'): provider = 'gemini'
-        elif os.environ.get('GROQ_API_KEY'): provider = 'groq'
-        elif os.environ.get('OPENAI_API_KEY'): provider = 'openai'
+    # Try multiple providers as fallback for metadata extraction
+    providers_to_try = [provider] if provider not in ['tinystories', 'default'] else []
+    
+    # Add other available providers as fallbacks
+    if os.environ.get('GOOGLE_API_KEY') and 'gemini' not in providers_to_try:
+        providers_to_try.append('gemini')
+    if os.environ.get('GROQ_API_KEY') and 'groq' not in providers_to_try:
+        providers_to_try.append('groq')
+    if os.environ.get('OPENAI_API_KEY') and 'openai' not in providers_to_try:
+        providers_to_try.append('openai')
 
-    if provider == 'gemini':
-        key = os.environ.get('GOOGLE_API_KEY')
-        if key: response_text = generate_with_gemini(system_prompt, user_prompt, key)
-    elif provider == 'openai':
-        key = os.environ.get('OPENAI_API_KEY')
-        if key: response_text = generate_with_openai(system_prompt, user_prompt, key)
-    elif provider == 'groq':
-        key = os.environ.get('GROQ_API_KEY')
-        if key: response_text = generate_with_groq(system_prompt, user_prompt, key)
+    for p in providers_to_try:
+        try:
+            if p == 'gemini':
+                key = os.environ.get('GOOGLE_API_KEY')
+                if key: response_text = generate_with_gemini(system_prompt, user_prompt, key)
+            elif p == 'openai':
+                key = os.environ.get('OPENAI_API_KEY')
+                if key: response_text = generate_with_openai(system_prompt, user_prompt, key)
+            elif p == 'groq':
+                key = os.environ.get('GROQ_API_KEY')
+                if key: response_text = generate_with_groq(system_prompt, user_prompt, key)
+                
+            if response_text:
+                break
+        except Exception as e:
+            print(f"Failed to generate metadata with {p}: {e}")
 
     if response_text:
         try:
