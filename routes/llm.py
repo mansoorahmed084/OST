@@ -476,18 +476,19 @@ def extract_metadata_and_questions(story_text, provider=None):
     
     CRITICAL INSTRUCTION - DO NOT RETURN EMPTY ARRAYS:
     Even if the story is extremely short (e.g. 2 sentences), you MUST generate the following questions. If the text lacks details, creatively invent reasonable questions or use general reading-comprehension context derived from the nouns.
-    4. "mcqs": MUST returning an array of AT LEAST 2 multiple-choice questions formatted like {"question": "...", "options": ["Choice 1", "Choice 2", "Choice 3", "Choice 4"], "correct_answer": "Choice 1"}.
-    5. "fill_in_blanks": MUST return an array of AT LEAST 2 fill-in-the-blank questions formatted like {"sentence": "The dog was very ____.", "answer": "happy", "options": ["sad", "happy", "angry"]}.
-    6. "moral_questions": MUST return an array of AT LEAST 1 question testing the moral understanding formatted like {"question": "...", "options": ["Option 1", "Option 2"], "correct_answer": "Option 1"}.
+    The questions MUST BE CHALLENGING and thought-provoking to truly test reading comprehension. Do not make them too easy.
+    4. "mcqs": MUST return an array of EXACTLY 5 challenging multiple-choice questions formatted like {"question": "...", "options": ["Choice 1", "Choice 2", "Choice 3", "Choice 4"], "correct_answer": "Choice 1"}.
+    5. "fill_in_blanks": MUST return an array of EXACTLY 5 challenging fill-in-the-blank questions formatted like {"sentence": "The dog was very ____.", "answer": "happy", "options": ["sad", "happy", "angry", "excited"]}. The options must contain exactly 4 choices.
+    6. "moral_questions": MUST return an array of EXACTLY 3 questions testing the deeper moral understanding, formatted like {"question": "...", "options": ["Option 1", "Option 2", "Option 3", "Option 4"], "correct_answer": "Option 1"}.
 
     JSON Schema exactly like this:
     {
         "corrected_story": "...",
         "moral": "...",
         "vocab": [{"word": "...", "meaning": "..."}],
-        "mcqs": [{"question": "...", "options": ["A", "B", "C", "D"], "correct_answer": "A"}],
-        "fill_in_blanks": [{"sentence": "...", "answer": "...", "options": ["..."]}],
-        "moral_questions": [{"question": "...", "options": ["A", "B"], "correct_answer": "A"}]
+        "mcqs": [{"question": "...", "options": ["Choice 1", "Choice 2", "Choice 3", "Choice 4"], "correct_answer": "Choice 1"}],
+        "fill_in_blanks": [{"sentence": "...", "answer": "...", "options": ["Choice 1", "Choice 2", "Choice 3", "Choice 4"]}],
+        "moral_questions": [{"question": "...", "options": ["Choice 1", "Choice 2", "Choice 3", "Choice 4"], "correct_answer": "Choice 1"}]
     }
     """
     user_prompt = f"Story: {story_text}"
