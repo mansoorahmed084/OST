@@ -9,13 +9,13 @@ def test_tc_db_01_page_load_and_rendering(page: Page):
     page.goto(BASE_URL)
     
     # Check Welcome Message
-    expect(page.locator(".hero-title")).to_contain_text("Welcome")
+    expect(page.locator("#home-page .hero-title")).to_contain_text("Welcome")
     
     # Check Daily Mission Progress Bar
-    expect(page.locator(".adventure-header")).to_be_visible()
+    expect(page.locator("#home-page .adventure-header")).to_be_visible()
     
     # Check Feature Cards (should be 8 visible feature cards based on HTML structure)
-    cards = page.locator(".hero-card")
+    cards = page.locator("#home-page .hero-card")
     expect(cards).to_have_count(8)
 
 def test_tc_db_02_navigation_bar(page: Page):
@@ -41,9 +41,9 @@ def test_tc_st_01_list_stories(page: Page):
     page.click('.nav-btn[data-page="stories"]')
     
     # Wait for the stories grid to load
-    expect(page.locator(".story-generator")).to_be_visible()
+    expect(page.locator("#stories-page .story-generator")).to_be_visible()
     # At least the grid exists, might be empty or loading
-    expect(page.locator("#stories-list")).to_be_visible()
+    expect(page.locator("#stories-page #stories-list")).to_be_visible()
 
 # 3. Practice Speaking
 def test_tc_sp_01_practice_page_loads(page: Page):
@@ -51,7 +51,7 @@ def test_tc_sp_01_practice_page_loads(page: Page):
     page.goto(BASE_URL)
     page.click('.nav-btn[data-page="practice"]')
     
-    expect(page.locator("h1")).to_contain_text("Speaking Practice")
+    expect(page.locator("#practice-page h1")).to_contain_text("Speaking Practice")
     expect(page.locator("#start-practice")).to_be_visible()
 
 # 4. Take Quiz
@@ -60,7 +60,7 @@ def test_tc_qz_01_quiz_fetching(page: Page):
     page.goto(BASE_URL)
     page.click('.nav-btn[data-page="quiz"]')
     
-    expect(page.locator("h1")).to_contain_text("Quiz Time")
+    expect(page.locator("#quiz-page h1")).to_contain_text("Quiz Time")
     expect(page.locator("#quiz-story-selection")).to_be_visible()
 
 # 5. Read & Learn ("TinyStories")
@@ -69,7 +69,7 @@ def test_tc_rl_01_read_and_learn_interface(page: Page):
     page.goto(BASE_URL)
     page.click('.nav-btn[data-page="tinystories"]')
     
-    expect(page.locator("h1")).to_contain_text("Read & Learn")
+    expect(page.locator("#tinystories-page h1")).to_contain_text("Read & Learn")
     expect(page.locator("#ts-topic")).to_be_visible()
     expect(page.locator("#ts-generate-btn")).to_be_visible()
 
@@ -79,7 +79,7 @@ def test_tc_vc_01_vocabulary_gallery(page: Page):
     page.goto(BASE_URL)
     page.click('.nav-btn[data-page="vocabulary"]')
     
-    expect(page.locator("h1")).to_contain_text("My Word Collection")
+    expect(page.locator("#vocabulary-page .page-header h1")).to_contain_text("My Word Collection")
     expect(page.locator("#vocab-total-count")).to_be_visible()
 
 # 7. Scramble Game
@@ -88,10 +88,10 @@ def test_tc_sc_01_scramble_mode(page: Page):
     page.goto(BASE_URL)
     page.click('.nav-btn[data-page="scramble"]')
     
-    expect(page.locator("h1")).to_contain_text("Story Builder")
-    expect(page.locator(".sp-diff-btn[data-diff='easy']")).to_be_visible()
-    expect(page.locator(".sp-diff-btn[data-diff='medium']")).to_be_visible()
-    expect(page.locator(".sp-diff-btn[data-diff='hard']")).to_be_visible()
+    expect(page.locator("#scramble-page h1")).to_contain_text("Story Builder")
+    expect(page.locator("#scramble-page .sp-diff-btn[data-diff='easy']")).to_be_visible()
+    expect(page.locator("#scramble-page .sp-diff-btn[data-diff='medium']")).to_be_visible()
+    expect(page.locator("#scramble-page .sp-diff-btn[data-diff='hard']")).to_be_visible()
 
 # 8. Chat & Explore
 def test_tc_ch_01_chat_interface(page: Page):
@@ -99,7 +99,7 @@ def test_tc_ch_01_chat_interface(page: Page):
     page.goto(BASE_URL)
     page.click('.nav-btn[data-page="chat"]')
     
-    expect(page.locator("h1")).to_contain_text("Chat with Buddy")
+    expect(page.locator("#chat-page h1")).to_contain_text("Chat with Buddy")
     expect(page.locator("#buddy-input")).to_be_visible()
     expect(page.locator("#buddy-send")).to_be_visible()
 
@@ -109,8 +109,8 @@ def test_tc_dc_01_daily_challenge(page: Page):
     page.goto(BASE_URL)
     page.click('.nav-btn[data-page="recall"]')
     
-    expect(page.locator("h1")).to_contain_text("Daily Adventure")
-    missions = page.locator(".mission-card")
+    expect(page.locator("#recall-page h1")).to_contain_text("Daily Adventure")
+    missions = page.locator("#recall-page .mission-card")
     expect(missions).to_have_count(4)
 
 # 10. Achievements
@@ -119,5 +119,5 @@ def test_tc_ac_01_achievements_dashboard(page: Page):
     page.goto(BASE_URL)
     page.click('.nav-btn[data-page="achievements"]')
     
-    expect(page.locator("h1")).to_contain_text("My Badges")
+    expect(page.locator("#achievements-page .page-header h1")).to_contain_text("Trophy Room")
     expect(page.locator("#badge-unlocked-count")).to_be_visible()
