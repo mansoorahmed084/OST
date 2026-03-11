@@ -155,6 +155,11 @@ function startMemoryRound() {
     const row2Items = [...memoryState.items].sort(() => Math.random() - 0.5);
 
     renderMemoryRow(memoryState.els.row1, memoryState.items, 1);
+
+    // Show divider now that we have rows
+    const divider = document.getElementById('memory-divider');
+    if (divider) divider.style.display = 'block';
+
     renderMemoryRow(memoryState.els.row2, row2Items, 2);
 
     // Start Preview
@@ -309,28 +314,40 @@ function finishMemoryRound() {
         showMemoryFeedback(`Great job! You made ${memoryState.roundErrors} mistakes.`, "error");
     }
 
-    // Adaptive logic (Only if auto is on)
-    if (memoryState.config.gridSetting === 'auto') {
-        if (memoryState.consecutivePerfects >= 3) {
-            if (memoryState.activeLevel < 4) {
-                memoryState.activeLevel++;
-                memoryState.config.timer = Math.max(3, memoryState.config.timer);
-                memoryState.consecutivePerfects = 0;
-            }
-        } else if (memoryState.consecutiveFails >= 2 && memoryState.roundErrors > 3) {
-            if (memoryState.activeLevel > 1) {
-                memoryState.activeLevel--;
-                memoryState.consecutiveFails = 0;
-            } else {
-                memoryState.config.timer = Math.min(10, memoryState.config.timer + 2);
-                memoryState.consecutiveFails = 0;
-            }
+    // Adaptive logic (Always on, so custom starting levels still adapt)
+    if (memoryState.consecutivePerfects >= 3) {
+        if (memoryState.activeLevel < 4) {
+            memoryState.activeLevel++;
+            memoryState.config.timer = Math.max(3, memoryState.config.timer);
+            memoryState.consecutivePerfects = 0;
+            // Update UI dropdown to match adapted level
+            memoryState.config.gridSetting = (memoryState.activeLevel + 1).toString();
+            if (memoryState.els.gridInput) memoryState.els.gridInput.value = memoryState.config.gridSetting;
+        }
+    } else if (memoryState.consecutiveFails >= 2 && memoryState.roundErrors > 3) {
+        if (memoryState.activeLevel > 1) {
+            memoryState.activeLevel--;
+            memoryState.consecutiveFails = 0;
+            // Update UI dropdown to match adapted level
+            memoryState.config.gridSetting = (memoryState.activeLevel + 1).toString();
+            if (memoryState.els.gridInput) memoryState.els.gridInput.value = memoryState.config.gridSetting;
+        } else {
+            memoryState.config.timer = Math.min(10, memoryState.config.timer + 2);
+            memoryState.consecutiveFails = 0;
         }
     }
 
     setTimeout(() => {
         updateMemoryStatsUI();
         memoryState.els.startBtn.classList.remove('hidden');
+
+        // Hide divider and old cards
+        const divider = document.getElementById('memory-divider');
+        if (divider) divider.style.display = 'none';
+        memoryState.els.row1.innerHTML = '';
+        memoryState.els.row2.innerHTML = '';
+        memoryState.els.feedback.classList.add('hidden');
+
         memoryState.els.startBtn.innerHTML = '<span class="btn-icon">▶️</span><span>Play Next Round</span>';
     }, 2500);
 }

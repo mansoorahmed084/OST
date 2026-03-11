@@ -953,26 +953,21 @@
                         <div id="memory-progress-text" class="memory-progress-text">Look carefully!</div>
                     </div>
 
-                    <div class="memory-game-area" id="memory-game-area">
-                        <div class="memory-row top-row" id="memory-row-1"></div>
-                        <div class="memory-divider"></div>
-                        <div class="memory-row bottom-row" id="memory-row-2"></div>
-                    </div>
-                </div>
+                    <div class="memory-game-area" id="memory-game-area"
+                        style="position: relative; min-height: 400px; display: flex; flex-direction: column; justify-content: center; align-items: center;">
 
-                <!-- Right Side Panel (Play Controls and Feedback) -->
-                <div class="memory-side-panel">
-                    <div class="memory-controls"
-                        style="flex-direction: column; justify-content: flex-start; height: 100%; align-items: stretch;">
-                        <div class="memory-play-controls" style="margin-top: 0; width: 100%; display: flex;">
-                            <button id="memory-start-btn" class="control-btn primary"
-                                style="width: 100%; padding: 1.5rem 1rem; font-size: 1.2rem;">
-                                <span class="btn-icon">▶️</span>
-                                <div>Start Game</div>
-                            </button>
-                        </div>
-                        <div id="memory-feedback" class="memory-feedback hidden" style="margin-top: 1rem;"></div>
+                        <button id="memory-start-btn" class="control-btn primary"
+                            style="position: absolute; z-index: 20; padding: 1.5rem 3rem; font-size: 1.8rem; box-shadow: 0 10px 30px rgba(0,0,0,0.5); border-radius: 20px;">
+                            <span class="btn-icon">▶️</span>
+                            <span>Start Game</span>
+                        </button>
+
+                        <div class="memory-row top-row" id="memory-row-1" style="width: 100%;"></div>
+                        <div class="memory-divider" id="memory-divider" style="display: none; width: 100%;"></div>
+                        <div class="memory-row bottom-row" id="memory-row-2" style="width: 100%;"></div>
                     </div>
+
+                    <div id="memory-feedback" class="memory-feedback hidden" style="margin-top: 1rem;"></div>
                 </div>
             </div>
 
