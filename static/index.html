@@ -7,6 +7,7 @@
     <title>OST - Omar's Speech Teacher</title>
     <meta name="description" content="Interactive learning platform for speech and language development">
     <link rel="stylesheet" href="/css/styles.css">
+    <link rel="stylesheet" href="/css/memory.css">
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link
@@ -58,6 +59,10 @@
                 <button class="nav-btn" data-page="scramble">
                     <span class="nav-icon">🧩</span>
                     <span>Scramble</span>
+                </button>
+                <button class="nav-btn" data-page="memory">
+                    <span class="nav-icon">🎭</span>
+                    <span>Memory</span>
                 </button>
                 <button class="nav-btn" data-page="achievements">
                     <span class="nav-icon">🏆</span>
@@ -133,6 +138,11 @@
                             <div class="card-icon">🧩</div>
                             <h3>Story Builder</h3>
                             <p>Unscramble story sentences</p>
+                        </div>
+                        <div class="hero-card" data-navigate="memory">
+                            <div class="card-icon">🎭</div>
+                            <h3>Memory Match</h3>
+                            <p>Twin Row Memory Game</p>
                         </div>
                     </div>
                 </div>
@@ -913,6 +923,107 @@
             </div>
         </section>
 
+        <!-- Memory Match Page -->
+        <section id="memory-page" class="page">
+            <div class="page-header" style="display: none;">
+                <h1>🎭 Memory Match</h1>
+                <p>Find the same pictures in the top and bottom rows!</p>
+            </div>
+
+            <div class="memory-layout-wrapper">
+                <!-- Left Side Panel (Stats and Settings) -->
+                <div class="memory-side-panel">
+                    <div class="memory-controls" style="flex-direction: column; align-items: stretch;">
+                        <h2 style="text-align: center; margin-bottom: 1rem; font-size: 1.5rem;">🎭 Memory Match</h2>
+                        <div class="memory-stats"
+                            style="flex-direction: column; align-items: stretch; text-align: center;">
+                            <span id="memory-level">Level 1 (2x2)</span>
+                            <span id="memory-matches">Matches: 0</span>
+                            <span id="memory-errors">Errors: 0</span>
+                        </div>
+                        <button class="control-btn" id="memory-settings-btn" style="margin-top: 1.5rem; width: 100%;">⚙️
+                            Settings</button>
+                    </div>
+                </div>
+
+                <!-- Main Game Area -->
+                <div class="memory-main-area">
+                    <div id="memory-progress-container" class="memory-progress-container">
+                        <div id="memory-progress-bar" class="memory-progress-bar"></div>
+                        <div id="memory-progress-text" class="memory-progress-text">Look carefully!</div>
+                    </div>
+
+                    <div class="memory-game-area" id="memory-game-area">
+                        <div class="memory-row top-row" id="memory-row-1"></div>
+                        <div class="memory-divider"></div>
+                        <div class="memory-row bottom-row" id="memory-row-2"></div>
+                    </div>
+                </div>
+
+                <!-- Right Side Panel (Play Controls and Feedback) -->
+                <div class="memory-side-panel">
+                    <div class="memory-controls"
+                        style="flex-direction: column; justify-content: flex-start; height: 100%; align-items: stretch;">
+                        <div class="memory-play-controls" style="margin-top: 0; width: 100%; display: flex;">
+                            <button id="memory-start-btn" class="control-btn primary"
+                                style="width: 100%; padding: 1.5rem 1rem; font-size: 1.2rem;">
+                                <span class="btn-icon">▶️</span>
+                                <div>Start Game</div>
+                            </button>
+                        </div>
+                        <div id="memory-feedback" class="memory-feedback hidden" style="margin-top: 1rem;"></div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Memory Settings Modal -->
+            <div id="memory-settings-modal" class="modal-overlay hidden">
+                <div class="modal-content" style="max-width: 400px; text-align: left;">
+                    <div class="modal-header">
+                        <h2>⚙️ Game Settings</h2>
+                        <button class="control-btn" id="close-memory-settings">❌</button>
+                    </div>
+
+                    <div class="settings-group" style="margin-top: 1rem;">
+                        <label style="display: block; margin-bottom: 0.5rem; color: var(--text-secondary);">Preview Time
+                            (seconds)</label>
+                        <input type="range" id="memory-timer-setting" min="1" max="10" value="3" style="width: 100%;">
+                        <div style="text-align: right; font-weight: bold;" id="memory-timer-display">3s</div>
+                    </div>
+
+                    <div class="settings-group" style="margin-top: 1rem;">
+                        <label style="display: block; margin-bottom: 0.5rem; color: var(--text-secondary);">Grid
+                            Size</label>
+                        <select id="memory-grid-setting" class="form-select"
+                            style="background: var(--bg-card); color: var(--text-primary); border: 1px solid var(--border-color); padding: 5px; width: 100%; border-radius: 8px;">
+                            <option value="auto">Auto (Adaptive)</option>
+                            <option value="2">Level 1 (2x2)</option>
+                            <option value="3">Level 2 (3x2)</option>
+                            <option value="4">Level 3 (4x2)</option>
+                            <option value="5">Level 4 (5x2)</option>
+                        </select>
+                    </div>
+
+                    <div class="settings-group" style="margin-top: 1rem;">
+                        <label
+                            style="display: block; margin-bottom: 0.5rem; color: var(--text-secondary);">Category</label>
+                        <select id="memory-category-setting" class="form-select"
+                            style="background: var(--bg-card); color: var(--text-primary); border: 1px solid var(--border-color); padding: 5px; width: 100%; border-radius: 8px;">
+                            <option value="mixed">Mixed/Random</option>
+                            <option value="animals">Animals</option>
+                            <option value="food">Food</option>
+                            <option value="fruits">Fruits</option>
+                            <option value="sports">Sports</option>
+                            <option value="vehicles">Vehicles</option>
+                        </select>
+                    </div>
+
+                    <button id="save-memory-settings-btn" class="control-btn primary"
+                        style="width: 100%; margin-top: 1.5rem;">Save Changes</button>
+                </div>
+            </div>
+        </section>
+
     </main>
 
     <!-- Loading Overlay -->
@@ -1046,6 +1157,7 @@
     </div>
 
     <script src="/js/app.js"></script>
+    <script src="/js/memory.js"></script>
 </body>
 
 </html>

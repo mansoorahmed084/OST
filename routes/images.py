@@ -293,3 +293,31 @@ def generate_sentence_image():
         return jsonify({'success': False, 'error': result}), 500
     except Exception as e:
         return jsonify({'success': False, 'error': str(e)}), 500
+
+@bp.route('/memory-cards', methods=['GET'])
+def get_memory_cards():
+    """Returns a list of all memory cards available in the static/images/memory folder."""
+    try:
+        memory_dir = os.path.join('static', 'images', 'memory')
+        if not os.path.exists(memory_dir):
+            return jsonify({'success': True, 'cards': []})
+            
+        cards = []
+        for filename in os.listdir(memory_dir):
+            if filename.lower().endswith(('.png', '.jpg', '.jpeg', '.gif')):
+                # Format: Category-ItemName.jpg
+                parts = filename.rsplit('.', 1)[0].split('-', 1)
+                category = parts[0].lower() if len(parts) > 1 else 'mixed'
+                label = parts[1].replace('_', ' ') if len(parts) > 1 else parts[0]
+                
+                cards.append({
+                    'id': filename,
+                    'category': category + 's' if not category.endswith('s') and category != 'food' else category, # simple pluralization
+                    'label': label,
+                    'image': f'/images/memory/{filename}'
+                })
+                
+        return jsonify({'success': True, 'cards': cards})
+    except Exception as e:
+        return jsonify({'success': False, 'error': str(e)}), 500
+
