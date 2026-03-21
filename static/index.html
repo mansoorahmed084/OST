@@ -747,9 +747,15 @@
                             You got <span id="quiz-score">0</span> correct!
                         </div>
                         <p id="quiz-encouragement"></p>
-                        <button id="quiz-home-btn" class="control-btn primary">
-                            <span>Back to Stories</span>
-                        </button>
+                        <div style="display: flex; gap: 1rem; justify-content: center; flex-wrap: wrap; margin-top: 1rem;">
+                            <button id="quiz-home-btn" class="control-btn primary">
+                                <span>Back to Stories</span>
+                            </button>
+                            <button id="quiz-regenerate-btn" class="control-btn" title="Re-generate quiz questions with AI">
+                                <span class="btn-icon">🔄</span>
+                                <span>New Questions</span>
+                            </button>
+                        </div>
                     </div>
                 </div>
             </div>
@@ -773,7 +779,10 @@
                 </div>
 
                 <div class="chat-input-row">
-                    <input type="text" id="buddy-input" class="chat-input" placeholder="Type a message to Buddy...">
+                    <input type="text" id="buddy-input" class="chat-input" placeholder="Type or tap the mic to speak...">
+                    <button id="buddy-mic-btn" class="control-btn" title="Speak to Buddy" style="width: auto; padding: 0.8rem; flex-shrink: 0;">
+                        <span id="buddy-mic-icon">🎤</span>
+                    </button>
                     <button id="buddy-send" class="chat-send-btn">
                         <span>Send</span>
                         <span class="btn-icon">🚀</span>
@@ -1020,6 +1029,26 @@
         </section>
 
     </main>
+
+    <!-- Daily Adventure WIN Celebration Modal -->
+    <div id="daily-win-modal" class="modal-overlay hidden" style="z-index: 9998;">
+        <div class="modal-content" style="max-width: 480px; text-align: center; background: linear-gradient(135deg, #1e293b 0%, #312e81 100%); border: 2px solid rgba(99,102,241,0.5); overflow: visible;">
+            <div id="win-confetti-container" style="position: absolute; top: 0; left: 0; width: 100%; height: 100%; pointer-events: none; overflow: hidden; border-radius: var(--radius-lg);"></div>
+            <div style="font-size: 5rem; margin-bottom: 1rem; animation: bounce 0.8s ease-in-out infinite;">🎉</div>
+            <h2 style="font-size: 2rem; background: var(--gradient-warm); -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text; margin-bottom: 0.5rem;">Amazing, Omar!</h2>
+            <p style="font-size: 1.3rem; color: var(--text-secondary); margin-bottom: 1.5rem;">You completed ALL 4 daily missions! 🌟</p>
+            <div style="display: flex; gap: 1rem; justify-content: center; flex-wrap: wrap; font-size: 2.5rem; margin-bottom: 1.5rem;">
+                <span title="Story Explorer">📖</span>
+                <span title="Magic Words">🎤</span>
+                <span title="Chat Buddy">💬</span>
+                <span title="Story Builder">🧩</span>
+            </div>
+            <p style="color: var(--success-color); font-size: 1rem; margin-bottom: 1.5rem;">You are a learning superhero today! ⭐</p>
+            <button id="close-win-modal" class="control-btn primary" style="margin: 0 auto; padding: 0.8rem 2.5rem; font-size: 1.1rem;">
+                <span>🚀 Keep Going!</span>
+            </button>
+        </div>
+    </div>
 
     <!-- Loading Overlay -->
     <div id="loading-overlay" class="loading-overlay hidden">

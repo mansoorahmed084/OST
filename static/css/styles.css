@@ -2846,3 +2846,26 @@ body::before {
 .success-animate {
     animation: success-pop 0.4s ease;
 }
+
+/* === Buddy Mic Recording State === */
+#buddy-mic-btn.recording {
+    background: rgba(239, 68, 68, 0.2);
+    border-color: var(--error-color);
+    animation: micPulse 1s ease-in-out infinite;
+}
+
+@keyframes micPulse {
+    0%, 100% { box-shadow: 0 0 0 0 rgba(239, 68, 68, 0.4); }
+    50% { box-shadow: 0 0 0 8px rgba(239, 68, 68, 0); }
+}
+
+/* === Daily Win Modal === */
+#daily-win-modal .modal-content {
+    position: relative;
+    animation: winPop 0.5s cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+
+@keyframes winPop {
+    from { transform: scale(0.5) translateY(30px); opacity: 0; }
+    to   { transform: scale(1) translateY(0);      opacity: 1; }
+}

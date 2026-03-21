@@ -1529,6 +1529,36 @@ function initializeQuizPage() {
         navigateToPage('stories');
     });
 
+    // New Questions (force regenerate) button
+    document.getElementById('quiz-regenerate-btn')?.addEventListener('click', async () => {
+        const storyId = state.currentQuizStoryId;
+        if (!storyId) return;
+        try {
+            showLoading();
+            const response = await fetch(`${API_BASE}/quiz/generate/${storyId}`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ regenerate: true })
+            });
+            const data = await response.json();
+            if (data.success && data.questions.length > 0) {
+                state.currentQuestions = data.questions;
+                state.currentQuestionIndex = 0;
+                state.quizScore = 0;
+                document.getElementById('quiz-results').classList.add('hidden');
+                document.getElementById('quiz-interface').classList.remove('hidden');
+                showQuizQuestion(0);
+            } else {
+                showError('Could not regenerate questions.');
+            }
+        } catch (e) {
+            console.error('Regenerate quiz error:', e);
+            showError('Failed to regenerate quiz');
+        } finally {
+            hideLoading();
+        }
+    });
+
     // Next button
     document.getElementById('quiz-next-btn')?.addEventListener('click', () => {
         state.currentQuestionIndex++;
@@ -1588,10 +1618,10 @@ async function updateAdventureProgress() {
             updateMissionCard('mission-chat', missions.chat);
             updateMissionCard('mission-scramble', missions.scramble);
 
-            // If all done, maybe a special celebration?
-            if (data.completed === data.total && !state.dailyCelebrated) {
+            // Show full-screen celebration when ALL missions are done (once per session)
+            if (data.completed === data.total && data.total > 0 && !state.dailyCelebrated) {
                 state.dailyCelebrated = true;
-                // show celebration?
+                showDailyWinCelebration();
             }
         }
     } catch (e) {
@@ -1609,6 +1639,72 @@ function updateMissionCard(id, isCompleted) {
     } else {
         card.classList.remove('completed');
         card.querySelector('.mission-status').textContent = '⏳';
+    }
+}
+
+// ===================================
+// Daily Win Celebration
+// ===================================
+function showDailyWinCelebration() {
+    const modal = document.getElementById('daily-win-modal');
+    if (!modal) return;
+
+    modal.classList.remove('hidden');
+    launchConfetti(document.getElementById('win-confetti-container'));
+
+    document.getElementById('close-win-modal')?.addEventListener('click', () => {
+        modal.classList.add('hidden');
+    }, { once: true });
+
+    // Auto-close after 8 seconds
+    setTimeout(() => modal.classList.add('hidden'), 8000);
+
+    // Buddy speaks
+    if (typeof speakBuddy === 'function') {
+        speakBuddy("Amazing! You finished all your missions today! You are a learning superhero!");
+    }
+}
+
+function launchConfetti(container) {
+    if (!container) return;
+    container.innerHTML = '';
+    const colors = ['#6366f1', '#f59e0b', '#10b981', '#ef4444', '#ec4899', '#3b82f6', '#fbbf24'];
+    const emojis = ['🌟', '⭐', '🎉', '🎈', '🏆', '✨', '🦋', '🌈'];
+
+    for (let i = 0; i < 40; i++) {
+        const piece = document.createElement('div');
+        const useEmoji = Math.random() > 0.5;
+        if (useEmoji) {
+            piece.textContent = emojis[Math.floor(Math.random() * emojis.length)];
+            piece.style.fontSize = `${10 + Math.random() * 18}px`;
+        } else {
+            piece.style.width = `${6 + Math.random() * 8}px`;
+            piece.style.height = `${6 + Math.random() * 8}px`;
+            piece.style.background = colors[Math.floor(Math.random() * colors.length)];
+            piece.style.borderRadius = Math.random() > 0.5 ? '50%' : '2px';
+        }
+        piece.style.position = 'absolute';
+        piece.style.left = `${Math.random() * 100}%`;
+        piece.style.top = '-20px';
+        piece.style.opacity = '1';
+        piece.style.pointerEvents = 'none';
+        const duration = 1.5 + Math.random() * 2;
+        const delay = Math.random() * 1.5;
+        piece.style.animation = `confettiFall ${duration}s ${delay}s ease-in forwards`;
+        container.appendChild(piece);
+    }
+
+    // Inject keyframes once
+    if (!document.getElementById('confetti-style')) {
+        const style = document.createElement('style');
+        style.id = 'confetti-style';
+        style.textContent = `
+            @keyframes confettiFall {
+                0% { transform: translateY(0) rotate(0deg); opacity: 1; }
+                100% { transform: translateY(350px) rotate(${360 + Math.random() * 360}deg); opacity: 0; }
+            }
+        `;
+        document.head.appendChild(style);
     }
 }
 
@@ -1988,12 +2084,72 @@ function initializeBuddyChat() {
     const input = document.getElementById('buddy-input');
     const sendBtn = document.getElementById('buddy-send');
     const resetBtn = document.getElementById('buddy-reset');
+    const micBtn = document.getElementById('buddy-mic-btn');
+    const micIcon = document.getElementById('buddy-mic-icon');
 
     sendBtn?.addEventListener('click', () => sendBuddyMessage());
     input?.addEventListener('keypress', (e) => {
         if (e.key === 'Enter') sendBuddyMessage();
     });
     resetBtn?.addEventListener('click', resetBuddyChat);
+
+    // === Voice Input for Buddy Chat ===
+    let buddyRecognition = null;
+    let buddyMicActive = false;
+
+    if (micBtn) {
+        if ('webkitSpeechRecognition' in window || 'SpeechRecognition' in window) {
+            const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
+            buddyRecognition = new SR();
+            buddyRecognition.continuous = false;
+            buddyRecognition.interimResults = true;
+            buddyRecognition.lang = 'en-IN';
+
+            buddyRecognition.onresult = (event) => {
+                let interim = '';
+                let final = '';
+                for (let i = event.resultIndex; i < event.results.length; i++) {
+                    const t = event.results[i][0].transcript;
+                    if (event.results[i].isFinal) final += t;
+                    else interim += t;
+                }
+                if (input) input.value = final || interim;
+            };
+
+            buddyRecognition.onend = () => {
+                buddyMicActive = false;
+                if (micIcon) micIcon.textContent = '🎤';
+                micBtn.classList.remove('recording');
+                // Auto-send if there is text
+                if (input && input.value.trim()) sendBuddyMessage();
+            };
+
+            buddyRecognition.onerror = (e) => {
+                console.error('Buddy mic error:', e.error);
+                buddyMicActive = false;
+                if (micIcon) micIcon.textContent = '🎤';
+                micBtn.classList.remove('recording');
+            };
+
+            micBtn.addEventListener('click', () => {
+                if (buddyMicActive) {
+                    buddyRecognition.stop();
+                } else {
+                    try {
+                        buddyRecognition.start();
+                        buddyMicActive = true;
+                        if (micIcon) micIcon.textContent = '🔴';
+                        micBtn.classList.add('recording');
+                    } catch (e) {
+                        console.error('Could not start buddy mic:', e);
+                    }
+                }
+            });
+        } else {
+            // Hide mic button if SR not available
+            micBtn.style.display = 'none';
+        }
+    }
 
     // Initial Load - Update progress when entering recall or home
     document.querySelector('.nav-btn[data-page="recall"]')?.addEventListener('click', updateAdventureProgress);
