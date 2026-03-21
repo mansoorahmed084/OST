@@ -118,12 +118,13 @@ body::before {
 }
 
 .nav-container {
-    max-width: 1400px;
-    margin: 0 auto;
+    width: 100%;
     padding: 0 var(--spacing-md);
     display: flex;
     justify-content: space-between;
     align-items: center;
+    gap: var(--spacing-xs);
+    box-sizing: border-box;
 }
 
 .logo {
@@ -158,24 +159,31 @@ body::before {
 
 .nav-links {
     display: flex;
-    gap: var(--spacing-sm);
+    gap: 2px;
+    align-items: center;
+    flex: 1;
+    justify-content: flex-end;
+    flex-wrap: nowrap;
+    overflow: hidden;
 }
 
 .nav-btn {
     background: transparent;
     border: none;
     color: var(--text-secondary);
-    padding: var(--spacing-sm) var(--spacing-md);
+    padding: 6px 10px;
     border-radius: var(--radius-md);
     cursor: pointer;
     display: flex;
     align-items: center;
-    gap: var(--spacing-xs);
-    font-size: 1rem;
+    gap: 4px;
+    font-size: 0.85rem;
     font-weight: 500;
     transition: all var(--transition-normal);
     position: relative;
     overflow: hidden;
+    white-space: nowrap;
+    flex-shrink: 0;
 }
 
 .nav-btn::before {
@@ -202,7 +210,28 @@ body::before {
 }
 
 .nav-icon {
-    font-size: 1.2rem;
+    font-size: 1.1rem;
+    flex-shrink: 0;
+}
+
+/* Responsive: hide text labels at medium widths, keep icons */
+@media (max-width: 1200px) {
+    .nav-btn span:not(.nav-icon) {
+        display: none;
+    }
+    .nav-btn {
+        padding: 6px 8px;
+    }
+    .nav-icon {
+        font-size: 1.2rem;
+    }
+}
+
+/* On wide screens, show label for active tab */
+@media (min-width: 1201px) {
+    .nav-btn span:not(.nav-icon) {
+        display: inline;
+    }
 }
 
 /* === Main Content === */
