@@ -8,7 +8,7 @@ from database import get_db_context
 import os
 import json
 import logging
-# LangChain imports handled inside functions
+from typing import Any, List, Optional
 
 logger = logging.getLogger(__name__)
 bp = Blueprint('chatbot', __name__)
@@ -27,37 +27,79 @@ Current conversation context:
 Omar: {input}
 Buddy:"""
 
+class AbacusLLM:
+    """Standalone Abacus AI wrapper (no LangChain dependency at module load)"""
+    def __init__(self, api_key: str, model_id: str = "abacus-chat-v1"):
+        self.api_key = api_key
+        self.model_id = model_id
+
+    def _llm_type(self) -> str:
+        return "abacus_ai"
+
+    def predict(self, text: str) -> str:
+        """Direct predict call - called by ConversationChain compatible interface"""
+        return self._call(text)
+
+    def _call(self, prompt: str, stop=None) -> str:
+        try:
+            from abacusai import ApiClient
+            client = ApiClient(api_key=self.api_key)
+            resp = client.evaluate_prompt(
+                prompt=prompt,
+                system_message="You are Buddy, Omar's friendly AI companion. Keep it simple and short.",
+                llm_name=self.model_id
+            )
+            return str(resp)
+        except Exception as e:
+            logger.error(f"AbacusLLM error: {e}")
+            raise
+
 # Memory Cache (in-memory for current process)
 # We'll also persist to DB to survive restarts
 _memory_cache = {}
 
 def get_llm():
     """Get LLM based on settings, preferring Gemini if available to avoid quota issues"""
-    provider = 'gemini' # Default to Gemini
+    provider_val = 'gemini' # Default to Gemini
     try:
         with get_db_context() as conn:
             cursor = conn.cursor()
             cursor.execute("SELECT value FROM settings WHERE key='llm_provider'")
             row = cursor.fetchone()
             if row:
-                provider = row[0]
+                provider_val = row[0]
+                
     except:
         pass
+
+    # Split provider:model
+    if ':' in provider_val:
+        parts = provider_val.split(':', 1)
+        provider = parts[0]
+        model_id = parts[1]
+    else:
+        provider = provider_val
+        model_id = None
+
+    # Check for Abacus FIRST
+    abacus_key = os.environ.get('ABACUS_API_KEY') or os.environ.get('ABACUS_AI_API_KEY')
+    if (provider == 'abacus' or not provider) and abacus_key:
+        return AbacusLLM(api_key=abacus_key, model_id=model_id or "abacus-chat-v1")
 
     # If Gemini is requested and we have the key, use it
     if provider == 'gemini' and os.environ.get('GOOGLE_API_KEY'):
         from langchain_google_genai import ChatGoogleGenerativeAI
         return ChatGoogleGenerativeAI(
-            model="gemini-2.0-flash",
+            model=model_id if model_id else "gemini-2.0-flash",
             google_api_key=os.environ.get('GOOGLE_API_KEY'),
             temperature=0.7
         )
     
     # If OpenAI is requested or fallback
-    if os.environ.get('OPENAI_API_KEY'):
+    if (provider == 'openai' or provider == 'abacus') and os.environ.get('OPENAI_API_KEY'):
         from langchain_openai import ChatOpenAI
         return ChatOpenAI(
-            model="gpt-4o-mini",
+            model=model_id if (model_id and provider=='openai') else "gpt-4o-mini",
             openai_api_key=os.environ.get('OPENAI_API_KEY'),
             temperature=0.7
         )
@@ -73,13 +115,35 @@ def get_llm():
 
     return None
 
+
 def get_buddy_memory(session_id, llm):
     """Get or create memory for a session"""
     if session_id not in _memory_cache:
+        # If llm is our standalone AbacusLLM, use simple dict-based memory
+        if isinstance(llm, AbacusLLM):
+            _memory_cache[session_id] = {'history': []}
+            # Load recent messages from DB
+            try:
+                with get_db_context() as conn:
+                    cursor = conn.cursor()
+                    cursor.execute("SELECT role, content FROM chatbot_messages WHERE session_id = ? ORDER BY id DESC LIMIT 10", (session_id,))
+                    msgs = cursor.fetchall()
+                    for m in reversed(msgs):
+                        _memory_cache[session_id]['history'].append({'role': m['role'], 'content': m['content']})
+            except Exception as e:
+                logger.error(f"Error loading memory from DB: {e}")
+            return _memory_cache[session_id]
+
+        # For LangChain LLMs, use ConversationSummaryBufferMemory
         try:
             from langchain.memory import ConversationSummaryBufferMemory
         except ImportError:
-            from langchain_classic.memory import ConversationSummaryBufferMemory
+            try:
+                from langchain_classic.memory import ConversationSummaryBufferMemory
+            except ImportError:
+                logger.warning("LangChain memory unavailable, using simple dict memory")
+                _memory_cache[session_id] = {'history': []}
+                return _memory_cache[session_id]
             
         # max_token_limit=1024 as requested for summarization threshold
         memory = ConversationSummaryBufferMemory(
@@ -114,6 +178,7 @@ def get_buddy_memory(session_id, llm):
         
     return _memory_cache[session_id]
 
+
 @bp.route('/ask', methods=['POST'])
 def ask():
     """Send a message to Buddy"""
@@ -127,43 +192,63 @@ def ask():
 
         llm = get_llm()
         memory = get_buddy_memory(session_id, llm)
-        
-        try:
-            from langchain.chains import ConversationChain
-            from langchain.prompts import PromptTemplate
-        except ImportError:
-            from langchain_classic.chains import ConversationChain
-            from langchain_core.prompts import PromptTemplate
-            
-        prompt = PromptTemplate(
-            input_variables=["history", "input"],
-            template=BUDDY_TEMPLATE
-        )
-        
-        conversation = ConversationChain(
-            llm=llm,
-            memory=memory,
-            prompt=prompt,
-            verbose=True
-        )
 
-        # Generate Response
-        try:
-            buddy_response = conversation.predict(input=user_input)
-        except Exception as e:
-            # Automatic fallback to Gemini if OpenAI fails (likely quota)
-            if "insufficient_quota" in str(e) or "429" in str(e):
-                logger.warning("OpenAI quota hit, falling back to Gemini for this message...")
-                from langchain_google_genai import ChatGoogleGenerativeAI
-                fallback_llm = ChatGoogleGenerativeAI(
-                    model="gemini-2.0-flash",
-                    google_api_key=os.environ.get('GOOGLE_API_KEY'),
-                    temperature=0.7
-                )
-                conversation.llm = fallback_llm
+        # --- AbacusLLM path (simple direct call, no LangChain) ---
+        if isinstance(llm, AbacusLLM):
+            history_text = ""
+            if isinstance(memory, dict) and memory.get('history'):
+                for msg in memory['history'][-6:]:  # Last 3 turns
+                    role = "Omar" if msg['role'] == 'user' else "Buddy"
+                    history_text += f"{role}: {msg['content']}\n"
+
+            prompt = BUDDY_TEMPLATE.format(history=history_text, input=user_input)
+            buddy_response = llm._call(prompt)
+
+            # Update in-memory history
+            if isinstance(memory, dict):
+                memory['history'].append({'role': 'user', 'content': user_input})
+                memory['history'].append({'role': 'buddy', 'content': buddy_response})
+
+        # --- LangChain path ---
+        else:
+            try:
+                from langchain.chains import ConversationChain
+                from langchain.prompts import PromptTemplate
+            except ImportError:
+                try:
+                    from langchain_classic.chains import ConversationChain
+                    from langchain_core.prompts import PromptTemplate
+                except ImportError:
+                    return jsonify({"success": False, "error": "LangChain not available"}), 500
+
+            prompt = PromptTemplate(
+                input_variables=["history", "input"],
+                template=BUDDY_TEMPLATE
+            )
+            conversation = ConversationChain(
+                llm=llm,
+                memory=memory,
+                prompt=prompt,
+                verbose=True
+            )
+
+            # Generate Response
+            try:
                 buddy_response = conversation.predict(input=user_input)
-            else:
-                raise e
+            except Exception as e:
+                # Automatic fallback to Gemini if OpenAI fails (likely quota)
+                if "insufficient_quota" in str(e) or "429" in str(e):
+                    logger.warning("OpenAI quota hit, falling back to Gemini for this message...")
+                    from langchain_google_genai import ChatGoogleGenerativeAI
+                    fallback_llm = ChatGoogleGenerativeAI(
+                        model="gemini-2.0-flash",
+                        google_api_key=os.environ.get('GOOGLE_API_KEY'),
+                        temperature=0.7
+                    )
+                    conversation.llm = fallback_llm
+                    buddy_response = conversation.predict(input=user_input)
+                else:
+                    raise e
 
         # Persist to DB
         try:
@@ -173,16 +258,17 @@ def ask():
                 cursor.execute("INSERT INTO chatbot_messages (session_id, role, content) VALUES (?, ?, ?)", (session_id, 'user', user_input))
                 cursor.execute("INSERT INTO chatbot_messages (session_id, role, content) VALUES (?, ?, ?)", (session_id, 'buddy', buddy_response))
                 
-                # Save Summary (LangChain updates this automatically in memory)
-                summary = memory.moving_summary_buffer
-                cursor.execute("INSERT OR REPLACE INTO chatbot_memory_state (session_id, summary, updated_at) VALUES (?, ?, CURRENT_TIMESTAMP)", (session_id, summary))
+                # Save Summary if LangChain memory
+                if hasattr(memory, 'moving_summary_buffer'):
+                    summary = memory.moving_summary_buffer
+                    cursor.execute("INSERT OR REPLACE INTO chatbot_memory_state (session_id, summary, updated_at) VALUES (?, ?, CURRENT_TIMESTAMP)", (session_id, summary))
         except Exception as e:
             logger.error(f"Error persisting chat to DB: {e}")
 
         return jsonify({
             "success": True,
             "response": buddy_response,
-            "has_summary": bool(memory.moving_summary_buffer)
+            "has_summary": hasattr(memory, 'moving_summary_buffer') and bool(memory.moving_summary_buffer)
         })
 
     except Exception as e:
