@@ -24,20 +24,6 @@ logger = logging.getLogger(__name__)
 # Load environment variables
 load_dotenv()
 
-# Load keys from file
-key_files = ['c:/temp/secret_keys.txt']
-for key_file in key_files:
-    if os.path.exists(key_file):
-        try:
-            with open(key_file, 'r') as f:
-                for line in f:
-                    if '=' in line:
-                        k, v = line.strip().split('=', 1)
-                        os.environ[k.strip()] = v.strip()
-            break
-        except Exception as e:
-            print(f"Error loading keys from {key_file}: {e}")
-
 # Initialize Flask app
 app = Flask(__name__, static_folder='static', static_url_path='')
 app.config['SECRET_KEY'] = os.getenv('SECRET_KEY', 'dev-secret-key-change-in-production')

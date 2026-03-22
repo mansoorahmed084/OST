@@ -9,3 +9,4 @@ env/
 *.log
 static/audio/*.mp3
 node_modules/
+.env.example
