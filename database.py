@@ -78,11 +78,41 @@ def init_db():
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
                 story_id INTEGER NOT NULL,
                 activity_type TEXT NOT NULL,
-                score REAL,
+                score REAL DEFAULT 0,
+                points_earned INTEGER DEFAULT 0,
+                points_possible INTEGER DEFAULT 0,
+                session_duration_sec INTEGER DEFAULT 0,
                 notes TEXT,
                 details TEXT,
                 created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
                 FOREIGN KEY (story_id) REFERENCES stories (id)
+            )
+        ''')
+
+        # Quiz attempts table (for tracking retries per question)
+        cursor.execute('''
+            CREATE TABLE IF NOT EXISTS quiz_attempts (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                story_id INTEGER NOT NULL,
+                question_id INTEGER NOT NULL,
+                attempt_number INTEGER NOT NULL,
+                is_correct BOOLEAN NOT NULL,
+                timestamp TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                FOREIGN KEY (story_id) REFERENCES stories (id),
+                FOREIGN KEY (question_id) REFERENCES quiz_questions (id)
+            )
+        ''')
+
+        # Daily logs table (Parent Journal)
+        cursor.execute('''
+            CREATE TABLE IF NOT EXISTS daily_logs (
+                date TEXT PRIMARY KEY,
+                mood TEXT,
+                sleep TEXT,
+                appetite TEXT,
+                focus TEXT,
+                notes TEXT,
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
             )
         ''')
         
@@ -118,6 +148,23 @@ def init_db():
             )
         ''')
 
+        # Settings table
+        cursor.execute('''
+            CREATE TABLE IF NOT EXISTS settings (
+                key TEXT PRIMARY KEY,
+                value TEXT NOT NULL
+            )
+        ''')
+        
+        # Default settings if none exist
+        cursor.execute("SELECT COUNT(*) FROM settings")
+        if cursor.fetchone()[0] == 0:
+            cursor.execute("INSERT INTO settings (key, value) VALUES ('llm_provider', 'abacus:abacus-chat-v1')")
+            cursor.execute("INSERT INTO settings (key, value) VALUES ('story_tone', 'default')")
+            cursor.execute("INSERT INTO settings (key, value) VALUES ('tts_provider', 'default')")
+            cursor.execute("INSERT INTO settings (key, value) VALUES ('voice_preset', 'default')")
+            cursor.execute("INSERT INTO settings (key, value) VALUES ('reader_layout', 'classic')")
+
         # Achievements Definitions
         cursor.execute('''
             CREATE TABLE IF NOT EXISTS achievements (
@@ -143,11 +190,16 @@ def init_db():
             )
         ''')
 
-        # Safely add category column if missing
+        # Safely add scoring columns if missing
         try:
-            cursor.execute("ALTER TABLE achievements ADD COLUMN category TEXT DEFAULT 'short'")
-        except Exception:
-            pass  # Column already exists
+            cursor.execute("ALTER TABLE user_progress ADD COLUMN points_earned INTEGER DEFAULT 0")
+        except Exception: pass
+        try:
+            cursor.execute("ALTER TABLE user_progress ADD COLUMN points_possible INTEGER DEFAULT 0")
+        except Exception: pass
+        try:
+            cursor.execute("ALTER TABLE user_progress ADD COLUMN session_duration_sec INTEGER DEFAULT 0")
+        except Exception: pass
             
         # Safely add details column if missing
         try:
