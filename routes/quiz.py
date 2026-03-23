@@ -248,13 +248,38 @@ def generate_quiz(story_id):
         return jsonify({'success': False, 'error': str(e)}), 500
 
 
-@bp.route('/submit', methods=['POST'])
-def submit_quiz():
-    """Submit quiz progress"""
+@bp.route('/attempt', methods=['POST'])
+def record_attempt():
+    """Record an individual question attempt (correct or retry)"""
     try:
         data = request.json
         story_id = data.get('story_id')
-        score = data.get('score', 0)
+        question_id = data.get('question_id')
+        attempt_number = data.get('attempt_number', 1)
+        is_correct = data.get('is_correct', False)
+
+        with get_db_context() as conn:
+            cursor = conn.cursor()
+            cursor.execute('''
+                INSERT INTO quiz_attempts (story_id, question_id, attempt_number, is_correct)
+                VALUES (?, ?, ?, ?)
+            ''', (story_id, question_id, attempt_number, is_correct))
+
+            return jsonify({'success': True, 'message': 'Attempt recorded!'})
+    except Exception as e:
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+
+@bp.route('/submit', methods=['POST'])
+def submit_quiz():
+    """Submit aggregate quiz progress for a session"""
+    try:
+        data = request.json
+        story_id = data.get('story_id')
+        score = data.get('score', 0) # Percentage or aggregate
+        points_earned = data.get('points_earned', 0)
+        points_possible = data.get('points_possible', 0)
+        duration = data.get('duration_sec', 0)
         activity_type = data.get('activity_type', 'quiz')
         details = data.get('details')
 
@@ -265,9 +290,10 @@ def submit_quiz():
         with get_db_context() as conn:
             cursor = conn.cursor()
             cursor.execute('''
-                INSERT INTO user_progress (story_id, activity_type, score, details)
-                VALUES (?, ?, ?, ?)
-            ''', (story_id, activity_type, score, details_str))
+                INSERT INTO user_progress 
+                (story_id, activity_type, score, points_earned, points_possible, session_duration_sec, details)
+                VALUES (?, ?, ?, ?, ?, ?, ?)
+            ''', (story_id, activity_type, score, points_earned, points_possible, duration, details_str))
 
             return jsonify({'success': True, 'message': 'Progress saved!'})
     except Exception as e:

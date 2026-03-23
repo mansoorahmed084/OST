@@ -60,16 +60,20 @@ class CloudTinyStories:
 # OpenAI import handled inside functions
 
 def get_llm_provider():
-    """Get current LLM provider from settings"""
+    """Get current LLM provider from settings. Returns (provider, model) or (provider, None)"""
     try:
         with get_db_context() as conn:
             cursor = conn.cursor()
             cursor.execute("SELECT value FROM settings WHERE key='llm_provider'")
             result = cursor.fetchone()
-            return result[0] if result else 'default'
+            val = result[0] if result else 'default'
+            if ':' in val:
+                parts = val.split(':', 1)
+                return parts[0], parts[1]
+            return val, None
     except Exception as e:
         print(f"Error getting LLM provider: {e}")
-        return 'default'
+        return 'default', None
 
 def get_story_tone():
     """Get story tone from settings"""
@@ -82,7 +86,7 @@ def get_story_tone():
     except:
         return 'default'
 
-def generate_with_gemini(system_prompt, user_prompt, api_key):
+def generate_with_gemini(system_prompt, user_prompt, api_key, model_id=None):
     try:
         from google import genai
     except ImportError:
@@ -95,14 +99,14 @@ def generate_with_gemini(system_prompt, user_prompt, api_key):
         print(f"DEBUG: Failed to initialize Gemini Client: {e}")
         return None
     
-    # List of models to try in order of preference
-    models_to_try = [
+    # List of models to try in order of preference if model_id is None
+    models_to_try = [model_id] if model_id else [
         'gemini-2.0-flash',
         'gemini-1.5-flash',
         'gemini-1.5-pro'
     ]
     
-    for model_name in models_to_try:
+    for model_name in [m for m in models_to_try if m]:
         try:
             print(f"DEBUG: Attempting generation with model: {model_name}")
             
@@ -126,12 +130,12 @@ def generate_with_gemini(system_prompt, user_prompt, api_key):
     print("DEBUG: All Gemini models failed.")
     return None
 
-def generate_with_openai(system_prompt, user_prompt, api_key):
+def generate_with_openai(system_prompt, user_prompt, api_key, model_id=None):
     try:
         from openai import OpenAI
         client = OpenAI(api_key=api_key)
         completion = client.chat.completions.create(
-            model="gpt-4o-mini",
+            model=model_id if model_id else "gpt-4o-mini",
             messages=[
                 {"role": "system", "content": system_prompt},
                 {"role": "user", "content": user_prompt}
@@ -144,7 +148,7 @@ def generate_with_openai(system_prompt, user_prompt, api_key):
         print(f"OpenAI Error: {e}")
         return None
 
-def generate_with_groq(system_prompt, user_prompt, api_key):
+def generate_with_groq(system_prompt, user_prompt, api_key, model_id=None):
     try:
         import requests
         headers = {
@@ -152,7 +156,7 @@ def generate_with_groq(system_prompt, user_prompt, api_key):
             "Content-Type": "application/json"
         }
         payload = {
-            "model": "llama3-8b-8192", 
+            "model": model_id if model_id else "llama3-8b-8192", 
             "messages": [
                 {"role": "system", "content": system_prompt},
                 {"role": "user", "content": user_prompt}
@@ -166,13 +170,33 @@ def generate_with_groq(system_prompt, user_prompt, api_key):
         print(f"Groq Error: {e}")
         return None
 
+def generate_with_abacus(system_prompt, user_prompt, api_key, model_id=None):
+    try:
+        from abacusai import ApiClient
+        client = ApiClient(api_key=api_key)
+        
+        # Abacus evaluate_prompt uses system_message and llm_name
+        # Defaulting to some common model if not specified
+        llm_name = model_id if model_id else 'abacus-chat-v1'
+        
+        response = client.evaluate_prompt(
+            prompt=user_prompt,
+            system_message=system_prompt,
+            llm_name=llm_name
+        )
+        # Assuming response is a simple string or hasattr text
+        return str(response)
+    except Exception as e:
+        print(f"Abacus AI Error: {e}")
+        return None
+
 def generate_story_text(topic, length='short', target_language='en'):
     """
     Generate story text using configured provider.
     Returns (title, content, moral, vocab, translation_data) or None.
     translation_data is a dict or None if english only.
     """
-    provider = get_llm_provider()
+    provider, model_id = get_llm_provider()
     tone = get_story_tone()
     
     if provider == 'default':
@@ -180,8 +204,8 @@ def generate_story_text(topic, length='short', target_language='en'):
 
     # Detect mismatch: TinyStories can't do translated text properly
     if provider == 'tinystories' and target_language and target_language != 'en':
-        print("TinyStories requested but doesn't support bilingual. Falling back to Gemini.")
-        provider = 'gemini' 
+        print("TinyStories requested but doesn't support bilingual. Falling back to Abacus.")
+        provider = 'abacus' 
 
     # Determine if we should use Local TinyStories
     use_local_tinystories = (provider == 'tinystories')
@@ -358,12 +382,25 @@ def generate_story_text(topic, length='short', target_language='en'):
     elif provider == 'openai':
         key = os.environ.get('OPENAI_API_KEY')
         if key:
-            response_text = generate_with_openai(system_prompt, user_prompt, key)
+            try:
+                response_text = generate_with_openai(system_prompt, user_prompt, key, model_id=model_id)
+            except Exception as e:
+                print(f"OpenAI generation failed: {e}")
     elif provider == 'groq':
         key = os.environ.get('GROQ_API_KEY')
         if key:
-            response_text = generate_with_groq(system_prompt, user_prompt, key)
-            
+            try:
+                response_text = generate_with_groq(system_prompt, user_prompt, key, model_id=model_id)
+            except Exception as e:
+                print(f"Groq generation failed: {e}")
+    elif provider == 'abacus':
+        key = os.environ.get('ABACUS_API_KEY') or os.environ.get('ABACUS_AI_API_KEY')
+        if key:
+            try:
+                response_text = generate_with_abacus(system_prompt, user_prompt, key, model_id=model_id)
+            except Exception as e:
+                print(f"Abacus generation failed: {e}")
+                
     if response_text:
         # Bilingual JSON Parsing
         if target_language and target_language != 'en':
@@ -465,8 +502,18 @@ def generate_story_text(topic, length='short', target_language='en'):
     return None
 
 def extract_metadata_and_questions(story_text, provider=None):
-    if not provider: provider = get_llm_provider()
-
+    # Use designated provider from argument, then from DB settings
+    setting_provider, setting_model = get_llm_provider() if not provider else (provider, None)
+    
+    # Abacus is now primary ranking
+    providers_to_try = [
+        (provider or setting_provider, setting_model),
+        'abacus',
+        'gemini',
+        'openai',
+        'groq'
+    ]
+    
     system_prompt = """
     You are an AI teacher helping a young kid named Omar understand stories.
     Given the story text (which was generated by a small local AI and might lose context or have logic errors), extract the following and ONLY output VALID JSON:
@@ -508,15 +555,22 @@ def extract_metadata_and_questions(story_text, provider=None):
 
     for p in providers_to_try:
         try:
-            if p == 'gemini':
+            # Handle both string (fallback) and tuple (current) provider formats
+            p_name = p[0] if isinstance(p, tuple) else p
+            p_model = p[1] if isinstance(p, tuple) else None
+
+            if p_name == 'gemini':
                 key = os.environ.get('GOOGLE_API_KEY')
-                if key: response_text = generate_with_gemini(system_prompt, user_prompt, key)
-            elif p == 'openai':
+                if key: response_text = generate_with_gemini(system_prompt, user_prompt, key, model_id=p_model)
+            elif p_name == 'openai':
                 key = os.environ.get('OPENAI_API_KEY')
-                if key: response_text = generate_with_openai(system_prompt, user_prompt, key)
-            elif p == 'groq':
+                if key: response_text = generate_with_openai(system_prompt, user_prompt, key, model_id=p_model)
+            elif p_name == 'groq':
                 key = os.environ.get('GROQ_API_KEY')
-                if key: response_text = generate_with_groq(system_prompt, user_prompt, key)
+                if key: response_text = generate_with_groq(system_prompt, user_prompt, key, model_id=p_model)
+            elif p_name == 'abacus':
+                key = os.environ.get('ABACUS_API_KEY')
+                if key: response_text = generate_with_abacus(system_prompt, user_prompt, key, model_id=p_model)
                 
             if response_text:
                 break

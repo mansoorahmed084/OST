@@ -13,6 +13,7 @@
     <link
         href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;600;700&family=Poppins:wght@400;500;600;700&display=swap"
         rel="stylesheet">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 </head>
 
 <body>
@@ -55,6 +56,10 @@
                 <button class="nav-btn" data-page="vocabulary">
                     <span class="nav-icon">📚</span>
                     <span>Words</span>
+                </button>
+                <button class="nav-btn" data-page="dashboard">
+                    <span class="nav-icon">📊</span>
+                    <span>Stats</span>
                 </button>
                 <button class="nav-btn" data-page="scramble">
                     <span class="nav-icon">🧩</span>
@@ -146,7 +151,6 @@
                         </div>
                     </div>
                 </div>
-            </div>
             </div>
         </section>
 
@@ -1163,6 +1167,11 @@
                                     style="width: 100%; margin-top: 5px; padding: 0.8rem;">
                             </div>
                             <div>
+                                <label style="color: var(--text-secondary); font-size: 0.9rem;">Abacus AI API Key</label>
+                                <input type="password" id="settings-abacus-key" class="chat-input" placeholder="Enter key..."
+                                    style="width: 100%; margin-top: 5px; padding: 0.8rem;">
+                            </div>
+                            <div>
                                 <label style="color: var(--text-secondary); font-size: 0.9rem;">Hugging Face
                                     Token</label>
                                 <input type="password" id="settings-hf-token" class="chat-input" placeholder="hf_..."
@@ -1180,6 +1189,120 @@
         </div>
     </div>
 
+    <!-- Dashboard Page -->
+    <section id="dashboard-page" class="page">
+        <div class="page-header">
+            <h1>📊 Parent Dashboard</h1>
+            <p>Track your child's learning journey and progress</p>
+        </div>
+
+        <div class="dashboard-grid">
+            <div class="stats-card">
+                <div class="stats-icon">📖</div>
+                <div class="stats-info">
+                    <h3>Mastered</h3>
+                    <div id="stat-mastered" class="stats-value">0</div>
+                </div>
+            </div>
+            <div class="stats-card">
+                <div class="stats-icon">⭐</div>
+                <div class="stats-info">
+                    <h3>Total Points</h3>
+                    <div id="stat-points" class="stats-value">0</div>
+                </div>
+            </div>
+            <div class="stats-card">
+                <div class="stats-icon">🎯</div>
+                <div class="stats-info">
+                    <h3>Avg Accuracy</h3>
+                    <div id="stat-accuracy" class="stats-value">0%</div>
+                </div>
+            </div>
+        </div>
+
+        <div class="chart-section">
+            <div class="chart-container">
+                <div class="chart-header">
+                    <div class="chart-title">📈 Learning Trend (Last 7 Days)</div>
+                </div>
+                <canvas id="accuracyChart"></canvas>
+            </div>
+            <div class="chart-container">
+                <div class="chart-header">
+                    <div class="chart-title">📚 Stories Completed</div>
+                </div>
+                <canvas id="completionChart"></canvas>
+            </div>
+        </div>
+
+        <div class="history-section">
+            <div class="chart-header">
+                <div class="chart-title">🕒 Recent Session History</div>
+            </div>
+            <table class="history-table">
+                <thead>
+                    <tr>
+                        <th>Date</th>
+                        <th>Story</th>
+                        <th>Activity</th>
+                        <th>Score</th>
+                        <th>Points</th>
+                    </tr>
+                </thead>
+                <tbody id="session-history-body">
+                    <!-- Rows via JS -->
+                </tbody>
+            </table>
+        </div>
+
+        <div class="journal-section">
+            <div class="chart-header">
+                <div class="chart-title">📓 Daily Learning Journal</div>
+            </div>
+            <p style="color: var(--text-secondary); font-size: 0.9rem; margin-bottom: 1rem;">
+                Log daily observations to help contextuailze performance.
+            </p>
+            <form id="journal-form" class="journal-form">
+                <div class="form-group">
+                    <label>Date</label>
+                    <input type="date" id="journal-date" class="form-input">
+                </div>
+                <div class="form-group">
+                    <label>Mood</label>
+                    <select id="journal-mood" class="form-select">
+                        <option value="Happy">Happy 😊</option>
+                        <option value="Calm">Calm 😌</option>
+                        <option value="Tired">Tired 😴</option>
+                        <option value="Frustrated">Frustrated 😠</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label>Sleep Quality</label>
+                    <select id="journal-sleep" class="form-select">
+                        <option value="Good">Good 😴</option>
+                        <option value="Average">Average 😐</option>
+                        <option value="Poor">Poor 😫</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label>Focus Level</label>
+                    <select id="journal-focus" class="form-select">
+                        <option value="High">High 🎯</option>
+                        <option value="Normal">Normal 👍</option>
+                        <option value="Low">Low 🧊</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label>Observations & Notes</label>
+                    <textarea id="journal-notes" class="form-textarea" placeholder="How was the learning session today? Any specific challenges or wins?"></textarea>
+                </div>
+                <button type="submit" class="save-journal-btn">Save Daily Entry</button>
+            </form>
+        </div>
+    </section>
+</main>
+
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <script src="/js/app.js"></script>
     <script src="/js/memory.js"></script>
 </body>

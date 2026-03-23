@@ -33,7 +33,7 @@ CORS(app)
 init_db()
 
 # Import and Register blueprints
-from routes import stories, speech, quiz, chatmode, generator, recall, settings, images, tinystories, chatbot, achievements
+from routes import stories, speech, quiz, chatmode, generator, recall, settings, images, tinystories, chatbot, achievements, dashboard
 
 app.register_blueprint(stories.bp, url_prefix='/api/stories')
 app.register_blueprint(speech.bp, url_prefix='/api/speech')
@@ -46,6 +46,7 @@ app.register_blueprint(images.bp, url_prefix='/api/images')
 app.register_blueprint(tinystories.bp, url_prefix='/api/tinystories')
 app.register_blueprint(chatbot.bp, url_prefix='/api/chatbot')
 app.register_blueprint(achievements.bp, url_prefix='/api/achievements')
+app.register_blueprint(dashboard.bp, url_prefix='/api/dashboard')
 
 # Serve frontend
 @app.route('/')

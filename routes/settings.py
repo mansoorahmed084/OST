@@ -27,6 +27,9 @@ def get_available_providers():
     if os.environ.get('GROQ_API_KEY'):
         providers['llm'].append('groq')
         
+    if os.environ.get('ABACUS_API_KEY') or os.environ.get('ABACUS_AI_API_KEY'):
+        providers['llm'].append('abacus')
+        
     if os.environ.get('ELEVENLABS_API_KEY'):
         providers['tts'].append('elevenlabs')
         
@@ -47,6 +50,7 @@ def get_settings():
                 'google': os.environ.get('GOOGLE_API_KEY', ''),
                 'openai': os.environ.get('OPENAI_API_KEY', ''),
                 'groq': os.environ.get('GROQ_API_KEY', ''),
+                'abacus': os.environ.get('ABACUS_API_KEY', '') or os.environ.get('ABACUS_AI_API_KEY', ''),
                 'hf_token': os.environ.get('HF_TOKEN', '') or os.environ.get('HUGGINGFACE_API_KEY', '')
             }
             
@@ -86,6 +90,7 @@ def update_settings():
         if 'google_api_key' in data: api_keys_to_update['GOOGLE_API_KEY'] = data['google_api_key']
         if 'openai_api_key' in data: api_keys_to_update['OPENAI_API_KEY'] = data['openai_api_key']
         if 'groq_api_key' in data: api_keys_to_update['GROQ_API_KEY'] = data['groq_api_key']
+        if 'abacus_api_key' in data: api_keys_to_update['ABACUS_API_KEY'] = data['abacus_api_key']
         if 'hf_token' in data: api_keys_to_update['HF_TOKEN'] = data['hf_token']
 
         if api_keys_to_update:

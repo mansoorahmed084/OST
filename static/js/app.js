@@ -28,7 +28,12 @@ const state = {
     // Scramble game state
     scrambleSentences: [],
     scrambleCurrentIndex: 0,
-    scrambleWorkspace: []
+    scrambleWorkspace: [],
+    // Scoring state
+    quizAttempts: {}, // questionId -> numAttempts
+    quizPoints: 0,
+    totalQuizPointsPossible: 0,
+    dashboardCharts: {} // chart objects
 };
 
 // ... (lines 20-186)
@@ -94,6 +99,7 @@ document.addEventListener('DOMContentLoaded', () => {
     initializeTinyStoriesPage();
     initializeVocabularyPage();
     initializeScramblePage();
+    initializeDashboardPage();
 
     // Initialize Speech Recognition if available
     if ('webkitSpeechRecognition' in window || 'SpeechRecognition' in window) {
@@ -148,6 +154,8 @@ function navigateToPage(pageName) {
             loadScrambleStoriesPicker();
         } else if (pageName === 'home') {
             updateAdventureProgress();
+        } else if (pageName === 'dashboard') {
+            loadDashboardData();
         }
     }
 }
@@ -1570,6 +1578,140 @@ function initializeQuizPage() {
     });
 }
 
+// ===================================
+// Parent Dashboard Page
+// ===================================
+function initializeDashboardPage() {
+    // Journal form submission
+    document.getElementById('journal-form')?.addEventListener('submit', async (e) => {
+        e.preventDefault();
+        const data = {
+            date: document.getElementById('journal-date').value,
+            mood: document.getElementById('journal-mood').value,
+            sleep: document.getElementById('journal-sleep').value,
+            focus: document.getElementById('journal-focus').value,
+            notes: document.getElementById('journal-notes').value
+        };
+
+        try {
+            const response = await fetch(`${API_BASE}/dashboard/journal`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(data)
+            });
+            const res = await response.json();
+            if (res.success) {
+                showToast("Journal entry saved! 🌟");
+            }
+        } catch (e) {
+            console.error("Journal save error:", e);
+        }
+    });
+
+    // Set default date to today
+    const dateInput = document.getElementById('journal-date');
+    if (dateInput) {
+        dateInput.value = new Date().toISOString().split('T')[0];
+    }
+}
+
+async function loadDashboardData() {
+    try {
+        // 1. Load Stats cards
+        const statsRes = await fetch(`${API_BASE}/dashboard/stats/summary`);
+        const statsData = await statsRes.json();
+        if (statsData.success) {
+            document.getElementById('stat-mastered').textContent = statsData.stats.stories_mastered;
+            document.getElementById('stat-points').textContent = statsData.stats.total_points;
+            document.getElementById('stat-accuracy').textContent = statsData.stats.avg_accuracy + '%';
+        }
+
+        // 2. Load Charts
+        const chartRes = await fetch(`${API_BASE}/dashboard/stats/charts`);
+        const chartData = await chartRes.json();
+        if (chartData.success) {
+            renderCharts(chartData);
+        }
+
+        // 3. Load History
+        const historyRes = await fetch(`${API_BASE}/dashboard/history`);
+        const historyData = await historyRes.json();
+        if (historyData.success) {
+            const tbody = document.getElementById('session-history-body');
+            tbody.innerHTML = historyData.history.map(row => {
+                const date = new Date(row.created_at).toLocaleDateString();
+                const scoreClass = row.score >= 80 ? 'badge-high' : (row.score >= 50 ? 'badge-mid' : 'badge-low');
+                return `
+                    <tr>
+                        <td>${date}</td>
+                        <td style="font-weight: 500;">${row.title}</td>
+                        <td style="text-transform: capitalize; font-size: 0.85rem;">${row.activity_type}</td>
+                        <td><span class="badge-status ${scoreClass}">${Math.round(row.score)}%</span></td>
+                        <td style="font-size: 0.9rem;">${row.points_earned}/${row.points_possible}</td>
+                    </tr>
+                `;
+            }).join('');
+        }
+    } catch (e) {
+        console.error("Dashboard load error:", e);
+    }
+}
+
+function renderCharts(data) {
+    const ctxAcc = document.getElementById('accuracyChart')?.getContext('2d');
+    const ctxComp = document.getElementById('completionChart')?.getContext('2d');
+
+    if (!ctxAcc || !ctxComp) return;
+
+    // Destroy existing charts if any
+    if (state.dashboardCharts.accuracy) state.dashboardCharts.accuracy.destroy();
+    if (state.dashboardCharts.completion) state.dashboardCharts.completion.destroy();
+
+    const chartOptions = {
+        responsive: true,
+        maintainAspectRatio: false,
+        plugins: {
+            legend: { display: false }
+        },
+        scales: {
+            y: { beginAtZero: true, grid: { color: 'rgba(255,255,255,0.05)' } },
+            x: { grid: { display: false } }
+        }
+    };
+
+    state.dashboardCharts.accuracy = new Chart(ctxAcc, {
+        type: 'line',
+        data: {
+            labels: data.labels.map(l => l.split('-').slice(1).join('/')),
+            datasets: [{
+                label: 'Avg Accuracy %',
+                data: data.accuracy,
+                borderColor: '#6366f1',
+                backgroundColor: 'rgba(99, 102, 241, 0.1)',
+                fill: true,
+                tension: 0.4,
+                pointRadius: 4,
+                pointBackgroundColor: '#6366f1'
+            }]
+        },
+        options: chartOptions
+    });
+
+    state.dashboardCharts.completion = new Chart(ctxComp, {
+        type: 'bar',
+        data: {
+            labels: data.labels.map(l => l.split('-').slice(1).join('/')),
+            datasets: [{
+                label: 'Sessions Completed',
+                data: data.completions,
+                backgroundColor: '#10b981',
+                borderRadius: 4
+            }]
+        },
+        options: chartOptions
+    });
+}
+
 function resetQuizUI() {
     document.getElementById('quiz-interface').classList.add('hidden');
     document.getElementById('quiz-results').classList.add('hidden');
@@ -1784,6 +1926,9 @@ async function startQuiz(storyId) {
             state.currentQuestions = data.questions;
             state.currentQuestionIndex = 0;
             state.quizScore = 0;
+            state.quizPoints = 0;
+            state.totalQuizPointsPossible = data.questions.length * 10;
+            state.quizAttempts = {};
 
             // Show Interface
             document.getElementById('quiz-story-selection').classList.add('hidden');
@@ -1847,11 +1992,30 @@ function checkQuizAnswer(btn, selectedAnswer) {
 
     const question = state.currentQuestions[state.currentQuestionIndex];
     const isCorrect = selectedAnswer === question.correct_answer;
+    
+    // Initialize or increment attempts for this question
+    const qId = question.id;
+    if (!state.quizAttempts[qId]) state.quizAttempts[qId] = 1;
+    else state.quizAttempts[qId]++;
+
+    const attempts = state.quizAttempts[qId];
 
     const feedbackBox = document.getElementById('quiz-feedback');
     const title = document.getElementById('feedback-title');
     const msg = document.getElementById('feedback-message');
     const icon = document.getElementById('feedback-icon');
+
+    // Record the attempt in the background
+    fetch(`${API_BASE}/quiz/attempt`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+            story_id: state.currentQuizStoryId,
+            question_id: qId,
+            attempt_number: attempts,
+            is_correct: isCorrect
+        })
+    }).catch(e => console.warn("Attempt logging failed", e));
 
     if (isCorrect) {
         // Style Logic
@@ -1862,16 +2026,33 @@ function checkQuizAnswer(btn, selectedAnswer) {
             b.disabled = true;
         });
 
+        // Scoring algorithm: 1st attempt = 10, 2nd = 5, 3rd = 2, 4th = 1
+        let earned = 0;
+        if (attempts === 1) earned = 10;
+        else if (attempts === 2) earned = 5;
+        else if (attempts === 3) earned = 2;
+        else earned = 1;
+
+        state.quizPoints += earned;
+        if (attempts === 1) state.quizScore++; // Original behavior for aggregate score
+
         // Feedback
         feedbackBox.className = 'quiz-feedback success';
-        title.textContent = "Correct!";
+        title.textContent = attempts === 1 ? "Perfect!" : "You got it!";
+        
+        // Show points earned briefly
+        const pointsBadge = document.createElement('div');
+        pointsBadge.className = 'score-popup animate-float';
+        pointsBadge.style.cssText = `position: absolute; color: #10b981; font-weight: bold; font-size: 1.5rem; top: 0; right: 0;`;
+        pointsBadge.textContent = `+${earned}`;
+        btn.appendChild(pointsBadge);
+        setTimeout(() => pointsBadge.remove(), 1000);
+
         msg.textContent = question.explanation || "Great job!";
         icon.textContent = "🌟";
 
-        state.quizScore++;
-
         // Buddy praises
-        speakBuddy(title.textContent + " " + msg.textContent);
+        speakBuddy(title.textContent + " " + (question.explanation || ""));
 
         // Show Sticker
         showStickerReward();
@@ -1884,15 +2065,21 @@ function checkQuizAnswer(btn, selectedAnswer) {
         // Wrong Answer
         btn.classList.add('wrong');
         btn.disabled = true; // Disable just this one
+        
+        // Show retry badge
+        const retryBadge = document.createElement('div');
+        retryBadge.className = 'retry-badge';
+        retryBadge.textContent = `Trial ${attempts}`;
+        btn.appendChild(retryBadge);
 
         // Feedback
         feedbackBox.className = 'quiz-feedback hint';
         title.textContent = "Not quite...";
-        msg.textContent = question.hint || "Try again!";
+        msg.textContent = question.hint || "Take another look at the story!";
         icon.textContent = "🤔";
 
         // Buddy hints
-        speakBuddy(title.textContent + " " + msg.textContent);
+        speakBuddy(title.textContent + " " + (question.hint || ""));
 
         feedbackBox.classList.remove('hidden');
         document.getElementById('quiz-next-btn').classList.add('hidden'); // Hide next until correct
@@ -1903,34 +2090,45 @@ async function finishQuiz() {
     document.getElementById('quiz-interface').classList.add('hidden');
     document.getElementById('quiz-results').classList.remove('hidden');
 
-    const score = state.quizScore;
-    const total = state.currentQuestions.length;
+    const scoreCount = state.quizScore; // Number of correct on 1st try
+    const totalCount = state.currentQuestions.length;
+    const points = state.quizPoints;
+    const possible = state.totalQuizPointsPossible;
+    const accuracy = (points / possible) * 100;
 
-    document.getElementById('quiz-score').textContent = `${score}/${total}`;
+    document.getElementById('quiz-score').textContent = `${points} / ${possible} Points`;
 
     let encouragement = "";
-    if (score === total) encouragement = "Perfect score! You're a super reader! 🌟";
-    else if (score > total / 2) encouragement = "Great job! Keep reading! 📚";
+    if (accuracy >= 90) encouragement = "Perfect score! You're a super reader! 🌟";
+    else if (accuracy >= 60) encouragement = "Great job! You learned so much! 📚";
     else encouragement = "Good effort! Practice makes perfect! 💪";
 
     document.getElementById('quiz-encouragement').textContent = encouragement;
 
-    // Save Result
+    // Save Result with enhanced scoring
     try {
         await fetch(`${API_BASE}/quiz/submit`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
                 story_id: state.currentQuizStoryId,
+                activity_type: 'quiz',
+                score: accuracy,
+                points_earned: points,
+                points_possible: possible,
+                details: {
+                    first_try_correct: scoreCount,
+                    total_questions: totalCount
+                }
             })
         });
 
-        let percentage = (score / total) * 100;
-        if (percentage === 100) {
+        if (accuracy === 100) {
             checkAchievements('quiz_perfect', 100);
         } else {
-            checkAchievements('quiz', percentage);
+            checkAchievements('quiz', accuracy);
         }
+        updateAdventureProgress();
     } catch (e) {
         console.error("Failed to save quiz score", e);
     }
@@ -1986,6 +2184,7 @@ async function loadSettings() {
                 document.getElementById('settings-google-key').value = data.api_keys.google || '';
                 document.getElementById('settings-openai-key').value = data.api_keys.openai || '';
                 document.getElementById('settings-groq-key').value = data.api_keys.groq || '';
+                document.getElementById('settings-abacus-key').value = data.api_keys.abacus || '';
                 document.getElementById('settings-hf-token').value = data.api_keys.hf_token || '';
             }
         }
@@ -1999,34 +2198,74 @@ function renderProviderOptions(type, available, current) {
     const container = document.getElementById(`${type}-options`);
     container.innerHTML = '';
 
-    // Define all known providers
-    const allProviders = type === 'llm' ? [
-        { id: 'default', name: 'Templates (Offline)', desc: 'Fast, Simple' },
-        { id: 'tinystories', name: 'TinyStories-33M', desc: 'Local & Kid Friendly' },
-        { id: 'gemini', name: 'Google Gemini', desc: 'Creative, Smart' },
-        { id: 'openai', name: 'OpenAI GPT', desc: 'Premium Quality' },
-        { id: 'groq', name: 'Groq Llama 3', desc: 'Fast Open Source' }
-    ] : [
-        { id: 'default', name: 'Basic (Offline)', desc: 'Robotic Voice' },
-        { id: 'edge_tts', name: 'Microsoft Edge', desc: 'Natural, Free' },
-        { id: 'openai', name: 'OpenAI HD', desc: 'Ultra Realistic' },
-        { id: 'elevenlabs', name: 'ElevenLabs', desc: 'Clone/Premium' }
-    ];
+    if (type === 'llm') {
+        const model_map = {
+            'abacus': [
+                { id: 'abacus:abacus-chat-v1', name: 'Abacus AI (General)', desc: 'Versatile Models' },
+                { id: 'abacus:abacus-llm-1', name: 'Abacus AI (Creative)', desc: 'Kid Friendly' }
+            ],
+            'gemini': [
+                { id: 'gemini:gemini-2.0-flash', name: 'Gemini (Flash)', desc: 'Fast & Smart' },
+                { id: 'gemini:gemini-1.5-pro', name: 'Gemini (Pro)', desc: 'Most Advanced' }
+            ],
+            'openai': [
+                { id: 'openai:gpt-4o-mini', name: 'GPT-4o Mini', desc: 'Reliable, Efficient' },
+                { id: 'openai:gpt-4o', name: 'GPT-4o (Premium)', desc: 'Top Performance' }
+            ],
+            'groq': [
+                { id: 'groq:llama3-8b-8192', name: 'Llama 3 (Fast)', desc: 'Open Source Power' }
+            ],
+            'default': [{ id: 'default', name: 'Offline Templates', desc: 'Fast, Local' }],
+            'tinystories': [{ id: 'tinystories', name: 'Local TinyStories', desc: 'Kid-Safe Model' }]
+        };
 
-    allProviders.forEach(p => {
-        const isAvailable = available.includes(p.id);
-        const div = document.createElement('div');
-        div.className = `settings-option ${isAvailable ? '' : 'disabled'} ${current === p.id ? 'selected' : ''}`;
-        div.dataset.value = p.id;
-        div.innerHTML = `
-            <div>
-                <div class="option-label">${p.name}</div>
-                <div style="font-size: 0.8rem; color: var(--text-secondary);">${p.desc}</div>
-            </div>
-            ${!isAvailable ? '<span class="option-tag">Key Missing</span>' : ''}
-        `;
-        container.appendChild(div);
-    });
+        Object.keys(model_map).forEach(provider_id => {
+            const isAvailable = available.includes(provider_id);
+            const models = model_map[provider_id];
+            
+            models.forEach(model => {
+                const div = document.createElement('div');
+                div.className = `settings-option ${isAvailable ? '' : 'disabled'} ${current === model.id ? 'selected' : ''}`;
+                div.dataset.value = model.id;
+                div.innerHTML = `
+                    <div>
+                        <div class="option-label">${model.name}</div>
+                        <div style="font-size: 0.8rem; color: var(--text-secondary);">${model.desc}</div>
+                    </div>
+                    ${!isAvailable ? '<span class="option-tag" style="background: var(--error-color);">Key Missing</span>' : ''}
+                `;
+                
+                if (isAvailable) {
+                    div.onclick = () => selectOption(type, model.id);
+                }
+                container.appendChild(div);
+            });
+        });
+    } else {
+        // TTS and others
+        const ttsProviders = [
+            { id: 'default', name: 'Basic (Offline)', desc: 'Robotic Voice' },
+            { id: 'edge_tts', name: 'Microsoft Edge', desc: 'Natural, Free' },
+            { id: 'openai', name: 'OpenAI HD', desc: 'Ultra Realistic' },
+            { id: 'elevenlabs', name: 'ElevenLabs', desc: 'Clone/Premium' }
+        ];
+
+        ttsProviders.forEach(p => {
+            const isAvailable = available.includes(p.id);
+            const div = document.createElement('div');
+            div.className = `settings-option ${isAvailable ? '' : 'disabled'} ${current === p.id ? 'selected' : ''}`;
+            div.dataset.value = p.id;
+            div.innerHTML = `
+                <div>
+                    <div class="option-label">${p.name}</div>
+                    <div style="font-size: 0.8rem; color: var(--text-secondary);">${p.desc}</div>
+                </div>
+                ${!isAvailable ? '<span class="option-tag">Key Missing</span>' : ''}
+            `;
+            if (isAvailable) div.onclick = () => selectOption(type, p.id);
+            container.appendChild(div);
+        });
+    }
 }
 
 function selectOption(gridId, value) {
@@ -2052,6 +2291,7 @@ async function saveSettings() {
         google_api_key: document.getElementById('settings-google-key').value.trim(),
         openai_api_key: document.getElementById('settings-openai-key').value.trim(),
         groq_api_key: document.getElementById('settings-groq-key').value.trim(),
+        abacus_api_key: document.getElementById('settings-abacus-key').value.trim(),
         hf_token: document.getElementById('settings-hf-token').value.trim()
     };
 
