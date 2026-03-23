@@ -33,25 +33,13 @@
                     <span class="nav-icon">📖</span>
                     <span>Stories</span>
                 </button>
-                <button class="nav-btn" data-page="practice">
-                    <span class="nav-icon">🎤</span>
-                    <span>Practice</span>
-                </button>
                 <button class="nav-btn" data-page="quiz">
                     <span class="nav-icon">🎯</span>
                     <span>Quiz</span>
                 </button>
-                <button class="nav-btn" data-page="chat">
-                    <span class="nav-icon">💬</span>
-                    <span>Chat</span>
-                </button>
                 <button class="nav-btn" data-page="recall">
                     <span class="nav-icon">🧠</span>
-                    <span>Daily</span>
-                </button>
-                <button class="nav-btn" data-page="tinystories">
-                    <span class="nav-icon">🧸</span>
-                    <span>Read & Learn</span>
+                    <span>Daily Adventures</span>
                 </button>
                 <button class="nav-btn" data-page="vocabulary">
                     <span class="nav-icon">📚</span>
@@ -60,10 +48,6 @@
                 <button class="nav-btn" data-page="dashboard">
                     <span class="nav-icon">📊</span>
                     <span>Stats</span>
-                </button>
-                <button class="nav-btn" data-page="scramble">
-                    <span class="nav-icon">🧩</span>
-                    <span>Scramble</span>
                 </button>
                 <button class="nav-btn" data-page="memory">
                     <span class="nav-icon">🎭</span>
@@ -165,7 +149,7 @@
                 <!-- Mission List -->
                 <div id="daily-missions-list" class="missions-grid">
                     <!-- Missions like "Read a Story", "Practice Words" etc -->
-                    <div class="mission-card" id="mission-read">
+                    <div class="mission-card" id="mission-read" style="cursor:pointer;" onclick="navigateToPage('stories')">
                         <div class="mission-icon">📖</div>
                         <div class="mission-info">
                             <h3>Story Explorer</h3>
@@ -173,7 +157,7 @@
                         </div>
                         <div class="mission-status">⏳</div>
                     </div>
-                    <div class="mission-card" id="mission-practice">
+                    <div class="mission-card" id="mission-practice" style="cursor:pointer;" onclick="navigateToPage('practice')">
                         <div class="mission-icon">🎤</div>
                         <div class="mission-info">
                             <h3>Magic Words</h3>
@@ -181,7 +165,7 @@
                         </div>
                         <div class="mission-status">⏳</div>
                     </div>
-                    <div class="mission-card" id="mission-chat">
+                    <div class="mission-card" id="mission-chat" style="cursor:pointer;" onclick="navigateToPage('chat')">
                         <div class="mission-icon">💬</div>
                         <div class="mission-info">
                             <h3>Chat Buddy</h3>
@@ -194,6 +178,14 @@
                         <div class="mission-info">
                             <h3>Story Builder</h3>
                             <p>Unscramble sentences from a story</p>
+                        </div>
+                        <div class="mission-status">⏳</div>
+                    </div>
+                    <div class="mission-card" id="mission-memory" style="cursor:pointer;" onclick="navigateToPage('memory')">
+                        <div class="mission-icon">🎭</div>
+                        <div class="mission-info">
+                            <h3>Memory Master</h3>
+                            <p>Match all the picture pairs</p>
                         </div>
                         <div class="mission-status">⏳</div>
                     </div>

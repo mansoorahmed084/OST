@@ -1759,6 +1759,7 @@ async function updateAdventureProgress() {
             updateMissionCard('mission-practice', missions.practice);
             updateMissionCard('mission-chat', missions.chat);
             updateMissionCard('mission-scramble', missions.scramble);
+            updateMissionCard('mission-memory', missions.memory);
 
             // Show full-screen celebration when ALL missions are done (once per session)
             if (data.completed === data.total && data.total > 0 && !state.dailyCelebrated) {

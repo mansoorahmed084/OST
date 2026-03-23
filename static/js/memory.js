@@ -304,6 +304,11 @@ function handleMemoryMismatch(card1, card2) {
 function finishMemoryRound() {
     memoryState.phase = 'end';
 
+    // Submit activity progress for Daily Adventure
+    if (typeof submitActivity === 'function') {
+        submitActivity('memory_game', null, 100);
+    }
+
     if (memoryState.roundErrors === 0) {
         memoryState.consecutivePerfects++;
         memoryState.consecutiveFails = 0;

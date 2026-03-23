@@ -232,13 +232,20 @@ def get_daily_progress():
             ''', (today_start,))
             writing_done = cursor.fetchone()[0] > 0
             
+            # 5. Memory Master
+            cursor.execute('''
+                SELECT COUNT(*) FROM user_progress 
+                WHERE activity_type = 'memory_game' AND created_at >= ?
+            ''', (today_start,))
+            memory_done = cursor.fetchone()[0] > 0
+            
             # Count the total number of dynamic activities we are tracking
-            # We can now easily add or remove tracked activities
             missions_tracked = {
                 'read': story_read,
                 'practice': practice_done,
                 'chat': chat_done,
-                'scramble': writing_done
+                'scramble': writing_done,
+                'memory': memory_done
             }
             
             total_missions = len(missions_tracked)
