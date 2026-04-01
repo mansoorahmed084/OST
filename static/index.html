@@ -191,8 +191,21 @@
                     </div>
                 </div>
 
+                <div id="scramble-picker" class="scramble-picker hidden">
+                    <button class="back-btn" id="scramble-picker-back">← Back to List</button>
+                    <div class="exercise-card">
+                        <h3>📚 Choose a Story to Rebuild</h3>
+                        <p style="text-align:center; color: var(--text-secondary); margin-bottom: 1.5rem;">
+                            Pick your favorite story from "Read & Learn" to practice your writing and sentence skills!</p>
+                        <div id="scramble-story-list" class="scramble-selector-grid">
+                            <!-- Story choices go here -->
+                            <div class="loading-spinner" id="scramble-stories-loading">Searching for stories...</div>
+                        </div>
+                    </div>
+                </div>
+
                 <div id="writing-exercise" class="writing-exercise hidden">
-                    <button class="back-btn" id="back-to-recall">← Back to List</button>
+                    <button class="back-btn" id="back-to-recall-main">← Back to List</button>
 
                     <div class="exercise-card">
                         <h3>🧩 Story Scramble: <span id="writing-story-title" class="highlight-text">...</span></h3>
