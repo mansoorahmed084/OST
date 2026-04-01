@@ -2618,8 +2618,16 @@ function initializeRecallPage() {
     document.getElementById('reset-scramble')?.addEventListener('click', () => renderScrambleSentence(state.scrambleCurrentIndex));
     document.getElementById('next-scramble')?.addEventListener('click', nextScrambleSentence);
 
-    // Story Builder mission card click
-    document.getElementById('mission-scramble')?.addEventListener('click', startRandomScramble);
+    // Story Builder mission card
+    document.getElementById('mission-scramble')?.addEventListener('click', showScramblePicker);
+    document.getElementById('scramble-picker-back')?.addEventListener('click', () => {
+        document.getElementById('scramble-picker').classList.add('hidden');
+        document.getElementById('daily-missions-list').classList.remove('hidden');
+    });
+    document.getElementById('back-to-recall-main')?.addEventListener('click', () => {
+        document.getElementById('writing-exercise').classList.add('hidden');
+        document.getElementById('scramble-picker').classList.remove('hidden');
+    });
 
     // Other mission card clicks - navigate to their respective pages
     document.getElementById('mission-read')?.addEventListener('click', () => navigateToPage('tinystories'));
@@ -2666,40 +2674,54 @@ async function startWritingExercise(storyId) {
     }
 }
 
-// Start a random scramble from any available story
-async function startRandomScramble() {
+// Show selector for scramble stories (Read & Learn)
+async function showScramblePicker() {
+    document.getElementById('daily-missions-list').classList.add('hidden');
+    document.getElementById('scramble-picker').classList.remove('hidden');
+    loadScrambleStoriesForPicker();
+}
+
+async function loadScrambleStoriesForPicker() {
+    const grid = document.getElementById('scramble-story-list');
+    const loading = document.getElementById('scramble-stories-loading');
+    if (!grid) return;
+
+    if (loading) loading.classList.remove('hidden');
+    grid.innerHTML = '';
+
     try {
-        showLoading();
-        // First try recall/due stories
-        let response = await fetch(`${API_BASE}/recall/due`);
-        let data = await response.json();
+        const res = await fetch(`${API_BASE}/tinystories/`);
+        const data = await res.json();
 
         if (data.success && data.stories && data.stories.length > 0) {
-            const randomStory = data.stories[Math.floor(Math.random() * data.stories.length)];
-            await startWritingExercise(randomStory.id);
-            return;
+            if (loading) loading.classList.add('hidden');
+            grid.innerHTML = data.stories.map(s => `
+                <div class="scramble-choice-card" data-id="${s.id}">
+                    <div class="story-icon">🧩</div>
+                    <h4>${s.title}</h4>
+                    <span class="play-hint">Practice Now</span>
+                </div>
+            `).join('');
+
+            grid.querySelectorAll('.scramble-choice-card').forEach(card => {
+                card.onclick = () => startScrambleForStory(card.dataset.id);
+            });
+        } else {
+            grid.innerHTML = `
+                <div style="grid-column: 1/-1; text-align: center; padding: 2rem;">
+                    <p style="color: var(--text-secondary);">No stories found in Read & Learn.</p>
+                    <button class="control-btn" onclick="navigateToPage('tinystories')">Create a Story First!</button>
+                </div>
+            `;
         }
-
-        // Fallback: try any read story from the stories list
-        response = await fetch(`${API_BASE}/stories`);
-        data = await response.json();
-
-        if (data.success && data.stories && data.stories.length > 0) {
-            const readStories = data.stories.filter(s => s.last_read);
-            if (readStories.length > 0) {
-                const randomStory = readStories[Math.floor(Math.random() * readStories.length)];
-                await startWritingExercise(randomStory.id);
-                return;
-            }
-        }
-
-        showToast('Read some stories first to unlock Story Builder!', '📖');
     } catch (e) {
-        console.error('Random scramble error:', e);
-        showToast('Failed to start scramble game.', '❌');
-    } finally {
-        hideLoading();
+        grid.innerHTML = '<p style="grid-column:1/-1; text-align:center; color:var(--error-color);">Failed to load stories.</p>';
     }
+}
+
+async function startScrambleForStory(storyId) {
+    document.getElementById('scramble-picker').classList.add('hidden');
+    await startWritingExercise(storyId);
 }
 
 // === Scramble Game Engine ===
