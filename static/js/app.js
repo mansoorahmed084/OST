@@ -2639,36 +2639,49 @@ function initializeRecallPage() {
 // (This needs a separate hook or simple check in navigateToPage, but let's just make sure we call it)
 
 
-async function startWritingExercise(storyId) {
+async function startWritingExercise(storyId, isTinyStory = true) {
     try {
         showLoading();
 
-        // Load prompt with sentences
-        const response = await fetch(`${API_BASE}/recall/prompt/${storyId}`);
+        // 1. Fetch story data
+        // For missions in Daily Adventure, we prefer TinyStories (Learner-generated)
+        const endpoint = isTinyStory ? 
+            `${API_BASE}/tinystories/scramble/${storyId}` : 
+            `${API_BASE}/recall/prompt/${storyId}`;
+            
+        const response = await fetch(endpoint);
         const data = await response.json();
 
         if (data.success) {
-            // Update UI
-            document.getElementById('writing-story-title').textContent = data.story_title;
+            // Update UI with story title
+            document.getElementById('writing-story-title').textContent = data.story_title || data.title;
 
-            // Start Scramble Game with the story's sentences
+            // Prepare sentences/chunks
+            // TinyStories scramble endpoint returns 'sentences' as a flat array of chunks
             state.scrambleSentences = data.sentences || [];
             state.scrambleCurrentIndex = 0;
 
             if (state.scrambleSentences.length > 0) {
                 document.getElementById('scramble-total').textContent = state.scrambleSentences.length;
                 renderScrambleSentence(0);
+                
+                // Show exercise, hide others
+                document.getElementById('daily-missions-list').classList.add('hidden');
+                document.getElementById('scramble-picker').classList.add('hidden');
+                document.getElementById('writing-exercise').classList.remove('hidden');
+            } else {
+                throw new Error('No sentences found for this story');
             }
-
-            // Show exercise, hide missions & stories list
-            document.getElementById('daily-missions-list').classList.add('hidden');
-            document.getElementById('writing-exercise').classList.remove('hidden');
         } else {
-            showError('Failed to load scramble challenge');
+            throw new Error(data.error || 'Challenge not found');
         }
     } catch (error) {
-        console.error('Error starting scramble exercise:', error);
-        showError('Failed to load exercise');
+        console.error('Error starting scramble:', error);
+        showToast('Oops! Could not load the story challenge. Try another one!', '❌');
+        
+        // Ensure user is not stuck on a blank screen
+        document.getElementById('writing-exercise').classList.add('hidden');
+        document.getElementById('scramble-picker').classList.remove('hidden');
     } finally {
         hideLoading();
     }
