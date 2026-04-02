@@ -25,6 +25,8 @@ const state = {
     playMode: 'manual',         // 'manual' | 'automated' - selectable at start story
     tsQuizScore: 0,
     tsQuizTotal: 0,
+    tsQuizPoints: 0,
+    tsQuizPointsPossible: 0,
     // Scramble game state
     scrambleSentences: [],
     scrambleCurrentIndex: 0,
@@ -1720,7 +1722,7 @@ function resetQuizUI() {
 }
 
 // === Daily Adventure / Recall Management ===
-async function submitActivity(activityType, storyId = null, score = 0, details = null) {
+async function submitActivity(activityType, storyId = null, score = 0, details = null, pointsEarned = 0, pointsPossible = 0) {
     try {
         await fetch(`${API_BASE}/quiz/submit`, { // Re-using existing progress save route for generic activities
             method: 'POST',
@@ -1729,6 +1731,8 @@ async function submitActivity(activityType, storyId = null, score = 0, details =
                 story_id: storyId || 0,
                 activity_type: activityType,
                 score: score,
+                points_earned: pointsEarned,
+                points_possible: pointsPossible,
                 details: details
             })
         });
@@ -1928,7 +1932,7 @@ async function startQuiz(storyId) {
             state.currentQuestionIndex = 0;
             state.quizScore = 0;
             state.quizPoints = 0;
-            state.totalQuizPointsPossible = data.questions.length * 10;
+            state.totalQuizPointsPossible = data.questions.length * 4;
             state.quizAttempts = {};
 
             // Show Interface
@@ -2027,12 +2031,12 @@ function checkQuizAnswer(btn, selectedAnswer) {
             b.disabled = true;
         });
 
-        // Scoring algorithm: 1st attempt = 10, 2nd = 5, 3rd = 2, 4th = 1
+        // Scoring algorithm: 1st attempt = 4, 2nd = 2, 3rd = 1, >=4th = 0
         let earned = 0;
-        if (attempts === 1) earned = 10;
-        else if (attempts === 2) earned = 5;
-        else if (attempts === 3) earned = 2;
-        else earned = 1;
+        if (attempts === 1) earned = 4;
+        else if (attempts === 2) earned = 2;
+        else if (attempts === 3) earned = 1;
+        else earned = 0;
 
         state.quizPoints += earned;
         if (attempts === 1) state.quizScore++; // Original behavior for aggregate score
@@ -3331,7 +3335,7 @@ function initializeTinyStoriesPage() {
         if (!id) return;
 
         const score = state.tsQuizTotal > 0 ? (state.tsQuizScore / state.tsQuizTotal) * 100 : 0;
-        submitActivity('quiz', id, Math.round(score));
+        submitActivity('quiz', id, Math.round(score), null, state.tsQuizPoints, state.tsQuizPointsPossible);
         // Also ensure it counts as read if they finish the quiz
         submitActivity('story_read', id, 100);
 
@@ -3444,9 +3448,11 @@ async function loadTinyStoryDetail(id) {
 
             // Initialize quiz progress
             state.tsQuizScore = 0;
+            state.tsQuizPoints = 0;
             state.tsQuizTotal = (story.fill_in_blanks?.length || 0) +
                 (story.mcqs?.length || 0) +
                 (story.moral_questions?.length || 0);
+            state.tsQuizPointsPossible = state.tsQuizTotal * 4;
 
             // UI toggles
             document.getElementById('ts-list').classList.add('hidden');
@@ -3626,20 +3632,40 @@ window.checkTsAnswer = function (btn, selected, correct) {
     // 2. Letter match (e.g. LLM says "B" and user clicks 2nd button)
     const isLetterIdxMatch = (letterToIdx[cNorm] !== undefined && selectedIndex === letterToIdx[cNorm]);
 
+    const parent = btn.parentElement;
+    let attempts = parseInt(parent.dataset.attempts || "0") + 1;
+    parent.dataset.attempts = attempts;
+
     if (isTextMatch || isLetterIdxMatch) {
         btn.classList.add('correct');
         btn.innerHTML += ' ✅';
-        state.tsQuizScore++;
+
+        let earned = 0;
+        if (attempts === 1) earned = 4;
+        else if (attempts === 2) earned = 2;
+        else if (attempts === 3) earned = 1;
+
+        state.tsQuizPoints += earned;
+        if (attempts === 1) state.tsQuizScore++;
+
         // Buddy praises
         if (typeof speakBuddy === 'function') speakBuddy("Correct! Great job!");
+        // Disable all options only on correct answer
+        options.forEach(b => b.disabled = true);
     } else {
         btn.classList.add('wrong');
         btn.innerHTML += ' ❌';
+        btn.disabled = true; // Disable only the wrong option
+        
+        // Show retry badge
+        const retryBadge = document.createElement('div');
+        retryBadge.className = 'retry-badge';
+        retryBadge.textContent = ' Trial ' + attempts;
+        btn.appendChild(retryBadge);
+
         // Buddy hints
         if (typeof speakBuddy === 'function') speakBuddy("Not quite. Try again!");
     }
-    // Disable all options in this question group
-    options.forEach(b => b.disabled = true);
 };
 
 async function regenTinyStoryAssets(id) {
