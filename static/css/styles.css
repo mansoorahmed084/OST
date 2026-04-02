@@ -3169,7 +3169,7 @@ body::before {
     transform: translateY(-5px);
     border-color: var(--primary-color);
     box-shadow: var(--shadow-md);
-    background: var(--bg-hover);
+    background: #f8fafc; /* Very light bluish white */
 }
 
 .scramble-choice-card .story-icon {
@@ -3179,7 +3179,7 @@ body::before {
 .scramble-choice-card h4 {
     margin: 0;
     font-size: 1.1rem;
-    color: var(--text-primary);
+    color: #1e293b; /* Dark bluish gray for visibility on white */
     line-height: 1.3;
 }
 
