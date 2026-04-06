@@ -2308,7 +2308,42 @@ body::before {
 /* ===================================
    Scramble Game
    =================================== */
+/* === Scramble Game (Recall Page) === */
+.writing-exercise {
+    display: flex;
+    flex-direction: column;
+    gap: 1.5rem;
+    max-width: 900px;
+    margin: 0 auto;
+}
+
+.scramble-story-pad {
+    background: var(--bg-card);
+    border-radius: var(--radius-lg);
+    border: 2px solid var(--primary-color);
+    padding: 1.5rem;
+    margin-bottom: 1.5rem;
+    min-height: 100px;
+    box-shadow: var(--shadow-md);
+    background-image: repeating-linear-gradient(transparent,
+            transparent 1.9em,
+            rgba(139, 92, 246, 0.1) 1.9em,
+            rgba(139, 92, 246, 0.1) 2em);
+    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+    font-size: 1.2rem;
+    line-height: 2;
+    color: var(--text-primary);
+}
+
+.scramble-story-pad .completed-line {
+    color: var(--text-primary);
+    display: inline;
+    margin-right: 0.5rem;
+    animation: fadeIn 0.5s ease-out;
+}
+
 .scramble-game-container {
+
     background: var(--bg-secondary);
     padding: 1.5rem;
     border-radius: var(--radius-lg);
@@ -2372,10 +2407,32 @@ body::before {
 }
 
 .scramble-chip.used {
-    opacity: 0.25;
+    opacity: 0.15;
     pointer-events: none;
     transform: none;
     box-shadow: none;
+    filter: grayscale(1);
+}
+
+.writing-controls {
+    display: flex !important;
+    flex-direction: row !important;
+    flex-wrap: nowrap !important;
+    justify-content: center !important;
+    align-items: center !important;
+    gap: 1.5rem !important;
+    margin: 2rem 0 !important;
+    width: 100% !important;
+    clear: both;
+    position: relative;
+    z-index: 10;
+}
+
+.writing-controls .control-btn {
+    min-width: 180px;
+    padding: 0.8rem 1.5rem;
+    font-size: 1.1rem;
+    box-shadow: var(--shadow-sm);
 }
 
 .scramble-workspace .scramble-chip {
@@ -2671,9 +2728,10 @@ body::before {
 .sp-controls-row {
     display: flex;
     align-items: center;
-    gap: 0.6rem;
-    flex-wrap: wrap;
-    padding: 0.3rem 0;
+    gap: 1rem;
+    flex-wrap: nowrap;
+    justify-content: center;
+    padding: 1rem 0;
 }
 
 .sp-compact-btn {

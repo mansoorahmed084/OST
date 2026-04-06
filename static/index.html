@@ -213,6 +213,10 @@
                             jumbled words to rebuild the story, one sentence at a time!</p>
                     </div>
 
+                    <div class="scramble-story-pad" id="writing-story-pad">
+                        <div class="placeholder-text">The completed story will appear here...</div>
+                    </div>
+
                     <div id="scramble-game" class="scramble-game-container">
                         <div class="scramble-progress"
                             style="text-align:center; margin-bottom: 1rem; font-weight: bold; font-size: 1.1rem;">
@@ -227,7 +231,7 @@
                             <!-- Shuffled words here -->
                         </div>
 
-                        <div class="writing-controls" style="justify-content: center;">
+                        <div class="writing-controls">
                             <button id="check-scramble" class="control-btn primary">
                                 <span class="btn-icon">✅</span>
                                 <span>Check Sentence</span>
@@ -236,15 +240,15 @@
                                 <span class="btn-icon">🔄</span>
                                 <span>Reset</span>
                             </button>
+                            <button id="next-scramble" class="control-btn primary hidden">
+                                <span>Next Sentence ➡️</span>
+                            </button>
                         </div>
                     </div>
 
                     <div id="writing-feedback" class="writing-feedback hidden">
                         <h3 id="feedback-title"></h3>
-                        <div id="feedback-message" style="margin-bottom: 1rem;"></div>
-                        <button id="next-scramble" class="control-btn primary hidden" style="margin: 0 auto;">
-                            <span>Next Sentence ➡️</span>
-                        </button>
+                        <div id="feedback-message"></div>
                     </div>
                 </div>
             </div>

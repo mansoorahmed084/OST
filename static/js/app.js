@@ -2660,6 +2660,11 @@ async function startWritingExercise(storyId, isTinyStory = true) {
             // Update UI with story title
             document.getElementById('writing-story-title').textContent = data.story_title || data.title;
 
+            // Initialize Story Pad
+            state.scrambleCompletedLines = [];
+            const pad = document.getElementById('writing-story-pad');
+            if (pad) pad.innerHTML = '<div class="placeholder-text">The completed story will appear here...</div>';
+
             // Prepare sentences/chunks
             // TinyStories scramble endpoint returns 'sentences' as a flat array of chunks
             state.scrambleSentences = data.sentences || [];
@@ -2822,6 +2827,15 @@ function checkScrambleSentence() {
         feedbackTitle.textContent = '🌟 Perfect!';
         feedbackMsg.innerHTML = `<div class="feedback-message success">"${built}" — That's exactly right!</div>`;
         nextBtn.classList.remove('hidden');
+
+        // Update Story Pad
+        if (!state.scrambleCompletedLines) state.scrambleCompletedLines = [];
+        // Only add if not already added for this index
+        if (state.scrambleCompletedLines.length === state.scrambleCurrentIndex) {
+            state.scrambleCompletedLines.push(original);
+            updateScramblePad();
+        }
+
         if (typeof speakBuddy === 'function') speakBuddy('Amazing! You got it right!');
     } else {
         feedbackTitle.textContent = '💡 Not quite yet';
@@ -2848,6 +2862,23 @@ function finishScrambleGame() {
     `;
     submitActivity('writing', null, 100);
     checkAchievements('writing', 100);
+}
+
+function updateScramblePad() {
+    const pad = document.getElementById('writing-story-pad');
+    if (!pad || !state.scrambleCompletedLines) return;
+
+    if (state.scrambleCompletedLines.length === 0) {
+        pad.innerHTML = '<div class="placeholder-text">The completed story will appear here...</div>';
+        return;
+    }
+
+    pad.innerHTML = state.scrambleCompletedLines.map(line => 
+        `<span class="completed-line">${line}</span>`
+    ).join(' ');
+    
+    // Auto-scroll to bottom of pad
+    pad.scrollTop = pad.scrollHeight;
 }
 
 // ===================================
