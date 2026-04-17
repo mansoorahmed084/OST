@@ -260,8 +260,6 @@ def create_character_name(topic):
     
     return topic_clean
 
-    return story
-
 def generate_moral(topic):
     """Generate an appropriate moral based on topic"""
     topic_lower = topic.lower()
@@ -607,6 +605,13 @@ def generate_character_story(subject, length='short'):
     
     subject_cap = capitalize_first(subject_clean)
     
+    # Determine pronoun
+    names = ['Ravi', 'Priya', 'Amit', 'Sneha', 'Arjun', 'Diya']
+    if subject_cap in names:
+        pronoun = 'He' if subject_cap in ['Ravi', 'Amit', 'Arjun'] else 'She'
+    else:
+        pronoun = 'It'
+
     # Select template based on length
     templates = STORY_TEMPLATES.get(length, STORY_TEMPLATES['short'])
     template = random.choice(templates)
@@ -615,6 +620,7 @@ def generate_character_story(subject, length='short'):
     story = template.format(
         subject=subject_clean,
         subject_cap=subject_cap,
+        pronoun=pronoun,
         adjective=random.choice(ADJECTIVES),
         adjective2=random.choice(ADJECTIVES),
         action=random.choice(ACTIONS),

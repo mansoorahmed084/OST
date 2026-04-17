@@ -51,7 +51,7 @@ class CloudTinyStories:
                 story_text = generate_with_openai(system_prompt, prompt, key)
                 
         if not story_text:
-            story_text = prompt + " The cat was happy. The end."
+            story_text = prompt + " woke up feeling very happy. It was a beautiful sunny day outside. They went to the park and had a wonderful time playing with friends."
             
         # Format to match transformers pipeline output
         return [{"generated_text": story_text}]
