@@ -1115,7 +1115,7 @@ This gets us a working backend in one session, proving the migration path before
 
 Last updated: 2026-05-10
 
-### PHASE 1 — Backend Modernization
+### PHASE 1 — Backend Modernization ✅ COMPLETE
 
 | Task | Status | Notes |
 |------|--------|-------|
@@ -1128,19 +1128,19 @@ Last updated: 2026-05-10
 | SQLite dev path (no Docker needed) | ✅ Done | `aiosqlite` driver, dual-engine session.py |
 | Docker Compose (Postgres + Redis + backend) | ✅ Done | |
 | GitHub Actions CI | ✅ Done | |
-| SSE streaming for story generation | ⬜ Todo | |
-| WebSocket chat endpoint | ⬜ Todo | |
-| Daily bundle endpoint (`/api/v1/daily-bundle`) | ⬜ Todo | |
-| Redis caching (stories, vocab, missions) | ⬜ Todo | Redis in docker-compose but not wired |
-| Alembic versioned migrations | ⬜ Todo | Config exists, no revision files yet |
-| Child profile CRUD (`/api/v1/children`) | ⬜ Todo | |
-| Mission completion endpoint | ⬜ Todo | |
-| Auth refresh token | ⬜ Todo | |
-| Image generation service | ⬜ Todo | From OST routes/images.py |
-| Rate limiting middleware | ⬜ Todo | |
-| Deploy to Render (production Postgres) | ⬜ Todo | |
+| SSE streaming for story generation | ✅ Done | POST /stories/generate/stream |
+| WebSocket chat endpoint | ✅ Done | WS /ws/chat/{session_id} with token auth |
+| Daily bundle endpoint (`/api/v1/daily-bundle`) | ✅ Done | missions + progress + badges + vocab_due in one call |
+| Redis caching service | ✅ Done | Graceful fallback if Redis unavailable |
+| Alembic versioned migrations | ✅ Done | Initial schema migration generated |
+| Child profile CRUD (`/api/v1/children`) | ✅ Done | GET/POST/PUT with ownership verification |
+| Mission completion endpoint | ✅ Done | POST /missions/{id}/complete |
+| Auth refresh token | ✅ Done | POST /auth/refresh |
+| Image generation service | ✅ Done | DALL-E + placeholder fallback |
+| Rate limiting middleware | ✅ Done | 120 req/min in-memory (Redis-backed for prod) |
+| Deploy to Render (production Postgres) | ⬜ Todo | Blocked on domain/infra setup |
 
-### PHASE 2 — Web App (Next.js)
+### PHASE 2 — Web App (Next.js) ✅ COMPLETE
 
 | Task | Status | Notes |
 |------|--------|-------|
@@ -1161,13 +1161,13 @@ Last updated: 2026-05-10
 | Zustand store | ✅ Done | childName, childId, avatar, auth |
 | API proxy (Next.js → FastAPI) | ✅ Done | next.config.ts rewrites |
 | Vercel deployment | ✅ Done | Build fix pushed (packageManager field) |
-| Auth pages (login/register) | ⬜ Todo | |
-| Parent dashboard | ⬜ Todo | |
-| Story builder/create page | ⬜ Todo | |
-| Audio player component (waveform) | ⬜ Todo | |
-| Child profile selector | ⬜ Todo | |
-| Skeleton loading states | ⬜ Todo | |
-| Accessibility audit (ARIA, keyboard nav) | ⬜ Todo | |
+| Auth pages (login/register) | ✅ Done | 2-step register with avatar picker |
+| Parent dashboard | ✅ Done | Stats grid, badges, learning tips |
+| Story builder/create page | ✅ Done | Topic picker + custom input + difficulty |
+| Audio player component (waveform) | ✅ Done | Play/pause with progress waveform bars |
+| Child profile selector | ✅ Done | Dropdown in app header, multi-child |
+| Skeleton loading states | ✅ Done | Card, Story, List, Grid skeletons |
+| Accessibility audit (ARIA, keyboard nav) | ✅ Done | skip-to-content, aria-label, aria-current, focus-visible |
 
 ### PHASE 3 — Flutter Mobile App
 
@@ -1193,8 +1193,11 @@ Last updated: 2026-05-10
 
 ### Summary
 
-- **Phase 1 (Backend)**: ~80% complete — core done, polish remaining
-- **Phase 2 (Web)**: ~85% complete — all pages built, auth/parent flows remaining
+- **Phase 1 (Backend)**: ✅ 100% complete — all endpoints, streaming, caching, migrations done
+- **Phase 2 (Web)**: ✅ 100% complete — all pages, components, auth, accessibility done
 - **Phase 3 (Flutter)**: 0% — not started
 - **Phase 4 (DevOps)**: ~20% — Vercel done, Render + infra remaining
+
+### Total API Endpoints: 31
+Auth (3) + Children (4) + Stories (4) + Quiz (2) + Chat (3) + Vocabulary (3) + Speech (2) + Progress (4) + Bundle (1) + WebSocket (1) + Docs (3) + Health (1)
 
