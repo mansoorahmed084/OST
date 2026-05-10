@@ -359,13 +359,23 @@ Rebuild screens:
 - Excellent accessibility
 - Better child-friendly UI consistency
 
+## Mobile Design Principles (Different from Web)
+- Mobile ≠ compressed website
+- 2–3 focused actions per screen (NOT 6 cards like web dashboard)
+- Larger spacing, larger touch targets
+- 5-tab bottom navigation: Home / Learn / Speak / Play / Profile
+- Guided progression — reduce choice overload
+- Calmer layout than web
+
 ## Mobile Features
-- Shared APIs
-- Offline mode
-- Local cache
-- Speech recognition
-- TTS
-- Audio playback
+- Shared APIs (same backend as web)
+- Offline mode (Drift for structured data, Hive for cache)
+- Durable sync queue (pending_actions in Drift)
+- State persistence (resume mid-story, mid-quiz on reopen)
+- Speech recognition (local STT → backend evaluation, no raw audio upload)
+- TTS (flutter_tts, offline-first)
+- Audio playback (just_audio with preloading)
+- Strict animation system (fade/scale/slide only, no bounce/spin/flash)
 
 ---
 
@@ -494,13 +504,14 @@ Tasks:
 
 ---
 
-# PHASE 3 — Flutter App
-Duration: 4–6 weeks
+# PHASE 3 — Flutter App (Revised)
+Duration: 4–5 weeks (4 sprints)
 
 Tasks:
-- Shared APIs
-- Speech features
-- Offline mode
+- Sprint 1: Foundation (scaffold, Dio/JWT, Drift/Hive, auth)
+- Sprint 2: Core features (home, stories, vocabulary, missions, 5-tab nav)
+- Sprint 3: Interactive features (quiz, chat, speech, badges/profile)
+- Sprint 4: Polish (sync queue, state persistence, accessibility, animation audit)
 
 ---
 
@@ -955,48 +966,199 @@ For neurodivergent children:
 
 ---
 
-## PHASE 3 — Flutter Mobile App
+## PHASE 3 — Flutter Mobile App (Revised)
 
-### Step 3.1: Architecture (Clean Architecture + Riverpod)
+### Design Philosophy — Mobile ≠ Compressed Web
+
+The mobile app is NOT a compressed version of the web app. For neurodivergent children,
+mobile requires MORE focus, fewer actions per screen, larger spacing, and simpler flows.
+
+Web dashboard shows 6 cards. Mobile shows 2–3 large focused actions.
+Mobile should feel calmer than web.
+
+The biggest success factor is NOT AI quality. It is:
+- predictability
+- emotional safety
+- low cognitive load
+
+### Step 3.1: Architecture (Pragmatic Riverpod — NOT over-engineered)
+
+Keep it pragmatic. No 20 abstraction layers, no repositories-for-repositories.
+This scope does not need ultra-enterprise Clean Architecture.
 
 ```text
 apps/mobile/lib/
 ├── main.dart
 ├── core/
-│   ├── config/
-│   ├── theme/               # Mirror web design tokens
-│   ├── network/             # Dio HTTP client + interceptors
-│   └── storage/             # Hive/Isar for offline cache
+│   ├── config/              # API base URL, env toggles
+│   ├── theme/               # Design tokens (adapted from web, NOT mirrored)
+│   ├── network/             # Dio HTTP client + JWT interceptor
+│   ├── database/            # Drift DB (structured local data)
+│   ├── cache/               # Hive (JSON cache, UI prefs)
+│   └── sync/                # Offline sync queue + background worker
+├── services/
+│   ├── auth_service.dart    # Login, register, token refresh
+│   ├── story_service.dart   # Story CRUD + generation
+│   ├── quiz_service.dart    # Quiz generation + answer submission
+│   ├── chat_service.dart    # Chat buddy messaging
+│   ├── vocab_service.dart   # Vocabulary + review
+│   ├── speech_service.dart  # Local STT/TTS + backend evaluation
+│   ├── progress_service.dart
+│   └── sync_service.dart    # Background sync engine
 ├── features/
-│   ├── auth/
-│   ├── home/
-│   ├── stories/
-│   ├── quiz/
-│   ├── chat/
-│   ├── vocabulary/
-│   ├── speech/
-│   ├── missions/
-│   └── badges/
+│   ├── auth/                # Login, register, avatar picker
+│   ├── home/                # Dashboard (2–3 focused actions)
+│   ├── stories/             # Library, reader, builder
+│   ├── quiz/                # Questions, hints, scoring
+│   ├── chat/                # Chat buddy
+│   ├── vocabulary/          # Word bubbles, mastery review
+│   ├── speech/              # Speaking practice (local STT + backend eval)
+│   └── profile/             # Child selector, parent settings
 ├── shared/
-│   ├── widgets/             # Shared UI components
-│   └── models/              # Data models (generated from OpenAPI)
-└── providers/               # Riverpod providers
+│   ├── widgets/             # Shared UI components (large buttons, cards)
+│   ├── models/              # Dart data models (from OpenAPI spec)
+│   └── motion/              # Animation system (strict rules, no arbitrary anims)
+└── providers/               # Riverpod providers (app-wide state)
 ```
 
-### Step 3.2: Offline-First Strategy
+### Step 3.2: Mobile Tech Stack
 
-1. **Cache everything on first load** — stories, vocabulary, missions
-2. **Queue mutations offline** — completed missions, quiz answers stored in local DB
-3. **Sync on reconnect** — background sync when network returns
-4. **Preload daily bundle** — fetch tomorrow's content before bed
-5. Use **Hive** for key-value cache, **Isar** for complex queries
+| Layer         | Tech                        | Why |
+| ------------- | --------------------------- | --- |
+| UI            | Flutter                     | Single codebase, iOS ready, smooth animations |
+| State         | Riverpod                    | Less boilerplate than BLoC, better DX for this team size |
+| Network       | Dio                         | Interceptors, retry, token refresh |
+| Local DB      | Drift                       | Relational queries for progress, missions, word mastery, sync queue |
+| Cache         | Hive                        | Fast key-value for cached JSON, temp story cache, UI preferences |
+| Auth          | JWT (Bearer)                | Matches web auth, auto-refresh + silent retry |
+| Audio         | just_audio                  | Preloading, background playback |
+| TTS           | flutter_tts                 | Offline-first, low latency |
+| Speech        | speech_to_text              | Native iOS/Android, transcript sent to backend |
+| Animation     | Flutter implicit animations | Strict motion system — fade, gentle scale, soft transitions ONLY |
+| Offline Queue | Drift (pending_actions)     | Durable queue survives app kill |
+| Sync          | Background worker           | Reconnect-triggered sync |
+| Notifications | Firebase Cloud Messaging    | Daily mission reminders (parent-controlled) |
 
-### Step 3.3: Platform-Specific Features
+### Step 3.3: Offline-First Strategy (Drift + Hive Split)
 
-- **Speech recognition**: `speech_to_text` package (native iOS/Android)
-- **TTS**: `flutter_tts` for offline, backend API for high-quality
-- **Audio playback**: `just_audio` with preloading
-- **Notifications**: Firebase Cloud Messaging for daily mission reminders (parent-controlled)
+**Drift** (SQLite-based, relational) for structured educational data:
+- progress records
+- missions + completion state
+- word mastery (seen_count, correct_count, next_review)
+- sync queue (pending_actions table)
+- quiz answers
+
+**Hive** (key-value, fast) for ephemeral/cached data:
+- cached story JSON from API
+- daily bundle snapshots
+- UI preferences (theme, last child, audio volume)
+- temporary state
+
+**Sync flow:**
+1. Cache everything on first load — stories, vocabulary, missions
+2. Queue ALL mutations in Drift `pending_actions` table — quiz submissions, mission completions, badge unlocks, progress updates
+3. Sync on reconnect — background worker drains queue when network returns
+4. Preload daily bundle — fetch tomorrow's content before bed
+5. Last-write-wins for progress; append-only for chat history
+
+**Why this matters for children:**
+Children may lose internet, close app suddenly, reopen randomly.
+Intermittent internet should NEVER break the learning flow.
+The sync queue must be durable — survives app kill, crash, or force-close.
+
+### Step 3.4: State Persistence (Critical for Child UX)
+
+If a child exits mid-activity, restore instantly on reopen:
+- Current story + scroll position + audio timestamp
+- Quiz progress (which question, current score)
+- Mission progress (partially completed)
+- Chat conversation state
+- Speaking practice sentence
+
+Persist via Hive (lightweight) for UI state, Drift for data state.
+This dramatically improves usability for children who switch between activities unpredictably.
+
+### Step 3.5: Speech Evaluation Architecture
+
+Do NOT send raw audio continuously to backend. Local-first approach:
+
+**Local (instant, low latency):**
+- `speech_to_text` — native speech recognition, produces transcript
+- `flutter_tts` — offline text-to-speech for reading stories aloud
+
+**Backend (accuracy scoring only):**
+- Send only the transcript + expected sentence to `POST /speech/evaluate`
+- Backend returns accuracy score + feedback + encouragement
+
+This keeps:
+- App fast (no audio upload latency)
+- Costs lower (text-only API calls)
+- UX smoother (instant mic feedback)
+
+### Step 3.6: Animation System (Strict Motion Rules)
+
+Create a strict motion system. No arbitrary animations allowed.
+
+**ALLOWED:**
+- Fade in/out (200–300ms ease-out)
+- Gentle scale (0.95 → 1.0 on tap)
+- Soft slide transitions between screens
+- Calm pulsing skeleton loaders
+- Gentle confetti or growing star for celebrations
+
+**FORBIDDEN:**
+- Bouncing / spring physics
+- Spinning / rotating elements
+- Flashing / blinking
+- Particle explosions
+- Complex morphs or page transitions
+- Auto-playing looping animations
+
+All animations use Flutter implicit animations (`AnimatedContainer`, `AnimatedOpacity`, etc.).
+No `AnimationController` unless strictly necessary. Keep it calm and predictable.
+
+### Step 3.7: Mobile Navigation (Simpler than Web)
+
+5 bottom tabs — guided progression, not overwhelming choice:
+
+```text
+Home      — Today's focus (2–3 large action cards)
+Learn     — Stories + Vocabulary (combined, simplified)
+Speak     — Speaking practice + Chat buddy
+Play      — Quiz + Memory game
+Profile   — Child selector, badges, parent settings
+```
+
+NOT the web's full sidebar with 10+ navigation items.
+Children benefit from guided progression, not choice overload.
+
+### Step 3.8: Implementation Order
+
+**Sprint 1 — Foundation (Week 1–2):**
+1. Flutter project scaffold + dependencies (Riverpod, Dio, Drift, Hive)
+2. Core layer: theme tokens (adapted for mobile, not mirrored), Dio client with JWT interceptor (auto-refresh + silent retry)
+3. Drift database schema (progress, missions, vocabulary, pending_actions)
+4. Hive setup for cache + preferences
+5. Auth flow: login, register, token storage
+
+**Sprint 2 — Core Features (Week 2–3):**
+6. Home screen (2–3 focused action cards, daily progress ring)
+7. Story library + reader (sentence highlighting, audio player, state persistence)
+8. Vocabulary screen (word bubbles, mastery stars, review flow)
+9. Daily missions (from daily-bundle endpoint, completion tracking)
+
+**Sprint 3 — Interactive Features (Week 3–4):**
+10. Quiz flow (questions, hints, scoring, offline queue for submissions)
+11. Chat buddy (real-time messaging, conversation persistence)
+12. Speaking practice (local STT → backend evaluation flow)
+13. Badges gallery + profile/child selector
+
+**Sprint 4 — Polish + Offline (Week 4–5):**
+14. Sync queue worker (drain pending_actions on reconnect)
+15. State persistence (mid-story restore, quiz resume)
+16. Accessibility audit (large touch targets, screen reader, contrast)
+17. Animation system enforcement (test all transitions meet rules)
+18. Performance profiling + bundle size optimization
 
 ---
 
@@ -1096,6 +1258,14 @@ This gets us a working backend in one session, proving the migration path before
 | JSONB for flexible fields | Preferences, metadata, chat messages — schema evolution without migrations |
 | OpenAPI-first | Auto-generate Flutter + TypeScript clients from spec |
 | No GraphQL | Overkill for this API surface; REST + batch endpoint covers mobile needs |
+| Drift over Hive for structured data | Relational queries for progress/missions/mastery; Hive only for cache/prefs |
+| Drift sync queue over fire-and-forget | Children close apps unpredictably; durable queue survives app kill |
+| Local STT + backend eval only | No raw audio upload — lower latency, lower cost, smoother child UX |
+| Mobile UX ≠ web UX | Fewer actions per screen, larger spacing, guided progression for focus |
+| Strict animation rules | Neurodivergent comfort: no bouncing/spinning/flashing, only fade/scale/slide |
+| 5-tab navigation over full sidebar | Guided progression (Home/Learn/Speak/Play/Profile) reduces choice overload |
+| State persistence on exit | Children switch activities unpredictably; instant restore on reopen |
+| Pragmatic arch over enterprise Clean Arch | Avoid premature abstraction; features/ + services/ is sufficient for this scope |
 
 ---
 
@@ -1106,8 +1276,13 @@ This gets us a working backend in one session, proving the migration path before
 | AI logic breaks during migration | Keep original `routes/` untouched as reference; integration tests compare outputs |
 | Latency for mobile in Pakistan/UAE | Cloudflare CDN for assets; Render region in Frankfurt/Singapore |
 | Child data privacy (COPPA) | No PII beyond first name; parent consent flow; data encrypted at rest |
-| Offline sync conflicts | Last-write-wins for progress; append-only for chat history |
+| Offline sync conflicts | Last-write-wins for progress; append-only for chat history; Drift sync queue |
 | Flutter build complexity | CI builds both platforms; beta track on Play Store from day 1 |
+| Child exits mid-activity | State persistence (Hive for UI state, Drift for data); instant restore on reopen |
+| Feature overload on mobile | Strict 5-tab nav; 2–3 actions per screen; guided progression |
+| Animations causing distress | Strict motion system; only fade/scale/slide; no bounce/spin/flash |
+| Intermittent internet for children | Drift sync queue is durable (survives app kill); offline-first for all reads |
+| Mobile UX mirrors web too closely | Separate mobile UX design; larger spacing; fewer choices; calmer layout |
 
 ---
 
@@ -1169,16 +1344,48 @@ Last updated: 2026-05-10
 | Skeleton loading states | ✅ Done | Card, Story, List, Grid skeletons |
 | Accessibility audit (ARIA, keyboard nav) | ✅ Done | skip-to-content, aria-label, aria-current, focus-visible |
 
-### PHASE 3 — Flutter Mobile App
+### PHASE 3 — Flutter Mobile App (Revised)
+
+**Sprint 1 — Foundation**
 
 | Task | Status | Notes |
 |------|--------|-------|
-| Flutter project setup (Clean Arch + Riverpod) | ⬜ Todo | Not started |
-| Core: theme, network, offline storage | ⬜ Todo | |
-| All feature screens | ⬜ Todo | |
-| Offline-first sync | ⬜ Todo | |
-| Speech recognition + TTS | ⬜ Todo | |
-| OpenAPI client generation | ⬜ Todo | |
+| Flutter project scaffold + dependencies | ⬜ Todo | Riverpod, Dio, Drift, Hive, just_audio, flutter_tts, speech_to_text |
+| Core theme (mobile-adapted, NOT web mirror) | ⬜ Todo | Larger touch targets, fewer items per screen |
+| Dio client + JWT interceptor (auto-refresh, silent retry) | ⬜ Todo | |
+| Drift DB schema (progress, missions, vocab, pending_actions) | ⬜ Todo | Relational local DB for structured data |
+| Hive setup (JSON cache, UI prefs) | ⬜ Todo | |
+| Auth flow (login, register, token storage) | ⬜ Todo | |
+
+**Sprint 2 — Core Features**
+
+| Task | Status | Notes |
+|------|--------|-------|
+| Home screen (2–3 focused action cards) | ⬜ Todo | NOT 6 cards like web |
+| Story library + reader (sentence highlighting, audio) | ⬜ Todo | State persistence on exit |
+| Vocabulary screen (word bubbles, mastery, review) | ⬜ Todo | |
+| Daily missions (daily-bundle endpoint) | ⬜ Todo | |
+| Bottom navigation (Home/Learn/Speak/Play/Profile) | ⬜ Todo | 5 tabs, guided progression |
+
+**Sprint 3 — Interactive Features**
+
+| Task | Status | Notes |
+|------|--------|-------|
+| Quiz flow (questions, hints, scoring) | ⬜ Todo | Offline queue for submissions |
+| Chat buddy (messaging, conversation persistence) | ⬜ Todo | |
+| Speaking practice (local STT → backend eval) | ⬜ Todo | No raw audio upload |
+| Badges gallery + profile/child selector | ⬜ Todo | |
+
+**Sprint 4 — Polish + Offline**
+
+| Task | Status | Notes |
+|------|--------|-------|
+| Sync queue worker (drain pending_actions on reconnect) | ⬜ Todo | Durable, survives app kill |
+| State persistence (mid-story, quiz, mission resume) | ⬜ Todo | |
+| Accessibility audit (touch targets, screen reader, contrast) | ⬜ Todo | |
+| Animation system enforcement (strict motion rules) | ⬜ Todo | No bounce/spin/flash |
+| Performance profiling + optimization | ⬜ Todo | |
+| OpenAPI client generation (Dart models from spec) | ⬜ Todo | |
 
 ### PHASE 4 — Deployment & DevOps
 
