@@ -1344,48 +1344,48 @@ Last updated: 2026-05-10
 | Skeleton loading states | ✅ Done | Card, Story, List, Grid skeletons |
 | Accessibility audit (ARIA, keyboard nav) | ✅ Done | skip-to-content, aria-label, aria-current, focus-visible |
 
-### PHASE 3 — Flutter Mobile App (Revised)
+### PHASE 3 — Flutter Mobile App (Revised) — ~95% COMPLETE
 
-**Sprint 1 — Foundation**
-
-| Task | Status | Notes |
-|------|--------|-------|
-| Flutter project scaffold + dependencies | ⬜ Todo | Riverpod, Dio, Drift, Hive, just_audio, flutter_tts, speech_to_text |
-| Core theme (mobile-adapted, NOT web mirror) | ⬜ Todo | Larger touch targets, fewer items per screen |
-| Dio client + JWT interceptor (auto-refresh, silent retry) | ⬜ Todo | |
-| Drift DB schema (progress, missions, vocab, pending_actions) | ⬜ Todo | Relational local DB for structured data |
-| Hive setup (JSON cache, UI prefs) | ⬜ Todo | |
-| Auth flow (login, register, token storage) | ⬜ Todo | |
-
-**Sprint 2 — Core Features**
+**Sprint 1 — Foundation** ✅
 
 | Task | Status | Notes |
 |------|--------|-------|
-| Home screen (2–3 focused action cards) | ⬜ Todo | NOT 6 cards like web |
-| Story library + reader (sentence highlighting, audio) | ⬜ Todo | State persistence on exit |
-| Vocabulary screen (word bubbles, mastery, review) | ⬜ Todo | |
-| Daily missions (daily-bundle endpoint) | ⬜ Todo | |
-| Bottom navigation (Home/Learn/Speak/Play/Profile) | ⬜ Todo | 5 tabs, guided progression |
+| Flutter project scaffold + dependencies | ✅ Done | 23 deps: Riverpod, Dio, Drift, Hive, just_audio, flutter_tts, speech_to_text |
+| Core theme (mobile-adapted, NOT web mirror) | ✅ Done | 8 colors, 8 text styles, 56dp touch targets, Nunito font |
+| Dio client + JWT interceptor (auto-refresh, silent retry) | ✅ Done | 23 API endpoints mapped, full token lifecycle |
+| Drift DB schema (progress, missions, vocab, pending_actions) | ✅ Done | 5 tables with all CRUD queries |
+| Hive setup (JSON cache, UI prefs) | ✅ Done | Story cache, bundle cache, preferences with TTL |
+| Auth flow (login, register, token storage) | ✅ Done | flutter_secure_storage, multi-child support |
 
-**Sprint 3 — Interactive Features**
-
-| Task | Status | Notes |
-|------|--------|-------|
-| Quiz flow (questions, hints, scoring) | ⬜ Todo | Offline queue for submissions |
-| Chat buddy (messaging, conversation persistence) | ⬜ Todo | |
-| Speaking practice (local STT → backend eval) | ⬜ Todo | No raw audio upload |
-| Badges gallery + profile/child selector | ⬜ Todo | |
-
-**Sprint 4 — Polish + Offline**
+**Sprint 2 — Core Features** ✅
 
 | Task | Status | Notes |
 |------|--------|-------|
-| Sync queue worker (drain pending_actions on reconnect) | ⬜ Todo | Durable, survives app kill |
-| State persistence (mid-story, quiz, mission resume) | ⬜ Todo | |
-| Accessibility audit (touch targets, screen reader, contrast) | ⬜ Todo | |
-| Animation system enforcement (strict motion rules) | ⬜ Todo | No bounce/spin/flash |
-| Performance profiling + optimization | ⬜ Todo | |
-| OpenAPI client generation (Dart models from spec) | ⬜ Todo | |
+| Home screen (2–3 focused action cards) | ✅ Done | Progress ring, streaks, 3 action cards, pull-to-refresh |
+| Story library + reader (sentence highlighting, audio) | ✅ Done | State persistence on exit via Drift ActiveSessions |
+| Vocabulary screen (word bubbles, mastery, review) | ✅ Done | Expand-to-review, 0-3 mastery stars, offline sync |
+| Daily missions (daily-bundle endpoint) | ✅ Done | Auto-refresh, optimistic completion |
+| Bottom navigation (Home/Learn/Speak/Play/Profile) | ✅ Done | 5 tabs, IndexedStack preserves state |
+
+**Sprint 3 — Interactive Features** ✅
+
+| Task | Status | Notes |
+|------|--------|-------|
+| Quiz flow (questions, hints, scoring) | ✅ Done | 3-state flow (start→play→results), offline queue |
+| Chat buddy (messaging, conversation persistence) | ✅ Done | Session persistence, optimistic updates |
+| Speaking practice (local STT → backend eval) | ✅ Done | Mic button, accuracy %, encouragement text |
+| Badges gallery + profile/child selector | ✅ Done | Grid with icons by type, unlock dates, child radio selector |
+
+**Sprint 4 — Polish + Offline** 🟡 (mostly done)
+
+| Task | Status | Notes |
+|------|--------|-------|
+| Sync queue worker (drain pending_actions on reconnect) | ✅ Done | Max 5 retries, backoff, connectivity-aware |
+| State persistence (mid-story, quiz, mission resume) | ✅ Done | All providers persist via Drift ActiveSessions |
+| Accessibility audit (touch targets, screen reader, contrast) | 🟡 Partial | Semantics labels added, formal audit pending |
+| Animation system enforcement (strict motion rules) | ✅ Done | GentleTap widget, no bounce/spin/flash |
+| Performance profiling + optimization | 🟡 Partial | Cache-first pattern in place, no formal profiling yet |
+| OpenAPI client generation (Dart models from spec) | ⬜ Skipped | Hand-written models sufficient for current scope |
 
 ### PHASE 4 — Deployment & DevOps
 
@@ -1402,7 +1402,7 @@ Last updated: 2026-05-10
 
 - **Phase 1 (Backend)**: ✅ 100% complete — all endpoints, streaming, caching, migrations done
 - **Phase 2 (Web)**: ✅ 100% complete — all pages, components, auth, accessibility done
-- **Phase 3 (Flutter)**: 0% — not started
+- **Phase 3 (Flutter)**: ~95% complete — all sprints done, formal a11y audit + perf profiling remaining
 - **Phase 4 (DevOps)**: ~20% — Vercel done, Render + infra remaining
 
 ### Total API Endpoints: 31
