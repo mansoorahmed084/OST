@@ -1391,11 +1391,12 @@ Last updated: 2026-05-10
 
 | Task | Status | Notes |
 |------|--------|-------|
-| Backend on Render | ⬜ Todo | |
-| Managed PostgreSQL (Render/Neon) | ⬜ Todo | |
-| Redis (Render/Upstash) | ⬜ Todo | |
-| Cloudflare R2 for assets | ⬜ Todo | |
-| DNS + domain (verbalyft.com) | ⬜ Todo | |
+| Backend on Render | ✅ Done | Docker deploy, health check passing, Swagger docs live |
+| Managed PostgreSQL (Render) | ✅ Done | Auto-provisioned via render.yaml Blueprint |
+| Frontend on Vercel | ✅ Done | Next.js deployed, API URL configured |
+| DNS + domain (verbalyft.com) | ✅ Done | Frontend + api subdomain configured |
+| Cloudflare R2 for assets | ✅ Done | Bucket created, API token set, upload endpoints + TTS/image persistence |
+| Redis (Upstash) | ⏸️ Deferred | Backend has graceful fallback when Redis unavailable |
 | Flutter CI/CD (APK/IPA on tag) | ⬜ Todo | |
 
 ### Summary
